@@ -73,11 +73,14 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 4. Configure Environment
-Create a `.env` file (refer to `.env.example`) and add your API keys:
-```env
-GEMINI_API_KEY=YOUR_KEY_HERE
-```
+### 4. Configure Environment & Security
+For security, RENA never stores API keys in the code. You must use a `.env` file:
+1. Copy the template: `cp .env.example .env`
+2. Open `.env` and enter your actual credentials:
+   - `GEMINI_API_KEY`: Your key from Google AI Studio.
+   - `SMTP_PASS`: Your Gmail App Password (not your main password).
+   - `TWILIO_AUTH_TOKEN`: From your Twilio console.
+3. The `.env` file is already listed in `.gitignore` to prevent it from being uploaded.
 
 ---
 
