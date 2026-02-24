@@ -1,4 +1,4 @@
-# RENA - Meeting Intelligence System Dependencies
+# Renata - Meeting Intelligence System Dependencies (Local AI)
 
 # Core Audio & Transcription
 faster-whisper
@@ -8,9 +8,16 @@ soundfile
 
 # AI & LLM Orchestration
 langchain-ollama
+ollama
 torch
 nemo_toolkit[asr]
 pandas
+
+# Remote Offloading
+fastapi
+uvicorn
+requests
+python-multipart
 
 # Browser Automation (Pilot Bot)
 playwright
@@ -19,11 +26,15 @@ playwright-stealth
 # PDF Generation & Reporting
 reportlab
 
-# Google API Integrations
+# Google API Integrations (Calendar/Gmail Only)
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
-google-genai
+langchain
+langchain-community
+sentence-transformers
+chromadb
+pdfplumber
 
 # Utilities
 loguru
@@ -31,3 +42,5 @@ scikit-learn
 python-dotenv
 pyperclip
 streamlit-autorefresh
+streamlit
+google-generativeai

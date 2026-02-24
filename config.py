@@ -11,7 +11,7 @@ CONFIG_FILE = "rena_config.json"
 DEFAULT_CONFIG = {
     "auto_join_enabled": False,
     "auto_join_delay_seconds": 30,
-    "bot_name": "Rena AI | Meeting Assistant",
+    "bot_name": "Renata AI | Personal Meeting Assistant",
     "send_email_summaries": False,
     "send_chat_intro": True,
     "record_audio": True,

@@ -1,13 +1,13 @@
-# RENA - Enterprise Meeting Intelligence System (v1.0)
+# Renata - Enterprise Meeting Intelligence System (v1.0)
 
-**RENA** is a comprehensive AI orchestration suite designed to transform meetings into actionable intelligence. By combining real-time browser automation with deep neural analysis, RENA automates the entire lifecycle of a meeting—from joining and recording to synthesizing executive-level reports and analytics.
+**Renata** is a comprehensive AI orchestration suite designed to transform meetings into actionable intelligence. By combining real-time browser automation with deep neural analysis, Renata automates the entire lifecycle of a meeting—from joining and recording to synthesizing executive-level reports and analytics.
 
 ---
 
 ## Core Features
 
 ### 1. Meeting & AI Assistant (The Core)
-- **Autonomous RENA Bot**: Automatically joins scheduled meetings via Google Meet & Zoom.
+- **Autonomous Renata Bot**: Automatically joins scheduled meetings via Google Meet & Zoom.
 - **Live Audio Capture**: Multi-source audio routing to capture high-fidelity meeting dialogue.
 - **Neural Transcription**: Real-time Speech-to-Text powered by Faster-Whisper with multi-language support.
 - **Speaker Fingerprinting**: Basic speaker detection to identify who said what.
@@ -63,8 +63,8 @@
 ```bash
 git clone https://github.com/Chandisha/RENATA_Notes_AI.git
 cd RENATA_Notes_AI
-python -m venv rena
-.\rena\Scripts\Activate.ps1  # Windows
+python -m venv renata
+.\renata\Scripts\Activate.ps1  # Windows
 ```
 
 ### 3. Install Dependencies
@@ -74,7 +74,7 @@ playwright install chromium
 ```
 
 ### 4. Configure Environment & Security
-For security, RENA never stores API keys in the code. You must use a `.env` file:
+For security, Renata never stores API keys in the code. You must use a `.env` file:
 1. Copy the template: `cp .env.example .env`
 2. Open `.env` and enter your actual credentials:
    - `GEMINI_API_KEY`: Your key from Google AI Studio.
@@ -95,7 +95,7 @@ streamlit run frontend.py
 ### **Mode B: The Autopilot Bot**
 Dispatch the bot to a specific meeting URL:
 ```bash
-python rena_bot_pilot.py "https://meet.google.com/xxx-xxxx-xxx"
+python renata_bot_pilot.py "https://meet.google.com/xxx-xxxx-xxx"
 ```
 
 ### **Mode C: Manual Processor**
@@ -113,7 +113,7 @@ RENATA-meet/
 ├── fonts/                 # Devanagari fonts for Hindi PDF reports
 ├── meeting_outputs/       # Database, recordings, and generated reports
 ├── frontend.py            # Main Streamlit Dashboard
-├── rena_bot_pilot.py      # Meeting Automation Bot
+├── renata_bot_pilot.py      # Meeting Automation Bot
 ├── meeting_notes_generator.py # AI Inference Engine
 ├── meeting_database.py    # Backend History Management
 ├── search_copilot_service.py # AI Search Assistant
@@ -124,7 +124,7 @@ RENATA-meet/
 
 ## Future Prospects & Roadmap
 
-- **Chrome & Gmail Extensions**: Direct "Join with RENA" buttons in Google Workspace.
+- **Chrome & Gmail Extensions**: Direct "Join with Renata" buttons in Google Workspace.
 - **Advanced Diarization**: Multi-modal speaker detection using video cues.
 - **Slack/Discord Tunnels**: Push meeting summaries directly to project channels.
 - **Real-time Translation**: Live translation of meeting audio for global teams.

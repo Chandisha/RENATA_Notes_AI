@@ -1,5 +1,5 @@
 """
-Meeting Database for RENA Bot
+Meeting Database for Renata Bot
 Stores meeting metadata and enables search/history features
 Replicates Read.ai's meeting archive and search functionality
 """
@@ -38,8 +38,7 @@ def init_database():
             organizer_email TEXT,
             participant_count INTEGER,
             participant_emails TEXT,
-            folder_id INTEGER,
-            workspace_id INTEGER,
+            workspace_id TEXT,
             status TEXT DEFAULT 'completed',
             recording_path TEXT,
             pdf_path TEXT,
@@ -52,19 +51,28 @@ def init_database():
             engagement_metrics TEXT,
             speaker_analytics TEXT,
             coaching_metrics TEXT,
-            is_summarized_paid INTEGER DEFAULT 0, -- 1 if summary is unlocked for free user
             is_skipped INTEGER DEFAULT 0, -- 1 if user cancelled bot for this meeting
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (folder_id) REFERENCES folders(id),
-            FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
-    # New Workspace Tables
+    # Workspace Tables (Robust Re-creation to fix datatype mismatch)
+    try:
+        # Check if workspaces table has TEXT id
+        cursor.execute("PRAGMA table_info(workspaces)")
+        columns = cursor.fetchall()
+        if columns and columns[0][2].upper() != 'TEXT':
+            # Mismatch detected, recreate tables
+            cursor.execute("DROP TABLE IF EXISTS workspace_chats")
+            cursor.execute("DROP TABLE IF EXISTS workspace_members")
+            cursor.execute("DROP TABLE IF EXISTS workspaces")
+    except:
+        pass
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS workspaces (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             description TEXT,
             owner_email TEXT NOT NULL,
@@ -75,7 +83,7 @@ def init_database():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS workspace_members (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            workspace_id INTEGER,
+            workspace_id TEXT,
             user_email TEXT NOT NULL,
             role TEXT DEFAULT 'member',
             joined_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -87,7 +95,7 @@ def init_database():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS workspace_chats (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            workspace_id INTEGER,
+            workspace_id TEXT,
             sender_email TEXT NOT NULL,
             sender_name TEXT,
             message TEXT,
@@ -98,13 +106,23 @@ def init_database():
         )
     ''')
 
-    # Create folders table
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS folders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
-            color TEXT,
+        CREATE TABLE IF NOT EXISTS assistant_threads (
+            id TEXT PRIMARY KEY,
+            user_email TEXT NOT NULL,
+            title TEXT,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS assistant_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            thread_id TEXT,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (thread_id) REFERENCES assistant_threads(id)
         )
     ''')
 
@@ -121,15 +139,8 @@ def init_database():
             audio_output_device TEXT DEFAULT 'Default',
             bot_auto_join INTEGER DEFAULT 1,
             bot_recording_enabled INTEGER DEFAULT 1,
-            bot_name TEXT DEFAULT 'Rena AI | Meeting Assistant',
+            bot_name TEXT DEFAULT 'Renata AI | Personal Meeting Assistant',
             summary_language TEXT DEFAULT 'English/Hindi',
-            notion_token TEXT,
-            notion_db TEXT,
-            hubspot_api_key TEXT,
-            salesforce_token TEXT,
-            subscription_plan TEXT DEFAULT 'Free', -- 'Free', 'Pro', 'Enterprise'
-            credits INTEGER DEFAULT 3, -- Free users get 3 starting credits
-            is_summarized_paid INTEGER DEFAULT 0, -- 1 if summary is unlocked for free user
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
@@ -243,56 +254,7 @@ def upsert_user(email, name=None, picture=None):
     ''', (email, name, picture))
     conn.commit()
     conn.close()
-
-# --- BILLING & CREDITS ---
-def add_credits(email, amount):
-    """Add credits to user account"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET credits = credits + ? WHERE email = ?", (amount, email))
-    conn.commit()
-    conn.close()
-    return True
-
-def unlock_meeting_summary(email, meeting_id):
-    """
-    Unlock summary for a specific meeting.
-    Returns: (success: bool, message: str)
-    """
-    user = get_user_profile(email)
-    if not user:
-        return False, "User not found"
-    
-    # Check if already unlocked
-    meeting = get_meeting(meeting_id)
-    if meeting and meeting.get('is_summarized_paid'):
-        return True, "Already unlocked"
-
-    # Plan check: Pro/Enterprise don't need to unlock
-    if user['subscription_plan'] in ['Pro', 'Enterprise']:
-        return True, "Unlocked by plan"
-
-    # Credit check
-    if user['credits'] < 1:
-        return False, "Insufficient credits"
-
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    try:
-        # Deduct credit
-        cursor.execute("UPDATE users SET credits = credits - 1 WHERE email = ?", (email,))
-        # Mark meeting as paid
-        cursor.execute("UPDATE meetings SET is_summarized_paid = 1 WHERE meeting_id = ?", (meeting_id,))
-        conn.commit()
-        return True, "Summary unlocked successfully"
-    except Exception as e:
-        return False, str(e)
-    finally:
-        conn.close()
-
-def update_user_plan(email, plan_name):
-    """Upgrade/Downgrade user plan"""
-    return update_user_profile(email, {'subscription_plan': plan_name})
+# --- MEETING OPERATIONS ---
 
 def add_meeting(
     meeting_id,
@@ -556,81 +518,107 @@ def get_meeting_stats():
         WHERE start_time >= date('now', '-7 days')
     ''')
     stats['meetings_this_week'] = cursor.fetchone()[0]
+
+    # Aggregated Metrics (Engagement & Words)
+    cursor.execute("SELECT engagement_metrics FROM meetings WHERE engagement_metrics IS NOT NULL")
+    eng_rows = cursor.fetchall()
+    total_eng = 0
+    total_words = 0
+    for row in eng_rows:
+        try:
+            d = json.loads(row[0])
+            total_eng += d.get('score', 0)
+            total_words += d.get('total_words', 0)
+        except: continue
+    
+    stats['avg_engagement'] = round(total_eng / len(eng_rows), 1) if eng_rows else 0
+    stats['total_words'] = total_words
+
+    # Storage Usage
+    def get_dir_size(path='.'):
+        total = 0
+        with os.scandir(path) as it:
+            for entry in it:
+                if entry.is_file():
+                    total += entry.stat().size
+                elif entry.is_dir():
+                    total += get_dir_size(entry.path)
+        return total
+
+    try:
+        size_bytes = get_dir_size(str(DB_PATH.parent))
+        if size_bytes < 1024 * 1024:
+            stats['storage_used'] = f"{round(size_bytes / 1024, 1)} KB"
+        elif size_bytes < 1024 * 1024 * 1024:
+            stats['storage_used'] = f"{round(size_bytes / (1024*1024), 1)} MB"
+        else:
+            stats['storage_used'] = f"{round(size_bytes / (1024*1024*1024), 1)} GB"
+    except:
+        stats['storage_used'] = "0 MB"
+
+    # Speaker Talk Time (Last 10 Meetings) - Aggregated
+    cursor.execute('''
+        SELECT speaker_analytics FROM meetings 
+        WHERE speaker_analytics IS NOT NULL 
+        ORDER BY start_time DESC 
+        LIMIT 10
+    ''')
+    rows = cursor.fetchall()
+    speaker_totals = {}
+    for row in rows:
+        try:
+            data = json.loads(row[0])
+            for spk, vals in data.items():
+                if spk not in speaker_totals:
+                    speaker_totals[spk] = 0
+                speaker_totals[spk] += vals.get('percentage', 0)
+        except: continue
+    
+    # Average the percentages
+    if rows:
+        agg_speakers = {k: round(v / len(rows), 1) for k, v in speaker_totals.items()}
+        # Ensure we have common names if mapping exists
+        stats['speaker_distribution'] = agg_speakers
+    else:
+        stats['speaker_distribution'] = {}
     
     conn.close()
     return stats
 
-def get_latest_coaching_insights():
-    """Fetch and aggregate coaching data from recent meetings"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    # Get latest 5 meetings with coaching data
-    cursor.execute('''
-        SELECT coaching_metrics, engagement_metrics 
-        FROM meetings 
-        WHERE coaching_metrics IS NOT NULL 
-        ORDER BY start_time DESC 
-        LIMIT 5
-    ''')
-    rows = cursor.fetchall()
-    conn.close()
-    
-    if not rows:
-        return None
-        
-    # Aggregate data (for now return the most recent one or simple averages)
-    latest = json.loads(rows[0]['coaching_metrics'])
-    
-    # Enrich with more sophisticated logic if needed
-    return latest
+def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_stats, engagement):
+    """Save final AI intelligence and analytics to the DB"""
+    updates = {
+        'transcript_text': transcript,
+        'summary_text': summary,
+        'action_items': action_items,
+        'speaker_analytics': speaker_stats,
+        'engagement_metrics': engagement,
+        'status': 'completed'
+    }
+    return update_meeting(meeting_id, updates)
 
-# --- FOLDER OPERATIONS ---
-def create_folder(name, color="#6366f1"):
-    """Create a new folder for meeting organization"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    try:
-        cursor.execute("INSERT INTO folders (name, color) VALUES (?, ?)", (name, color))
-        conn.commit()
-        fid = cursor.lastrowid
-        conn.close()
-        return True, fid
-    except sqlite3.IntegrityError:
-        conn.close()
-        return False, "Folder already exists"
+# --- WORKSPACE OPERATIONS (Restored & Enhanced) ---
 
-def get_all_folders():
-    """List all available folders"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM folders")
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
-
-def assign_meeting_to_folder(meeting_id, folder_id):
-    """Move a meeting into a specific folder"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute("UPDATE meetings SET folder_id = ? WHERE meeting_id = ?", (folder_id, meeting_id))
-    conn.commit()
-    conn.close()
-    return True
-
-# --- WORKSPACE OPERATIONS ---
 def create_workspace(name, owner_email, description=None):
-    """Create a new organization workspace"""
+    """Create a new organization workspace with a unique shareable ID"""
+    import secrets
+    
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    
+    workspace_id = ""
+    # Ensure uniqueness
+    for _ in range(10):
+        workspace_id = secrets.token_hex(4).upper() # 8 characters
+        cursor.execute("SELECT id FROM workspaces WHERE id = ?", (workspace_id,))
+        if not cursor.fetchone():
+            break
+            
     try:
         cursor.execute(
-            "INSERT INTO workspaces (name, owner_email, description) VALUES (?, ?, ?)",
-            (name, owner_email, description)
+            "INSERT INTO workspaces (id, name, owner_email, description) VALUES (?, ?, ?, ?)",
+            (workspace_id, name, owner_email, description)
         )
-        workspace_id = cursor.lastrowid
         # Add owner as first member
         cursor.execute(
             "INSERT INTO workspace_members (workspace_id, user_email, role) VALUES (?, ?, 'owner')",
@@ -643,21 +631,28 @@ def create_workspace(name, owner_email, description=None):
         conn.close()
         return False, str(e)
 
-def add_workspace_member(workspace_id, email, role='member'):
-    """Invite/Add a user to a workspace"""
+def join_workspace(workspace_id, email):
+    """Join an existing workspace using its unique ID"""
+    workspace_id = workspace_id.strip().upper()
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
+        # Verify workspace exists
+        cursor.execute("SELECT id FROM workspaces WHERE id = ?", (workspace_id,))
+        if not cursor.fetchone():
+            conn.close()
+            return False, "Workspace not found. Check the ID."
+            
         cursor.execute(
-            "INSERT INTO workspace_members (workspace_id, user_email, role) VALUES (?, ?, ?)",
-            (workspace_id, email, role)
+            "INSERT INTO workspace_members (workspace_id, user_email, role) VALUES (?, ?, 'member')",
+            (workspace_id, email)
         )
         conn.commit()
         conn.close()
-        return True, "Member added"
+        return True, "Joined successfully!"
     except sqlite3.IntegrityError:
         conn.close()
-        return False, "User already in workspace"
+        return False, "You are already a member of this workspace."
     except sqlite3.Error as e:
         conn.close()
         return False, str(e)
@@ -687,7 +682,6 @@ def get_workspace_members(workspace_id):
     conn.close()
     return [dict(row) for row in rows]
 
-# --- WORKSPACE CHAT OPERATIONS ---
 def send_workspace_message(workspace_id, sender_email, sender_name, message, attachment_path=None, attachment_name=None):
     """Send a message to workspace chat"""
     conn = sqlite3.connect(DB_PATH)
@@ -730,10 +724,83 @@ def inject_bot_now(url):
     import sys
     try:
         # Launch using the existing pilot script
-        subprocess.Popen([sys.executable, "rena_bot_pilot.py", url])
+        subprocess.Popen([sys.executable, "renata_bot_pilot.py", url])
         return True, "Bot is joining the live meeting..."
     except Exception as e:
         return False, str(e)
+
+# --- ASSISTANT CHAT HISTORY OPERATIONS ---
+
+def create_assistant_thread(user_email, title="New Conversation"):
+    """Create a new personal chat thread for the assistant"""
+    import secrets
+    thread_id = secrets.token_hex(8).upper()
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO assistant_threads (id, user_email, title) VALUES (?, ?, ?)",
+            (thread_id, user_email, title)
+        )
+        conn.commit()
+        conn.close()
+        return thread_id
+    except sqlite3.Error:
+        conn.close()
+        return None
+
+def save_assistant_message(thread_id, role, content):
+    """Save a single message to a chat thread"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO assistant_messages (thread_id, role, content) VALUES (?, ?, ?)",
+            (thread_id, role, content)
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error:
+        conn.close()
+        return False
+
+def get_user_assistant_threads(user_email):
+    """Get all chat threads for a specific user"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM assistant_threads WHERE user_email = ? ORDER BY created_at DESC", (user_email,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def get_assistant_thread_messages(thread_id):
+    """Get all messages for a specific chat thread"""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT role, content FROM assistant_messages WHERE thread_id = ? ORDER BY created_at ASC", (thread_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def update_assistant_thread_title(thread_id, new_title):
+    """Update conversation title (first few words of first user message)"""
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("UPDATE assistant_threads SET title = ? WHERE id = ?", (new_title, thread_id))
+        conn.commit()
+        conn.close()
+        return True
+    except:
+        conn.close()
+        return False
+
+def get_all_folders():
+    """Returns list of folders - placeholder for now"""
+    return []
 
 # Initialize database on import
 init_database()

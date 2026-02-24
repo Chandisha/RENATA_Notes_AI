@@ -90,7 +90,7 @@ def get_participant_count(event):
 
 # --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="RENA | Enterprise AI Assistant",
+    page_title="Renata | Personal AI Assistant",
     layout="wide",
     page_icon="🤖",
     initial_sidebar_state="expanded"
@@ -186,12 +186,14 @@ def get_user_info():
             }
     except Exception as e:
         print(f"Auth error: {e}")
-        return {
-            'email': 'user@gmail.com',
-            'name': 'RENA User',
-            'picture': None,
-            'verified_email': True
-        }
+        # If the token is invalid or expired, delete it so the user can re-auth
+        if "invalid_grant" in str(e) or "expired" in str(e).lower():
+            if os.path.exists('token.json'):
+                try:
+                    os.remove('token.json')
+                    print("⚠️ Expired token deleted. Please refresh the page to sign in again.")
+                except: pass
+        return None
     return None
 
 # --- SIDEBAR STATUS ---
@@ -225,7 +227,7 @@ def display_bot_status_sidebar():
              <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid #3b82f6; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="color: #3b82f6; font-weight: bold; font-size: 0.8rem; display: flex; align-items: center;">
                     <span style="height: 8px; width: 8px; background-color: #3b82f6; border-radius: 50%; display: inline-block; margin-right: 8px; animation: pulse 1s infinite;"></span>
-                    RENA: JOINING...
+                    Renata: JOINING...
                 </div>
                 <div style="font-size: 0.75rem; margin-top: 4px; color: #333;">{title}</div>
                 {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">{status_note}</div>' if status_note else ''}
@@ -237,7 +239,7 @@ def display_bot_status_sidebar():
              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="color: #10b981; font-weight: bold; font-size: 0.8rem; display: flex; align-items: center;">
                     <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; margin-right: 8px;"></span>
-                    RENA: CONNECTED
+                    Renata: CONNECTED
                 </div>
                 <div style="font-size: 0.75rem; margin-top: 4px; color: #333;">{title}{duration_str}</div>
                 {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">💡 {status_note}</div>' if status_note else ''}
@@ -249,7 +251,7 @@ def display_bot_status_sidebar():
              <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid #f59e0b; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="color: #f59e0b; font-weight: bold; font-size: 0.8rem; display: flex; align-items: center;">
                     <span style="height: 8px; width: 8px; background-color: #f59e0b; border-radius: 50%; display: inline-block; margin-right: 8px; animation: pulse 1s infinite;"></span>
-                    RENA: PROCESSING
+                    Renata: PROCESSING
                 </div>
                 <div style="font-size: 0.75rem; margin-top: 4px; color: #333;">{title}</div>
                 {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">⚙️ {status_note}</div>' if status_note else ''}
@@ -261,7 +263,7 @@ def display_bot_status_sidebar():
              <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid #10b981; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="color: #10b981; font-weight: bold; font-size: 0.8rem; display: flex; align-items: center;">
                     <span style="height: 8px; width: 8px; background-color: #10b981; border-radius: 50%; display: inline-block; margin-right: 8px;"></span>
-                    RENA: COMPLETED
+                    Renata: COMPLETED
                 </div>
                 <div style="font-size: 0.75rem; margin-top: 4px; color: #333;">{title}</div>
                 {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">✅ {status_note}</div>' if status_note else ''}
@@ -273,7 +275,7 @@ def display_bot_status_sidebar():
              <div style="background: rgba(100, 116, 139, 0.1); border: 1px dashed #94a3b8; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="color: #64748b; font-weight: bold; font-size: 0.8rem; display: flex; align-items: center;">
                     <span style="height: 8px; width: 8px; background-color: #94a3b8; border-radius: 50%; display: inline-block; margin-right: 8px;"></span>
-                    RENA: IDLE
+                    Renata: IDLE
                 </div>
                 <div style="font-size: 0.75rem; margin-top: 4px; color: #64748b;">Ready to join</div>
              </div>
@@ -283,7 +285,7 @@ def display_bot_status_sidebar():
          <div style="background: rgba(100, 116, 139, 0.1); border: 1px dashed #94a3b8; padding: 10px; border-radius: 8px; margin-bottom: 20px;">
             <div style="color: #64748b; font-weight: bold; font-size: 0.8rem; display: flex; align-items: center;">
                 <span style="height: 8px; width: 8px; background-color: #94a3b8; border-radius: 50%; display: inline-block; margin-right: 8px;"></span>
-                RENA: IDLE
+                Renata: IDLE
             </div>
             <div style="font-size: 0.75rem; margin-top: 4px; color: #64748b;">Ready to join</div>
          </div>
@@ -294,119 +296,301 @@ display_bot_status_sidebar()
 
 # --- 3. AUTHENTICATION GATE ---
 if not os.path.exists("token.json"):
-    # Premium RENA Portal Sign-In
+    # Inject global styles
     st.markdown("""
     <style>
-    [data-testid="stAppViewContainer"] {
-        background: #f0f9ff !important;
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
+        font-family: 'Inter', sans-serif !important;
+        background: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
     }
-    .signin-container {
+    [data-testid="stHeader"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    #MainMenu { display: none !important; }
+    footer { display: none !important; }
+    [data-testid="stSidebar"] { display: none !important; }
+
+    /* Remove default Streamlit column padding */
+    [data-testid="stHorizontalBlock"] {
+        gap: 0 !important;
+        padding: 0 !important;
+        align-items: stretch !important;
+    }
+    [data-testid="column"] {
+        padding: 0 !important;
+    }
+
+    /* HERO panel fills its column height */
+    .hero-panel {
+        background: linear-gradient(145deg, #1e1b8b 0%, #4338ca 40%, #6d28d9 75%, #7c3aed 100%);
+        padding: 70px 55px;
+        min-height: 100vh;
         display: flex;
         flex-direction: column;
-        align-items: center;
         justify-content: center;
-        padding: 50px 20px;
+        position: relative;
+        overflow: hidden;
     }
-    .signin-card {
-        background: white;
-        padding: 50px;
-        border-radius: 24px;
-        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.08);
-        max-width: 480px;
-        width: 100%;
-        text-align: center;
-        border: 1px solid #e2e8f0;
+    .hero-panel::before {
+        content: '';
+        position: absolute;
+        top: -80px; right: -80px;
+        width: 360px; height: 360px;
+        background: rgba(255,255,255,0.06);
+        border-radius: 50%;
     }
-    .brand-logo { 
-        font-size: 4rem; margin-bottom: 20px; 
+    .hero-panel::after {
+        content: '';
+        position: absolute;
+        bottom: -120px; left: -60px;
+        width: 420px; height: 420px;
+        background: rgba(255,255,255,0.04);
+        border-radius: 50%;
     }
-    .welcome-title {
-        font-size: 2.2rem;
-        font-weight: 800;
-        color: #0f172a;
-        margin-bottom: 8px;
+    .dot-grid {
+        position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+        background-image: radial-gradient(rgba(255,255,255,0.15) 1px, transparent 1px);
+        background-size: 28px 28px;
+        pointer-events: none;
     }
-    .punchline {
-        color: #334155;
-        font-size: 1.1rem;
-        font-weight: 500;
-        line-height: 1.6;
-        margin-bottom: 30px;
+    .hero-brand {
+        display: flex; align-items: center; gap: 12px;
+        margin-bottom: 55px; position: relative; z-index: 1;
     }
-    .feature-highlights {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        margin-top: 35px;
-        text-align: left;
+    .hero-brand-icon {
+        width: 44px; height: 44px;
+        background: rgba(255,255,255,0.2);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.4rem;
     }
-    .feature-tag {
-        background: #f1f5f9;
-        padding: 10px 12px;
-        border-radius: 10px;
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: #475569;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+    .hero-brand-name {
+        font-size: 1.1rem; font-weight: 700;
+        color: #fff; letter-spacing: 0.5px;
+    }
+    .hero-headline {
+        font-size: 3rem; font-weight: 900;
+        color: #ffffff; line-height: 1.15;
+        margin-bottom: 24px; position: relative; z-index: 1;
+    }
+    .hero-sub {
+        font-size: 1rem; color: rgba(255,255,255,0.8);
+        line-height: 1.75; max-width: 400px;
+        margin-bottom: 48px; position: relative; z-index: 1;
+    }
+    .hero-features { display: flex; flex-direction: column; gap: 20px; position: relative; z-index: 1; }
+    .hero-fi { display: flex; align-items: center; gap: 16px; }
+    .hero-fi-icon {
+        width: 46px; height: 46px; flex-shrink: 0;
+        background: rgba(255,255,255,0.15);
+        border-radius: 13px;
+        display: flex; align-items: center; justify-content: center; font-size: 1.2rem;
+    }
+    .hero-fi-text strong { display: block; color: #fff; font-size: 0.95rem; font-weight: 700; margin-bottom: 3px; }
+    .hero-fi-text span { color: rgba(255,255,255,0.65); font-size: 0.82rem; }
+    .hero-stats {
+        display: flex; gap: 40px; margin-top: 55px; padding-top: 30px;
+        border-top: 1px solid rgba(255,255,255,0.15); position: relative; z-index: 1;
+    }
+    .stat-item strong { display: block; color: #fff; font-size: 1.6rem; font-weight: 800; }
+    .stat-item span { color: rgba(255,255,255,0.6); font-size: 0.8rem; }
+
+    /* RIGHT login panel */
+    .login-panel {
+        background: #ffffff;
+        min-height: 100vh;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        padding: 60px 50px;
+    }
+    .login-card { width: 100%; max-width: 360px; }
+    .login-card h2 { font-size: 1.9rem; font-weight: 800; color: #0f172a; margin: 0 0 8px 0; }
+    .login-card .sub { color: #64748b; font-size: 0.95rem; margin: 0 0 36px 0; line-height: 1.6; }
+    .trust-badges { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 28px; }
+    .trust-badge {
+        background: #f8fafc; border: 1px solid #e2e8f0;
+        padding: 6px 13px; border-radius: 20px;
+        font-size: 0.75rem; color: #475569; font-weight: 600;
+    }
+    .login-footer { margin-top: 28px; font-size: 0.75rem; color: #94a3b8; line-height: 1.7; }
+
+    /* Style the sign-in button to span full width */
+    div[data-testid="column"]:last-child .stButton > button {
+        width: 100% !important;
+        padding: 14px !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        border-radius: 12px !important;
     }
     </style>
-    
-    <div class="signin-container">
-        <div class="signin-card">
-            <div class="brand-logo">🤖</div>
-            <h1 class="welcome-title">Welcome to RENA</h1>
-            <p class="punchline">
-                Your intelligent meeting assistant.<br>
-                <span style="color: #0ea5e9;"><b>Do meeting with ease.</b></span><br>
-                Focus on the conversation, let RENA handle the notes.
-            </p>
-            <p style="color: #64748b; font-size: 0.9rem; margin-top: 20px;">Sign in to continue to your dashboard</p>
     """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("🔐 Sign in with Google", use_container_width=True, type="primary"):
-            with st.spinner("Connecting to Google Auth..."):
-                import rena_bot_pilot
-                result = rena_bot_pilot.run_gmail_registration()
-                if result == "success":
-                    st.success("✅ Welcome! Unlocking your workspace...")
-                    st.rerun()
-                else:
-                    st.error(f"SignIn Failed: {result}")
-    
-    st.markdown("""
-            <div class="feature-highlights">
-                <div class="feature-tag">📅 Calendar Sync</div>
-                <div class="feature-tag">🎤 Auto-Recording</div>
-                <div class="feature-tag">✍️ Smart Summaries</div>
-                <div class="feature-tag">📊 Group Insights</div>
+
+    # Two-column layout: left = hero, right = login form
+    col_left, col_right = st.columns([1.1, 0.9])
+
+    # ── LEFT: Hero Panel (pure HTML, fully self-contained) ──
+    with col_left:
+        st.markdown("""
+        <div class="hero-panel">
+            <div class="dot-grid"></div>
+            <div class="hero-brand">
+                <div class="hero-brand-icon">🤖</div>
+                <span class="hero-brand-name">Renata AI</span>
             </div>
-            <p style="font-size: 0.7rem; color: #94a3b8; margin-top: 30px; text-align: center;">
-                RENA AI v2.1 | Secure Enterprise Intelligence<br>
-                🔒 Protected by Google OAuth 2.0
+            <div class="hero-headline">Your AI<br>Meeting<br>Assistant</div>
+            <p class="hero-sub">
+                Renata joins your meetings, records every word, and delivers
+                intelligent summaries so you stay fully present.
+            </p>
+            <div class="hero-features">
+                <div class="hero-fi">
+                    <div class="hero-fi-icon">📅</div>
+                    <div class="hero-fi-text">
+                        <strong>Automatic Calendar Sync</strong>
+                        <span>Joins your Google Meet calls automatically</span>
+                    </div>
+                </div>
+                <div class="hero-fi">
+                    <div class="hero-fi-icon">🎙️</div>
+                    <div class="hero-fi-text">
+                        <strong>Live Transcription</strong>
+                        <span>Real-time speaker-attributed transcripts</span>
+                    </div>
+                </div>
+                <div class="hero-fi">
+                    <div class="hero-fi-icon">✨</div>
+                    <div class="hero-fi-text">
+                        <strong>AI Intelligence Reports</strong>
+                        <span>Summaries, action items &amp; chapter breakdowns</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-stats">
+                <div class="stat-item"><strong>100%</strong><span>Auto Capture</span></div>
+                <div class="stat-item"><strong>2x</strong><span>Faster Decisions</span></div>
+                <div class="stat-item"><strong>Zero</strong><span>Missed Items</span></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── RIGHT: Login Panel ──
+    with col_right:
+        # Top spacer to vertically center content
+        st.markdown("""
+        <style>
+        /* Push Streamlit content to center vertically in the right column */
+        div[data-testid="column"]:last-child > div:first-child {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 0 50px;
+        }
+        .welcome-icon {
+            width: 64px; height: 64px;
+            background: linear-gradient(135deg, #4338ca, #7c3aed);
+            border-radius: 18px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 24px rgba(99, 58, 237, 0.25);
+        }
+        .welcome-label {
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #4338ca, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+        .welcome-heading {
+            font-size: 2.4rem;
+            font-weight: 900;
+            color: #0f172a;
+            line-height: 1.2;
+            margin-bottom: 12px;
+        }
+        .welcome-heading span {
+            background: linear-gradient(90deg, #4338ca, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .welcome-sub {
+            color: #64748b;
+            font-size: 0.95rem;
+            line-height: 1.65;
+            margin-bottom: 32px;
+        }
+        .welcome-divider {
+            height: 1px;
+            background: linear-gradient(90deg, #e2e8f0, transparent);
+            margin-bottom: 28px;
+        }
+        </style>
+
+        <div style="max-width: 360px; margin: 0 auto; padding-top: 30vh;">
+            <div class="welcome-icon">🤖</div>
+            <div class="welcome-label">Renata AI Platform</div>
+            <div class="welcome-heading">Welcome<br>Back <span>👋</span></div>
+            <p class="welcome-sub">
+                Sign in to access your meetings,<br>
+                transcripts and AI reports.
+            </p>
+            <div class="welcome-divider"></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Sign-in button
+        _, btn_col, _ = st.columns([0.08, 0.84, 0.08])
+        with btn_col:
+            if st.button("🔐 Sign in with Google", use_container_width=True, type="primary"):
+                with st.spinner("Connecting to Google Auth..."):
+                    import renata_bot_pilot
+                    result = renata_bot_pilot.run_gmail_registration()
+                    if result == "success":
+                        st.success("✅ Welcome! Unlocking your workspace...")
+                        st.rerun()
+                    else:
+                        st.error(f"SignIn Failed: {result}")
+
+        st.markdown("""
+        <div style="max-width: 360px; margin: 20px auto 0 auto;">
+            <div class="trust-badges">
+                <span class="trust-badge">🔒 Google OAuth 2.0</span>
+                <span class="trust-badge">🛡️ SOC 2 Ready</span>
+                <span class="trust-badge">✅ GDPR Compliant</span>
+            </div>
+            <p class="login-footer">
+                By signing in, you agree to our Terms of Service.<br>
+                Renata AI v2.2 &nbsp;|&nbsp; Secure Enterprise Intelligence
             </p>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+
+
     st.stop()
 
 else:
     # Get user information
     user_info = get_user_info()
     
-    # --- AUTO-START RENA ENGINE (SILENT) ---
+    # --- AUTO-START Renata ENGINE (SILENT) ---
     if "engine_started" not in st.session_state:
         try:
             # Proactive Cleanup: Kill any old bot instances
             if os.name == 'nt':
-                subprocess.run(['taskkill', '/F', '/FI', 'windowtitle eq RENA_AUTO_PILOT*', '/T'], capture_output=True)
+                subprocess.run(['taskkill', '/F', '/FI', 'windowtitle eq Renata_AUTO_PILOT*', '/T'], capture_output=True)
             
             # Silent Launch (Hidden Console)
             CREATE_NO_WINDOW = 0x08000000
-            subprocess.Popen(f'title RENA_AUTO_PILOT && {sys.executable} rena_bot_pilot.py --autopilot', 
+            subprocess.Popen(f'title Renata_AUTO_PILOT && {sys.executable} renata_bot_pilot.py --autopilot', 
                              shell=True,
                              creationflags=CREATE_NO_WINDOW if os.name == 'nt' else 0)
             st.session_state.engine_started = True
@@ -451,7 +635,7 @@ else:
         with st.container():
             st.markdown("""
                 <div style="background: white; border-radius: 24px; padding: 40px; border: 1px solid #e2e8f0; margin-bottom: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.1);">
-                    <h2 style="margin-top:0;">🚀 Welcome to RENA AI Assistant</h2>
+                    <h2 style="margin-top:0;">🚀 Welcome to Renata AI Assistant</h2>
                     <p style="font-size: 1.1rem; color: #475569;">Let's get you set up for productive meetings in 3 simple steps.</p>
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 30px 0;">
                         <div style="padding: 20px; background: #f8fafc; border-radius: 15px;">
@@ -474,45 +658,109 @@ else:
                 st.rerun()
 
     # --- 7. MAIN CONTENT AREA (FEATURE-BASED) ---
-    st.markdown(f"## 🤖 RENA {st.session_state.active_page.replace('_', ' ').title()}")
+    st.markdown(f"# 🤖 Renata {st.session_state.active_page.replace('_', ' ').title()}")
     
     # FEATURE: SEARCH ASSISTANT
     if st.session_state.active_page == "search_assistant":
-        from search_copilot_service import assistant
+        from rag_assistant import assistant
+        import meeting_database as db
         
-        col1, col2 = st.columns([4, 1])
-        with col1:
-            st.info("💡 **Assistant Tip:** Ask about specific dates, people, or action items from past meetings.")
-        with col2:
-            if st.button("🗑️ Clear Chat", use_container_width=True):
+        # 1. Thread Management
+        if 'chat_thread_id' not in st.session_state:
+            st.session_state.chat_thread_id = None
+        
+        main_chat, history_sidebar = st.columns([3.5, 1.2])
+        
+        with history_sidebar:
+            st.markdown("### 📜 Saved Chats")
+            if st.button("➕ New Chat", use_container_width=True, type="secondary"):
+                st.session_state.chat_thread_id = None
                 st.session_state.messages = []
                 st.rerun()
-        
-        # Chat interface
-        if "messages" not in st.session_state:
-            st.session_state.messages = [
-                {"role": "assistant", "content": "Hello! I'm your Search Assistant. I can analyze all your past transcripts and answer regular questions too. What would you like to know?"}
-            ]
+            
+            st.divider()
+            past_threads = db.get_user_assistant_threads(user_info['email'])
+            for t in past_threads:
+                # Truncate title for button
+                title = t['title'] or "New Conversation"
+                if len(title) > 22: title = title[:20] + "..."
+                
+                # Highlight active thread
+                is_active = st.session_state.chat_thread_id == t['id']
+                btn_type = "primary" if is_active else "secondary"
+                
+                if st.button(f"💬 {title}", key=f"th_{t['id']}", use_container_width=True, type=btn_type):
+                    st.session_state.chat_thread_id = t['id']
+                    st.session_state.messages = db.get_assistant_thread_messages(t['id'])
+                    st.rerun()
 
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+        with main_chat:
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.warning("🔄 **Quick Step:** Please click **Sync Knowledge** to update my memory, then you can search for anything from your meetings.")
+            with col2:
+                if st.button("🔄 Sync Knowledge", use_container_width=True, type="primary"):
+                    with st.spinner("Re-indexing meeting data..."):
+                        assistant._ensure_indexed(force_reset=True)
+                    st.success("Knowledge Base Synced!")
+                    st.rerun()
+            with col3:
+                if st.button("🗑️ Clear Chat", use_container_width=True):
+                    st.session_state.messages = []
+                    # Don't reset thread_id, just clear local list
+                    st.rerun()
+            
+            # Chat interface
+            if "messages" not in st.session_state or not st.session_state.messages:
+                st.session_state.messages = [
+                    {"role": "assistant", "content": "Hi! I'm Renata, and I can help you find any information from your meeting reports."}
+                ]
 
-        prompt = st.chat_input("Ask about your meetings...")
-        if prompt:
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
+            # Display messages
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
 
-            with st.chat_message("assistant"):
-                with st.spinner("Analyzing your data..."):
-                    try:
-                        # Call the actual RAG service
-                        answer = assistant.ask(prompt)
-                        st.markdown(answer)
-                        st.session_state.messages.append({"role": "assistant", "content": answer})
-                    except Exception as e:
-                        st.error(f"Error connecting to Search Assistant: {e}")
+            # File selector
+            output_dir = os.path.join(os.getcwd(), "meeting_outputs")
+            available_files = []
+            if os.path.exists(output_dir):
+                available_files = [f for f in os.listdir(output_dir) if f.endswith(('.pdf', '.json'))]
+            
+            selected_files = st.multiselect(
+                "📑 **Focus on specific documents:**",
+                options=available_files,
+                placeholder="Select reports...",
+                key="doc_selector"
+            )
+
+            prompt = st.chat_input("Ask about your meetings...")
+            if prompt:
+                # 1. Create thread if none exists
+                if st.session_state.chat_thread_id is None:
+                    # Clean title from prompt
+                    title = prompt[:30] + "..." if len(prompt) > 30 else prompt
+                    st.session_state.chat_thread_id = db.create_assistant_thread(user_info['email'], title)
+                
+                # 2. Save User Message
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                db.save_assistant_message(st.session_state.chat_thread_id, "user", prompt)
+                
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+
+                with st.chat_message("assistant"):
+                    with st.spinner("Analyzing memory..."):
+                        try:
+                            # Use thread_id for RAG memory too
+                            answer = assistant.ask(prompt, thread_id=st.session_state.chat_thread_id, selected_files=selected_files)
+                            st.markdown(answer)
+                            
+                            # 3. Save Assistant Message
+                            st.session_state.messages.append({"role": "assistant", "content": answer})
+                            db.save_assistant_message(st.session_state.chat_thread_id, "assistant", answer)
+                        except Exception as e:
+                            st.error(f"Error: {e}")
 
     # FEATURE: ANALYTICS (New)
     elif st.session_state.active_page == "analytics":
@@ -527,21 +775,35 @@ else:
         c3.metric("Avg Participants", stats['avg_participants'])
         c4.metric("This Week", stats['meetings_this_week'])
         
+        # New Row for deeper analytics
+        c5, c6, c7 = st.columns(3)
+        c5.metric("Avg Engagement", f"{stats.get('avg_engagement', 0)}/100")
+        c6.metric("Total Words Transcribed", f"{stats.get('total_words', 0):,}")
+        c7.metric("Storage Used", stats.get('storage_used', '0 MB'))
+        
         st.divider()
         st.markdown("### 🗣️ Speaker Talk Time (Last 10 Meetings)")
-        # Mocking data for visualization based on common participants
-        data = {
-            'Speaker': ['User', 'John Doe', 'Sarah Miller', 'Others'],
-            'Talk Time (%)': [45, 25, 20, 10]
-        }
-        df = pd.DataFrame(data)
-        st.bar_chart(df, x='Speaker', y='Talk Time (%)')
-        st.caption("Detailed per-meeting speaker analytics available in individual reports.")
+        
+        # Get real data from database stats
+        speaker_dist = stats.get('speaker_distribution', {})
+        
+        if speaker_dist:
+            data = {
+                'Speaker': list(speaker_dist.keys()),
+                'Talk Time (%)': list(speaker_dist.values())
+            }
+            df = pd.DataFrame(data)
+            st.bar_chart(df, x='Speaker', y='Talk Time (%)')
+            st.caption("Detailed per-meeting speaker analytics available in individual reports.")
+        else:
+            st.info("No speaker data available yet. Analytics will appear after your first recorded meeting.")
 
     # FEATURE: REPORTS (Screenshot 4)
     elif st.session_state.active_page == "reports":
         import meeting_database as db
         import json
+        import os
+        from datetime import datetime, timedelta
         
         # TOP BAR (Screenshot 4)
         col1, col2 = st.columns([3, 1])
@@ -550,17 +812,17 @@ else:
         with col2:
             st.write("") # Spacer
             with st.popover("➕ Upload Recording", use_container_width=True):
-                st.write("Process meetings recorded outside of RENA.")
-                u_file = st.file_uploader("Choose a file", type=["mp3", "mp4", "wav"])
+                st.write("Process meetings recorded outside of Renata.")
+                u_file = st.file_uploader("Choose an audio file", type=["mp3", "mp4", "wav", "m4a"])
                 if u_file:
                     temp_dir = Path("meeting_outputs/uploads")
-                    temp_dir.mkdir(exist_ok=True)
+                    temp_dir.mkdir(exist_ok=True, parents=True)
                     temp_path = temp_dir / u_file.name
                     with open(temp_path, "wb") as f:
                         f.write(u_file.getbuffer())
                     
                     if st.button("🚀 Start AI Analysis", use_container_width=True):
-                        with st.status("RENA is analyzing your recording...", expanded=True) as status:
+                        with st.status("Renata is analyzing your recording...", expanded=True) as status:
                             st.write("👂 Transcribing audio...")
                             from meeting_notes_generator import AdaptiveMeetingNotesGenerator
                             generator = AdaptiveMeetingNotesGenerator()
@@ -576,124 +838,170 @@ else:
         # FILTERS (Screenshot 4)
         f_col1, f_col2, f_col3 = st.columns(3)
         with f_col1: 
-            time_filter = st.selectbox("📅 Anytime", ["Anytime", "Today", "Last 7 Days", "Last 30 Days"])
+            time_filter = st.selectbox("📅 Date Filter", ["Anytime", "Today", "Yesterday", "Last 7 Days", "Last 30 Days"])
         with f_col2: 
-            source_filter = st.selectbox("📥 Source", ["All Sources", "Google Meet", "Zoom", "Manual"])
+            sort_order = st.selectbox("🔃 Sort By", ["Newest First", "Oldest First", "Title (A-Z)", "Title (Z-A)", "Size (Large to Small)"])
         with f_col3: 
-            folders = db.get_all_folders()
-            folder_names = ["All Folders"] + [f['name'] for f in folders]
-            selected_folder = st.selectbox("📂 Folder", folder_names)
+            view_type = st.radio("👁️ View Type", ["Cards", "FileList"], horizontal=True)
 
         st.divider()
         
-        # Fetch data
-        meetings = db.search_meetings(search_query) if search_query else db.get_all_meetings()
+        # 📂 GET FILES (PDFS)
+        output_dir = Path("meeting_outputs")
+        pdfs = []
+        if output_dir.exists():
+            for f in output_dir.glob("*.pdf"):
+                stats = f.stat()
+                pdfs.append({
+                    "name": f.name,
+                    "path": str(f),
+                    "size": stats.st_size,
+                    "mtime": stats.st_mtime,
+                    "date": datetime.fromtimestamp(stats.st_mtime)
+                })
+
+        # Apply Filters
+        filtered_pdfs = pdfs
+        if search_query:
+            filtered_pdfs = [p for p in pdfs if search_query.lower() in p['name'].lower()]
         
-        if not meetings:
-            st.info("📭 No meeting reports found yet. Start by joining a meeting!")
+        if time_filter != "Anytime":
+            now = datetime.now()
+            if time_filter == "Today":
+                filtered_pdfs = [p for p in filtered_pdfs if p['date'].date() == now.date()]
+            elif time_filter == "Yesterday":
+                yesterday = now.date() - timedelta(days=1)
+                filtered_pdfs = [p for p in filtered_pdfs if p['date'].date() == yesterday]
+            elif time_filter == "Last 7 Days":
+                limit = now - timedelta(days=7)
+                filtered_pdfs = [p for p in filtered_pdfs if p['date'] >= limit]
+            elif time_filter == "Last 30 Days":
+                limit = now - timedelta(days=30)
+                filtered_pdfs = [p for p in filtered_pdfs if p['date'] >= limit]
+
+        # Apply Sorting
+        if sort_order == "Newest First":
+            filtered_pdfs.sort(key=lambda x: x['mtime'], reverse=True)
+        elif sort_order == "Oldest First":
+            filtered_pdfs.sort(key=lambda x: x['mtime'])
+        elif sort_order == "Title (A-Z)":
+            filtered_pdfs.sort(key=lambda x: x['name'].lower())
+        elif sort_order == "Title (Z-A)":
+            filtered_pdfs.sort(key=lambda x: x['name'].lower(), reverse=True)
+        elif sort_order == "Size (Large to Small)":
+            filtered_pdfs.sort(key=lambda x: x['size'], reverse=True)
+
+        if not filtered_pdfs:
+            st.info("📭 No reports found matching your criteria. Start by recording a meeting!")
         else:
+            if view_type == "FileList":
+                # Table style
+                for p in filtered_pdfs:
+                    col_icon, col_name, col_date, col_size, col_act = st.columns([0.2, 3, 1.5, 1, 1])
+                    col_icon.write("📄")
+                    col_name.write(p['name'])
+                    col_date.write(p['date'].strftime("%Y-%m-%d %H:%M"))
+                    col_size.write(f"{p['size']/1024:.1f} KB")
+                    with open(p['path'], "rb") as f:
+                        col_act.download_button("📩", f, file_name=p['name'], key=f"dl_{p['name']}")
+                    st.divider()
+            else:
+                # Card style
+                for p in filtered_pdfs:
+                    with st.container(border=True):
+                        c1, c2, c3 = st.columns([0.1, 3, 1])
+                        c1.markdown("### 📄")
+                        with c2:
+                            st.markdown(f"**{p['name']}**")
+                            st.caption(f"Created: {p['date'].strftime('%b %d, %Y %I:%M %p')} • Size: {p['size']/1024:.1f} KB")
+                        with c3:
+                            with open(p['path'], "rb") as f:
+                                st.download_button("Download PDF", f, file_name=p['name'], use_container_width=True, key=f"dl_card_{p['name']}")
+                                
+        # Also show database records if they exist and are useful
+        st.markdown("### 🗄️ Database Archive")
+        meetings = db.search_meetings(search_query) if search_query else db.get_all_meetings()
+        if meetings:
             for meet in meetings:
-                # Premium Card Layout (Replicating Screenshot 4)
-                with st.container():
-                    c1, c2, c3 = st.columns([0.1, 3, 1])
-                    with c1:
-                        st.markdown("📄")
-                    with c2:
-                        st.markdown(f"**{meet['title']}**")
-                        st.caption(f"{meet['start_time']} • {meet['duration_minutes'] or '??'}m • {meet['organizer_name'] or 'Unknown'}")
-                    with c3:
-                        if st.button("View Details", key=f"view_{meet['id']}", use_container_width=True):
-                            st.session_state.selected_meeting = meet['id']
+                with st.expander(f"📌 {meet['title']} ({meet['start_time']})"):
+                    st.caption(f"{meet['start_time']} • {meet['duration_minutes'] or '??'}m • {meet['organizer_name'] or 'Unknown'}")
                     
-                    # If expanded/selected
-                    if st.session_state.get('selected_meeting') == meet['id']:
-                        import meeting_database as db
-                        from payment_service import payments
+                    st.markdown("#### 📝 Summary")
+                    st.markdown(meet.get('summary_text') or "*No summary available*")
+                    
+                    if meet.get('action_items'):
+                        st.markdown("#### ✅ Action Items")
+                        try:
+                            items = json.loads(meet['action_items'])
+                            for item in items:
+                                if isinstance(item, dict):
+                                    st.markdown(f"- **{item.get('task')}** ({item.get('owner')}) - *Due: {item.get('deadline')}*")
+                                else: st.markdown(f"- {item}")
+                        except: st.write(meet['action_items'])
+
+                    with st.status("🧠 View Deep Intelligence", expanded=False):
+                        tab_sum, tab_chap, tab_intel = st.tabs([
+                            "📝 Summary", "🔖 Chapters", "📊 Intelligence"
+                        ])
                         
-                        # Refresh meet data to get latest payment status
-                        meet = db.get_meeting(meet['id']) or meet
+                        with tab_sum:
+                            st.markdown(meet.get('summary_text') or "*No summary available*")
                         
-                        # Determine if summary is accessible
-                        is_pro = profile.get('subscription_plan') in ['Pro', 'Enterprise']
-                        is_unlocked = meet.get('is_summarized_paid') or is_pro
-                        
-                        st.markdown("---")
-                        
-                        # Always show Transcript (Free point)
-                        with st.expander("📜 Full Transcript (Free Access)", expanded=not is_unlocked):
-                            st.markdown(f"```\n{meet['transcript_text'] or 'No transcript available'}\n```")
-                        
-                        if is_unlocked:
-                            with st.status("🧠 Deep Intelligence Report", expanded=True):
-                                tab_sum, tab_chap, tab_intel, tab_sync = st.tabs([
-                                    "📝 Summary", "🔖 Chapters", "📊 Intelligence", "🔗 Sync"
-                                ])
-                                
-                                with tab_sum:
-                                    st.markdown(meet.get('summary_text') or "*No summary available*")
-                                    if meet.get('action_items'):
-                                        st.markdown("### ✅ Action Items")
-                                        try:
-                                            items = json.loads(meet['action_items'])
-                                            for item in items:
-                                                if isinstance(item, dict):
-                                                    st.markdown(f"- **{item.get('task')}** ({item.get('owner')}) - *Due: {item.get('deadline')}*")
-                                                else: st.markdown(f"- {item}")
-                                        except: st.write(meet['action_items'])
-                                
-                                with tab_chap:
-                                    if meet.get('chapters'):
-                                        try:
-                                            chaps = json.loads(meet['chapters'])
-                                            for c in chaps:
-                                                st.markdown(f"**[{c.get('start_time')}] {c.get('title')}**")
-                                                st.caption(c.get('summary'))
-                                        except: st.write(meet['chapters'])
-                                    else: st.info("No chapters identified for this meeting.")
-                                    
-                                with tab_intel:
-                                    i_col1, i_col2 = st.columns(2)
-                                    # ... (Sentiment & Engagement extraction)
-                                    st.info("Additional AI insights (Sentiment, Engagement, Coaching) are displayed here.")
-                                    
-                                with tab_sync:
-                                    st.write("Sync this report to your tools:")
-                                    # ... (Sync buttons implementation)
-                                    st.button("Mock Sync to CRM", disabled=True)
-                        else:
-                            # Paywall UI (Professional Look)
-                            st.markdown(f"""
-                                <div style="background: white; border-radius: 15px; padding: 40px; text-align: center; border: 1px dashed #cbd5e1; margin-top: 10px;">
-                                    <div style="font-size: 3rem; margin-bottom: 20px;">🔒</div>
-                                    <h3 style="margin-bottom: 10px;">Deep Intelligence is Locked</h3>
-                                    <p style="color: #64748b; margin-bottom: 30px;">
-                                        Transcription is free! Unlock the <b>AI Summary, Action Items, and Speaker Insights</b><br>
-                                        to save time and focus on what matters.
-                                    </p>
-                                </div>
-                            """, unsafe_allow_html=True)
+                        with tab_chap:
+                            if meet.get('chapters'):
+                                try:
+                                    chaps = json.loads(meet['chapters'])
+                                    for c in chaps:
+                                        st.markdown(f"**[{c.get('start_time')}] {c.get('title')}**")
+                                        st.caption(c.get('summary'))
+                                except: st.write(meet['chapters'])
+                            else: st.info("No chapters identified for this meeting.")
                             
-                            lock_col1, lock_col2 = st.columns(2)
-                            with lock_col1:
-                                if st.button(f"✨ Unlock Summary (1 Credit)", key=f"unlock_{meet['id']}", use_container_width=True, type="primary"):
-                                    if profile.get('credits', 0) > 0:
-                                        success, msg = db.unlock_meeting_summary(user_info['email'], meet['id'])
-                                        if success:
-                                            st.toast("✅ Summary Unlocked!")
-                                            time.sleep(1)
-                                            st.rerun()
-                                        else: st.error(msg)
-                                    else:
-                                        st.warning("⚠️ You're out of credits! Upgrade to Pro for unlimited summaries.")
+                        with tab_intel:
+                            # Individual analytics
+                            spk_data = {}
+                            if meet.get('speaker_analytics'):
+                                try: spk_data = json.loads(meet['speaker_analytics'])
+                                except: pass
                             
-                            with lock_col2:
-                                if st.button("🚀 Upgrade to Pro (Unlimited)", key=f"up_lock_{meet['id']}", use_container_width=True):
-                                    success, msg = payments.process_simulated_payment(user_info['email'], "pro_monthly")
-                                    if success:
-                                        st.success("✅ Welcome to PRO!")
-                                        time.sleep(1)
-                                        st.rerun()
-                                    else: st.error(msg)
+                            eng_data = {}
+                            if meet.get('engagement_metrics'):
+                                try: eng_data = json.loads(meet['engagement_metrics'])
+                                except: pass
+
+                            i_col1, i_col2 = st.columns(2)
+                            with i_col1:
+                                st.write("🗣️ **Speaker Distribution**")
+                                if spk_data:
+                                    chart_data = {
+                                        'Speaker': list(spk_data.keys()),
+                                        'Time (%)': [v.get('percentage', 0) for v in spk_data.values()]
+                                    }
+                                    st.bar_chart(pd.DataFrame(chart_data), x='Speaker', y='Time (%)')
+                                else:
+                                    st.info("No speaker data.")
+                            
+                            with i_col2:
+                                st.write("📊 **Engagement**")
+                                score = eng_data.get('score', 0)
+                                st.metric("Engagement Score", f"{score}/100")
+                                st.progress(score / 100)
+                                
+                                words = eng_data.get('total_words', 0)
+                                st.write(f"✍️ **Total Words:** {words}")
+                                
+                                if spk_data:
+                                    dominant = max(spk_data.items(), key=lambda x: x[1].get('percentage', 0))[0]
+                                    st.write(f"🏆 **Primary Speaker:** {dominant}")
+                                    
+                                    st.write("---")
+                                    st.write("**Speaker Metrics (WPM)**")
+                                    for spk, v in spk_data.items():
+                                        st.caption(f"🎙️ {spk}: **{v.get('wpm', 0)} WPM**")
+
+                    # Full Transcript
+                    with st.expander("📜 Full Transcript", expanded=False):
+                        st.markdown(f"```\n{meet['transcript_text'] or 'No transcript available'}\n```")
                     st.divider()
 
     # FEATURE: INTEGRATIONS (Screenshot 2)
@@ -705,281 +1013,190 @@ else:
         # Load profile for credentials
         profile = db.get_user_profile(user_info['email']) or {}
         
-        i_col1, i_col2, i_col3 = st.columns(3)
+        st.markdown(f"""<div class="main-card">
+            <b>📧 Gmail Intelligence</b> <span style="font-size:0.75rem; color:#10b981;">● Connected</span><br>
+            <small>AI-powered inbox insights and meeting follow-ups</small>
+        </div>""", unsafe_allow_html=True)
+        if st.button("Fetch Inbox Highlights", use_container_width=True, type="primary"):
+            with st.spinner("Analyzing emails..."):
+                try:
+                    summaries = integrations.summarize_emails()
+                    if isinstance(summaries, list):
+                        if not summaries:
+                            st.info("No recent emails found.")
+                        for s in summaries: st.info(f"📩 {s}")
+                    else: st.warning(summaries)
+                except Exception as e:
+                    if "insufficientPermissions" in str(e):
+                        st.error("🔑 Permission Error: RENA needs access to your Gmail. Please Logout and Sign in again to grant permission.")
+                    elif "403" in str(e) or "accessNotConfigured" in str(e):
+                        st.error("🚫 **Action Required:** The Gmail API is not enabled in your Google Project. Visit [Google Cloud Console](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and click **'Enable'** to use this feature.")
+                    else:
+                        st.error(f"Error fetching emails: {e}")
         
-        with i_col1:
-            st.markdown(f"""<div class="main-card">
-                <b>📧 Gmail</b> <span style="font-size:0.75rem; color:#10b981;">● Connected</span><br>
-                <small>AI-powered inbox insights</small>
-            </div>""", unsafe_allow_html=True)
-            if st.button("Fetch Inbox Highlights", use_container_width=True):
-                with st.spinner("Analyzing emails..."):
-                    try:
-                        summaries = integrations.summarize_emails()
-                        if isinstance(summaries, list):
-                            if not summaries:
-                                st.info("No recent emails found.")
-                            for s in summaries: st.info(f"📩 {s}")
-                        else: st.warning(summaries)
-                    except Exception as e:
-                        if "insufficientPermissions" in str(e):
-                            st.error("🔑 Permission Error: RENA needs access to your Gmail. Please Logout and Sign in again to grant permission.")
-                        elif "403" in str(e) or "accessNotConfigured" in str(e):
-                            st.error("🚫 **Action Required:** The Gmail API is not enabled in your Google Project. Visit [Google Cloud Console](https://console.cloud.google.com/apis/library/gmail.googleapis.com) and click **'Enable'** to use this feature.")
-                        else:
-                            st.error(f"Error fetching emails: {e}")
-            
-        with i_col2:
-            n_status = "● Connected" if profile.get('notion_token') else "○ Disconnected"
-            n_color = "#10b981" if profile.get('notion_token') else "#94a3b8"
-            st.markdown(f"""<div class="main-card">
-                <b>📝 Notion</b> <span style="font-size:0.75rem; color:{n_color};">{n_status}</span><br>
-                <small>Auto-sync reports to Notion</small>
-            </div>""", unsafe_allow_html=True)
-            with st.popover("Configure Notion", use_container_width=True):
-                n_token = st.text_input("Notion API Token", value=profile.get('notion_token') or "", type="password")
-                n_db = st.text_input("Database ID", value=profile.get('notion_db') or "")
-                if st.button("Save Notion Connection", use_container_width=True):
-                    db.update_user_profile(user_info['email'], {'notion_token': n_token, 'notion_db': n_db})
-                    st.success("Configuration saved!")
-                    time.sleep(1)
-                    st.rerun()
-
-        with i_col3:
-            h_status = "● Connected" if profile.get('hubspot_api_key') else "○ Disconnected"
-            h_color = "#10b981" if profile.get('hubspot_api_key') else "#94a3b8"
-            st.markdown(f"""<div class="main-card">
-                <b>🏢 CRM (HubSpot)</b> <span style="font-size:0.75rem; color:{h_color};">{h_status}</span><br>
-                <small>Sync meetings to leads</small>
-            </div>""", unsafe_allow_html=True)
-            with st.popover("Configure CRM", use_container_width=True):
-                crm_key = st.text_input("HubSpot API Key", value=profile.get('hubspot_api_key') or "", type="password")
-                if st.button("Save HubSpot Key", use_container_width=True):
-                    db.update_user_profile(user_info['email'], {'hubspot_api_key': crm_key})
-                    st.success("Connection Saved!")
-                    time.sleep(1)
-                    st.rerun()
-
-    # FEATURE: FOLDERS
-    elif st.session_state.active_page == "folders":
-        import meeting_database as db
-        st.subheader("📁 Organize Your Meetings")
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        col_f1, col_f2 = st.columns([1, 2])
-        with col_f1:
-            with st.form("new_folder"):
-                st.write("**Create New Folder**")
-                f_name = st.text_input("Folder Name")
-                f_color = st.color_picker("Folder Color", "#6366f1")
-                if st.form_submit_button("Create Folder"):
-                    success, msg = db.create_folder(f_name, f_color)
-                    if success: st.success(f"Created '{f_name}'")
+        # ZOOM INTEGRATION CARD
+        is_zoom_connected = "zoom_token" in profile and profile["zoom_token"]
+        zoom_status = "● Connected" if is_zoom_connected else "○ Not Connected"
+        zoom_color = "#10b981" if is_zoom_connected else "#6b7280"
+        
+        st.markdown(f"""<div class="main-card">
+            <b>📹 Zoom Meetings</b> <span style="font-size:0.75rem; color:{zoom_color};">{zoom_status}</span><br>
+            <small>Directly sync meetings from your Zoom account and auto-join</small>
+        </div>""", unsafe_allow_html=True)
+        
+        if not is_zoom_connected:
+            if st.button("Connect Zoom Account", use_container_width=True):
+                st.info("🔗 Zoom OAuth integration is being initialized. For now, RENA can already join Zoom meetings if the links are in your Google Calendar!")
+        else:
+            if st.button("Refresh Zoom Meetings", use_container_width=True, type="primary"):
+                with st.spinner("Syncing with Zoom..."):
+                    results = integrations.fetch_zoom_meetings(profile["zoom_token"])
+                    if isinstance(results, list):
+                        for m in results: st.success(f"📅 Found: {m['title']} at {m['start']}")
+                    else: st.warning(results)
+
+    # FEATURE: ADD LIVE MEETING
+    elif st.session_state.active_page == "add_live":
+        st.subheader("Add RENA to a Live Meeting")
+        meet_url = st.text_input("Paste Google Meet or Zoom URL", placeholder="https://meet.google.com/abc-defg-hij")
+        if st.button("➕ Inject Bot Now", use_container_width=True, type="primary"):
+            if "meet.google.com" in meet_url or "zoom.us" in meet_url:
+                with st.spinner("Inviting RENA to the call..."):
+                    import meeting_database as db
+                    success, msg = db.inject_bot_now(meet_url)
+                    if success: st.success(msg)
                     else: st.error(msg)
-        
-        with col_f2:
-            st.write("**Existing Folders**")
-            all_folders = db.get_all_folders()
-            for f in all_folders:
-                st.markdown(f"""
-                <div style="background: {f['color']}20; border-left: 5px solid {f['color']}; padding: 10px; margin-bottom: 5px; border-radius: 5px;">
-                    <b>{f['name']}</b>
-                </div>
-                """, unsafe_allow_html=True)
+            else:
+                st.warning("Please enter a valid meeting URL.")
 
-    # FEATURE: FOR YOU
-    elif st.session_state.active_page == "for_you":
-        st.subheader("⭐ Personalized Highlights")
-        st.info("Based on your recent meetings, here's what deserves your attention:")
-        
-        st.markdown("""
-        <div class="main-card">
-            <h4>💡 Insight: Project Deadlines</h4>
-            <p>You mentioned 'Project Athena' in 3 meetings this week. Consider setting up a dedicated follow-up.</p>
-        </div>
-        <div class="main-card">
-            <h4>📅 Action Required</h4>
-            <p>You have 5 pending action items from 'Daily Sync'.</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # FEATURE: COACHING (Read.ai Replication)
-    elif st.session_state.active_page == "coaching":
-        import meeting_database as db
-        st.markdown("<h2 style='color: #1e293b;'>🎯 Speaker Coaching</h2>", unsafe_allow_html=True)
-        
-        # Load real data or defaults
-        insights = db.get_latest_coaching_insights()
-        if not insights:
-            # High-quality defaults if no data exists yet
-            insights = {
-                "clarity": {"talking_pace": "0 WPM", "filler_count": 0, "filler_words": []},
-                "inclusion": {"non_inclusive_terms": 0, "tip": "Start a meeting to see inclusivity tips!"},
-                "impact": {"bias": "N/A", "charisma_score": "Neutral", "charisma_detail": "No data yet."}
-            }
-
-        st.markdown("""
-        <style>
-            .coaching-card {
-                background: white; border-radius: 12px; padding: 18px; 
-                border: 1px solid #e2e8f0; margin-bottom: 15px; cursor: pointer;
-                transition: transform 0.2s, box-shadow 0.2s;
-                display: flex; justify-content: space-between; align-items: center;
-            }
-            .coaching-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-            .coaching-label { font-size: 0.95rem; font-weight: 600; color: #475569; display: flex; align-items: center; gap: 10px; }
-            .coaching-val { font-size: 0.9rem; color: #64748b; }
-            .section-header { font-size: 0.85rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin: 25px 0 12px 0; }
-            .detail-container { background: white; border-radius: 15px; padding: 30px; border: 1px solid #e2e8f0; min-height: 500px; }
-            .stat-box { background: #f8fafc; border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #f1f5f9; }
-        </style>
-        """, unsafe_allow_html=True)
-
-        left_col, right_col = st.columns([1, 1.8], gap="large")
-
-        with left_col:
-            # 1. CLARITY
-            st.markdown('<div class="section-header">Clarity</div>', unsafe_allow_html=True)
-            if st.button(f"⏱️ Talking pace", key="c_pace", use_container_width=True): st.session_state.coach_topic = "pace"
-            if st.button(f"💬 Filler words", key="c_filler", use_container_width=True): st.session_state.coach_topic = "filler"
-
-            # 2. INCLUSION
-            st.markdown('<div class="section-header">Inclusion</div>', unsafe_allow_html=True)
-            if st.button(f"🤝 Non-inclusive terms ({insights['inclusion']['non_inclusive_terms']})", key="c_inc", use_container_width=True): st.session_state.coach_topic = "inclusion"
-
-            # 3. IMPACT
-            st.markdown('<div class="section-header">Impact</div>', unsafe_allow_html=True)
-            if st.button(f"⚖️ Bias", key="c_bias", use_container_width=True): st.session_state.coach_topic = "bias"
-            if st.button(f"✨ Charisma", key="c_charisma", use_container_width=True): st.session_state.coach_topic = "charisma"
-
-        with right_col:
-            topic = st.session_state.get('coach_topic', 'pace')
-            st.markdown('<div class="detail-container">', unsafe_allow_html=True)
-            
-            if topic == "pace":
-                st.subheader("⏱️ Talking pace")
-                st.write("Your average rate of speech measured in words per minute (WPM). The target zone is 130-175 WPM.")
-                st.markdown("<br>", unsafe_allow_html=True)
-                d1, d2 = st.columns(2)
-                d1.metric("Current Pace", insights['clarity']['talking_pace'])
-                d2.metric("Target Zone", "130-175 WPM")
-                st.info("💡 **Coach Tip:** Speaking at a moderate pace ensures your audience has time to process complex information and improves overall retention.")
-            
-            elif topic == "filler":
-                st.subheader("💬 Filler words")
-                st.write("Tracking common crutch words like 'um', 'uh', 'like', and 'basically'.")
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.metric("Total Filler Count", f"{insights['clarity'].get('filler_count', 0)} per meeting")
-                st.write(f"**Most Used:** {', '.join(insights['clarity'].get('filler_words', ['None detected']))}")
-                st.success("✅ **Coach Tip:** Short pauses are more effective than filler words. Practice embracing silence while you think.")
-
-            elif topic == "inclusion":
-                st.subheader("🤝 Non-inclusive terms")
-                st.write("Monitoring usage of gendered language or non-inclusive terminology.")
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.metric("Total Flagged", insights['inclusion']['non_inclusive_terms'])
-                st.info(f"💡 **Recommendation:** {insights['inclusion']['tip']}")
-
-            elif topic == "bias":
-                st.subheader("⚖️ Language Bias")
-                st.write("Evaluating the transcript for potential conversational bias or leading language.")
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.write(f"**Status:** {insights['impact']['bias']}")
-                st.caption("AI analyzes whether questions are 'open' versus 'closed' and checks for inclusive phrasing.")
-
-            elif topic == "charisma":
-                st.subheader("✨ Charisma & Impact")
-                st.write("Measuring your influence and positive resonance in the conversation.")
-                st.markdown("<br>", unsafe_allow_html=True)
-                st.metric("Charisma Score", insights['impact']['charisma_score'])
-                st.write(f"**Detail:** {insights['impact']['charisma_detail']}")
-
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    # FEATURE: WORKSPACE MANAGEMENT (Add People / Workflow Hub)
+    # FEATURE: WORKSPACE MANAGEMENT (Restored & Enhanced)
     elif st.session_state.active_page == "add_people":
         import meeting_database as db
         st.markdown("<h2 style='color: #1e293b;'>🏁 Workspace Management</h2>", unsafe_allow_html=True)
         
-        tab_manage, tab_create = st.tabs(["👥 Manage Members", "🏗️ Create Workspace"])
+        tab_join, tab_create, tab_mine = st.tabs(["🚀 Join Workspace", "🏗️ Create Workspace", "�️ Your Workspaces"])
+        
+        with tab_join:
+            st.markdown("""
+                <div style='background: #f0fdf4; padding: 15px; border-radius: 10px; border-left: 4px solid #22c55e; margin-bottom: 20px;'>
+                    <h5 style='margin-bottom: 8px;'>✨ Join an existing team</h5>
+                    <p style='font-size: 0.9rem; color: #166534;'>Enter the unique Workspace ID provided by your team lead to join their digital HQ.</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            with st.form("join_ws_form"):
+                join_id = st.text_input("Enter Workspace ID", placeholder="E.g. A1B2C3D4")
+                confirm_email = st.text_input("Confirm Join Email", value=user_info['email'], help="Ensure this matches your account email.")
+                if st.form_submit_button("Join Team"):
+                    if not join_id:
+                        st.warning("Please enter a Workspace ID.")
+                    elif not confirm_email:
+                        st.warning("Email is required to join.")
+                    else:
+                        success, msg = db.join_workspace(join_id, confirm_email)
+                        if success:
+                            st.success(msg)
+                            st.rerun()
+                        else:
+                            st.error(msg)
         
         with tab_create:
             st.markdown("""
                 <div style='background: #f0f9ff; padding: 15px; border-radius: 10px; border-left: 4px solid #0ea5e9; margin-bottom: 20px;'>
-                    <h5 style='margin-bottom: 8px;'>🔒 Data Privacy & Security</h5>
-                    <p style='font-size: 0.9rem; color: #475569;'>Workspaces allow teams to securely aggregate meeting metrics. By creating a workspace, you maintain ownership of your data while enabling RENA AI to provide deep group-level insights.</p>
+                    <h5 style='margin-bottom: 8px;'>🏗️ Build your own digital HQ</h5>
+                    <p style='font-size: 0.9rem; color: #0369a1;'>Create a workspace to share meeting intelligence with your entire team. You'll get a unique ID to share with others.</p>
                 </div>
             """, unsafe_allow_html=True)
             
             with st.form("create_ws_form"):
-                ws_name = st.text_input("Name your new organization", placeholder="Your workspace name, e.g., Acme Inc...")
+                ws_name = st.text_input("Workspace Name", placeholder="Acme Corp, Design Team, etc.")
                 ws_desc = st.text_area("Description (Optional)")
-                
-                st.divider()
-                st.markdown("### 📄 Legal & Compliance")
-                st.write("To create an enterprise workspace, please review and accept the Data Processing Addendum (DPA).")
-                
-                with st.expander("🔍 View full Data Processing Addendum (DPA)"):
-                    try:
-                        with open("DATA_PROCESSING_AGREEMENT.md", "r") as f:
-                            st.markdown(f.read())
-                    except:
-                        st.error("DPA file not found. Please contact support.")
-                
-                st.info("""
-                **Quick Summary of Terms:**
-                - **Privacy:** We only process data to provide your requested services.
-                - **Security:** Industry-standard encryption and access controls are applied.
-                - **Control:** You remain the Data Controller; RENA is your Data Processor.
-                - **Deletion:** You can request data deletion at any time upon workspace termination.
-                """)
-                
-                agree = st.checkbox("I have read and agree to the [Data Processing Addendum (DPA)](https://www.rena-ai.example.com/dpa) and [Terms of Service](https://www.rena-ai.example.com/tos)")
-                if st.form_submit_button("Next Step"):
-                    if not agree:
-                        st.warning("Please agree to the Data Processing Agreement.")
-                    elif not ws_name:
+                if st.form_submit_button("Create Workspace"):
+                    if not ws_name:
                         st.warning("Workspace name is required.")
                     else:
                         success, ws_id = db.create_workspace(ws_name, user_info['email'], ws_desc)
                         if success:
-                            st.success(f"Workspace '{ws_name}' created successfully!")
+                            st.success(f"Workspace '{ws_name}' created! ID: **{ws_id}**")
+                            st.info("Share this ID with your team members so they can join!")
+                            st.session_state.active_workspace_id = ws_id
+                            st.session_state.active_workspace_name = ws_name
+                            import time
+                            time.sleep(2)
                             st.rerun()
                         else:
                             st.error(f"Error: {ws_id}")
 
-        with tab_manage:
-            workspaces = db.get_user_workspaces(user_info['email'])
-            if not workspaces:
-                st.info("You don't belong to any workspaces yet. Create one to get started!")
+        with tab_mine:
+            st.markdown("""
+                <div style='background: #faf5ff; padding: 15px; border-radius: 10px; border-left: 4px solid #7c3aed; margin-bottom: 20px;'>
+                    <h5 style='margin-bottom: 6px;'>🗂️ Your Created & Joined Spaces</h5>
+                    <p style='font-size: 0.9rem; color: #5b21b6; margin: 0;'>Click any workspace to see its members and share its ID.</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+            # Fetch all workspaces the user is part of
+            all_workspaces = db.get_user_workspaces(user_info['email'])
+
+            if not all_workspaces:
+                st.info("You haven't created or joined any workspaces yet. Use the tabs above to get started!")
             else:
-                current_ws_id = st.session_state.get('active_workspace_id')
-                if not current_ws_id:
-                    st.info("Select a workspace from the sidebar to manage members.")
-                else:
-                    ws_info = next((w for w in workspaces if w['id'] == current_ws_id), None)
-                    st.subheader(f"Managing: {ws_info['name']}")
-                    
-                    # Invite Form
-                    with st.expander("➕ Invite New Member", expanded=False):
-                        with st.form("invite_member"):
-                            invite_email = st.text_input("Enter Gmail address")
-                            invite_role = st.selectbox("Assign Role", ["member", "admin"])
-                            if st.form_submit_button("Send Invitation"):
-                                success, msg = db.add_workspace_member(current_ws_id, invite_email, invite_role)
-                                if success: st.success(f"Invite sent to {invite_email}!")
-                                else: st.error(msg)
-                    
-                    st.divider()
-                    st.write("**Current Members**")
-                    members = db.get_workspace_members(current_ws_id)
-                    for m in members:
-                        role_color = "#4338ca" if m['role'] == 'owner' else "#6366f1"
+                # Track which workspace is expanded
+                if 'expanded_ws_id' not in st.session_state:
+                    st.session_state.expanded_ws_id = None
+
+                for ws in all_workspaces:
+                    ws_id   = ws.get('workspace_id') or ws.get('id', '')
+                    ws_name = ws.get('name', 'Unnamed Workspace')
+                    ws_desc = ws.get('description', '')
+                    ws_role = ws.get('role', 'member')
+                    role_badge = "👑 Owner" if ws_role == 'owner' else "👤 Member"
+                    is_expanded = (st.session_state.expanded_ws_id == ws_id)
+
+                    # Workspace card header (clickable button)
+                    col_name, col_badge, col_toggle = st.columns([3, 1.2, 0.8])
+                    with col_name:
+                        st.markdown(f"**{ws_name}**" + (f"  \n<small style='color:#94a3b8'>{ws_desc}</small>" if ws_desc else ""), unsafe_allow_html=True)
+                    with col_badge:
+                        st.markdown(f"<span style='background:#ede9fe;color:#5b21b6;padding:3px 8px;border-radius:12px;font-size:0.75rem;font-weight:600'>{role_badge}</span>", unsafe_allow_html=True)
+                    with col_toggle:
+                        btn_label = "▲ Close" if is_expanded else "▼ Open"
+                        if st.button(btn_label, key=f"ws_toggle_{ws_id}", use_container_width=True):
+                            st.session_state.expanded_ws_id = None if is_expanded else ws_id
+                            st.rerun()
+
+                    # Expanded workspace detail
+                    if is_expanded:
                         st.markdown(f"""
-                        <div style='display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #eee;'>
-                            <span>{m['user_email']}</span>
-                            <span style='background: {role_color}20; color: {role_color}; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: 600;'>{m['role'].upper()}</span>
-                        </div>
+                        <div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 18px;margin-bottom:6px;'>
+                            <div style='display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;'>
+                                <span style='font-size:0.75rem;color:#64748b;font-weight:600;'>Workspace ID:</span>
+                                <code style='background:#1e1b4b;color:#a5b4fc;padding:4px 10px;border-radius:6px;font-size:0.78rem;letter-spacing:1.5px;'>{ws_id}</code>
+                                <span style='font-size:0.72rem;color:#94a3b8;'>← share this with teammates</span>
+                            </div>
                         """, unsafe_allow_html=True)
+
+                        # Members list
+                        members = db.get_workspace_members(ws_id)
+                        if members:
+                            st.markdown(f"<p style='font-size:0.85rem;font-weight:700;color:#334155;margin-bottom:8px;'>👥 Members ({len(members)})</p>", unsafe_allow_html=True)
+                            for m in members:
+                                m_role_icon = "👑" if m.get('role') == 'owner' else "👤"
+                                m_email = m.get('user_email', m.get('email', ''))
+                                m_joined = m.get('joined_at', '')
+                                st.markdown(f"""
+                                <div style='display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:white;border-radius:8px;border:1px solid #f1f5f9;margin-bottom:5px;'>
+                                    <span style='font-size:0.88rem;'>{m_role_icon} {m_email}</span>
+                                    <span style='font-size:0.72rem;color:#94a3b8;'>Joined {m_joined}</span>
+                                </div>""", unsafe_allow_html=True)
+                        else:
+                            st.markdown("<p style='font-size:0.85rem;color:#94a3b8;'>No members found.</p>", unsafe_allow_html=True)
+
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                    st.markdown("<hr style='margin:8px 0;border:none;border-top:1px solid #f1f5f9;'>", unsafe_allow_html=True)
 
     # FEATURE: WORKSPACE CHAT
     elif st.session_state.active_page == "workspace_chat":
@@ -1021,7 +1238,6 @@ else:
                         if msg or att:
                             att_path, att_name = None, None
                             if att:
-                                # Simple file saving logic
                                 upload_dir = Path("meeting_outputs/uploads")
                                 upload_dir.mkdir(exist_ok=True)
                                 att_path = str(upload_dir / att.name)
@@ -1031,21 +1247,6 @@ else:
                                 
                             db.send_workspace_message(ws_id, user_info['email'], user_info['name'], msg, att_path, att_name)
                             st.rerun()
-
-    # FEATURE: SMART SCHEDULER
-    elif st.session_state.active_page == "scheduler":
-        from crm_service import scheduler
-        st.subheader("🔗 Smart Scheduler")
-        st.write("Share this link to let others book meetings with you automatically.")
-        
-        user_email = user_info['email']
-        link = scheduler.generate_smart_link(user_email)
-        
-        st.code(link, language="text")
-        if st.button("Copy Scheduling Link"):
-            st.toast("Link copied to clipboard!")
-            import pyperclip
-            pyperclip.copy(link)
 
     elif st.session_state.active_page == "settings":
         import meeting_database as db
@@ -1118,73 +1319,6 @@ else:
                         st.error("Failed to update profile. Please try again.")
             st.markdown('</div>', unsafe_allow_html=True)
 
-    elif st.session_state.active_page == "manage":
-        import meeting_database as db
-        st.markdown("<h2 style='color: #0f172a;'>🛠️ App Management</h2>", unsafe_allow_html=True)
-        st.write("Configure your dashboard themes, notifications, and bot behaviors.")
-        
-        profile = db.get_user_profile(user_info['email']) or {}
-        
-        with st.container():
-            st.markdown('<div class="main-card">', unsafe_allow_html=True)
-            with st.form("app_settings_form"):
-                st.markdown("### 🎨 Dashboard & Display")
-                c1, c2 = st.columns(2)
-                with c1:
-                    app_theme = st.radio("Theme Mode", ["Light", "Dark", "Custom"], 
-                                         index=["Light", "Dark", "Custom"].index(profile.get('theme_mode', 'Light')))
-                with c2:
-                    notifs = st.toggle("System Notifications", value=bool(profile.get('notifications_enabled', 1)))
-                    st.caption("Receive desktop alerts when meetings start.")
-                
-                st.divider()
-                
-                st.markdown("### 🎧 Audio & Hardware")
-                audio_out = st.selectbox("Default Audio Output", ["Default System Speaker", "VB-CABLE Output", "Headphones (Bluetooth)"],
-                                        index=["Default System Speaker", "VB-CABLE Output", "Headphones (Bluetooth)"].index(profile.get('audio_output_device', 'Default System Speaker')))
-                st.info("💡 **Tip:** Use 'VB-CABLE Output' for the most reliable meeting recording quality.")
-                
-                st.divider()
-                
-                st.markdown("### 🤖 Bot Intelligence & Automation")
-                col_b1, col_b2 = st.columns(2)
-                with col_b1:
-                    auto_join = st.toggle("Auto-Join Meetings", value=bool(profile.get('bot_auto_join', 1)))
-                    st.caption("Allow RENA to enter scheduled meetings automatically.")
-                with col_b2:
-                    auto_rec = st.toggle("Enable Recording by Default", value=bool(profile.get('bot_recording_enabled', 1)))
-                    st.caption("Start audio capture as soon as the bot enters.")
-                
-                st.divider()
-                
-                st.markdown("### ✨ AI Persona & Reporting")
-                c_bot, c_lang = st.columns(2)
-                with c_bot:
-                    bot_name = st.text_input("Bot Persona Name", value=profile.get('bot_name', 'Rena AI | Meeting Assistant'))
-                    st.caption("The name displayed when the bot joins a meeting.")
-                with c_lang:
-                    sum_lang = st.selectbox("Intelligence Output Language", ["English/Hindi", "English Only", "Hindi Only"],
-                                           index=["English/Hindi", "English Only", "Hindi Only"].index(profile.get('summary_language', 'English/Hindi')))
-                    st.caption("Default language for summaries and MOM reports.")
-
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.form_submit_button("💾 Save App Configuration", use_container_width=True):
-                    updates = {
-                        'theme_mode': app_theme,
-                        'notifications_enabled': 1 if notifs else 0,
-                        'audio_output_device': audio_out,
-                        'bot_auto_join': 1 if auto_join else 0,
-                        'bot_recording_enabled': 1 if auto_rec else 0,
-                        'bot_name': bot_name,
-                        'summary_language': sum_lang
-                    }
-                    if db.update_user_profile(user_info['email'], updates):
-                        st.success("Platform settings saved! Changes will take effect immediately.")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("Failed to save configuration.")
-            st.markdown('</div>', unsafe_allow_html=True)
 
     elif st.session_state.active_page == "add_live":
         st.subheader("Join a Live Meeting")
@@ -1213,7 +1347,7 @@ else:
                 <div style="background: white; border-radius: 20px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
                         <span style="font-size: 1.5rem;">🤖</span>
-                        <h3 style="margin: 0; color: #0f172a;">RENA Intelligence Hub</h3>
+                        <h3 style="margin: 0; color: #0f172a;">Renata Intelligence Hub</h3>
                     </div>
                     <p style="color: #64748b; font-size: 0.95rem;">I've detected the following action points from your Gmail inbox:</p>
                 </div>
@@ -1240,9 +1374,9 @@ else:
             col_main, col_stat = st.columns([2, 1])
             with col_main:
                 st.subheader("📅 Today's Schedule")
-                import rena_bot_pilot
+                import renata_bot_pilot
                 import meeting_database as db
-                events = rena_bot_pilot.get_upcoming_events(max_results=10)
+                events = renata_bot_pilot.get_upcoming_events(max_results=10)
                 if not events:
                     st.info("No more meetings scheduled for today.")
                 else:
@@ -1269,9 +1403,9 @@ else:
                                 else:
                                     # Show special status if bot is active
                                     if bot_stat == "JOINING":
-                                        st.markdown("<div class='bot-status-active' style='font-size: 0.7rem;'>🛡️ RENA: JOINING...</div>", unsafe_allow_html=True)
+                                        st.markdown("<div class='bot-status-active' style='font-size: 0.7rem;'>🛡️ Renata: JOINING...</div>", unsafe_allow_html=True)
                                     elif bot_stat == "CONNECTED":
-                                        st.markdown("<div style='color: #10b981; font-size: 0.7rem; font-weight: 800;'>🛡️ RENA: CONNECTED</div>", unsafe_allow_html=True)
+                                        st.markdown("<div style='color: #10b981; font-size: 0.7rem; font-weight: 800;'>🛡️ Renata: CONNECTED</div>", unsafe_allow_html=True)
                                     else:
                                         st.markdown("<span style='color: #10b981; font-size: 0.7rem; font-weight: 800;'>Status: AUTO-JOIN: ON</span>", unsafe_allow_html=True)
                                     
@@ -1289,10 +1423,10 @@ else:
                         if inst_url:
                             # Silent background launch
                             CREATE_NO_WINDOW = 0x08000000
-                            subprocess.Popen(f'title RENA_INSTANT_JOIN && {sys.executable} rena_bot_pilot.py --url "{inst_url}"', 
+                            subprocess.Popen(f'title Renata_INSTANT_JOIN && {sys.executable} renata_bot_pilot.py --url "{inst_url}"', 
                                              shell=True,
                                              creationflags=CREATE_NO_WINDOW if os.name == 'nt' else 0)
-                            st.toast(f"✅ RENA is joining {inst_url}...")
+                            st.toast(f"✅ Renata is joining {inst_url}...")
                         else:
                             st.warning("Please enter a link.")
 
@@ -1317,12 +1451,12 @@ else:
                         if not m_title:
                             st.warning("Please enter a meeting title.")
                         else:
-                            import rena_bot_pilot
+                            import renata_bot_pilot
                             start_dt = datetime.combine(m_date, m_time)
                             start_iso = start_dt.isoformat() + "Z"
                             
                             with st.spinner("Syncing with Google Calendar..."):
-                                meet_link, status = rena_bot_pilot.create_google_meeting(m_title, start_iso, m_duration)
+                                meet_link, status = renata_bot_pilot.create_google_meeting(m_title, start_iso, m_duration)
                                 
                                 if meet_link:
                                     st.session_state.last_created_meeting = {
@@ -1335,7 +1469,7 @@ else:
                                     import meeting_database as db
                                     if m_type == "💨 Instant (Start Now)":
                                         db.inject_bot_now(meet_link)
-                                        st.success(f"🚀 Meeting Created & RENA is joining: {m_title}")
+                                        st.success(f"🚀 Meeting Created & Renata is joining: {m_title}")
                                     else:
                                         st.success(f"Successfully Created: {m_title}")
                                     
@@ -1373,7 +1507,7 @@ else:
             </div>
             """, unsafe_allow_html=True)
             
-            s_link = f"https://rena.ai/schedule/{user_info['email']}/active"
+            s_link = f"https://renata.ai/schedule/{user_info['email']}/active"
             st.code(s_link, language="text")
             if st.button("📋 Copy My link", use_container_width=True):
                 import pyperclip
@@ -1385,4 +1519,4 @@ else:
 
 # --- 6. FOOTER ---
 st.markdown("---")
-st.caption("RENA AI v2.2 | Full Automation Enbaled | Feature Parity: ACTIVE")
+st.caption("Renata AI v2.2 | Full Automation Enbaled | Feature Parity: ACTIVE")

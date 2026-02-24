@@ -1,5 +1,5 @@
 """
-Auto-Join Scheduler for RENA Bot
+Auto-Join Scheduler for Renata Bot
 Monitors calendar and automatically joins meetings based on user preferences
 This replicates Read.ai's automatic meeting join feature
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import config
-from rena_bot_pilot import get_upcoming_events
+from renata_bot_pilot import get_upcoming_events
 
 # Track which meetings we've already joined
 joined_meetings = set()
@@ -66,7 +66,7 @@ def join_meeting(event):
     # Launch the bot in a new process
     try:
         subprocess.Popen(
-            [sys.executable, "rena_bot_pilot.py", meet_url],
+            [sys.executable, "renata_bot_pilot.py", meet_url],
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == 'nt' else 0
         )
         joined_meetings.add(meeting_id)
@@ -79,7 +79,7 @@ def join_meeting(event):
 def monitor_calendar():
     """Main monitoring loop"""
     print("=" * 60)
-    print("🤖 RENA Auto-Join Scheduler Started")
+    print("🤖 Renata Auto-Join Scheduler Started")
     print("=" * 60)
     
     # Load config

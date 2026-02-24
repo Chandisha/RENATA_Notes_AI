@@ -1,5 +1,5 @@
 """
-CRM & External Connectors for RENA Bot
+CRM & External Connectors for Renata Bot
 Handles data syncing to HubSpot, Salesforce and Scheduling logic
 Replicates Read.ai's 'Connect your CRM' feature
 """
@@ -20,7 +20,7 @@ class CRMConnector:
         }
         data = {
             "properties": {
-                "hs_note_body": f"RENA AI Summary for {title}: {summary}",
+                "hs_note_body": f"Renata AI Summary for {title}: {summary}",
                 "hs_timestamp": "2026-02-08T23:51:00Z"
             }
         }
@@ -35,7 +35,7 @@ class CRMConnector:
             "Content-Type": "application/json"
         }
         data = {
-            "Subject": f"RENA Meeting: {title}",
+            "Subject": f"Renata Meeting: {title}",
             "Description": summary,
             "Status": "Completed",
             "Priority": "Normal"
@@ -50,7 +50,7 @@ class SchedulerService:
         # For our replication, we generate a unique ID and store it
         import uuid
         link_id = str(uuid.uuid4())[:8]
-        return f"https://rena.ai/schedule/{user_email}/{link_id}"
+        return f"https://renata.ai/schedule/{user_email}/{link_id}"
 
 # Functional instances
 crm = CRMConnector()

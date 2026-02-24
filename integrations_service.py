@@ -1,5 +1,5 @@
 """
-Integrations Service for RENA Bot
+Integrations Service for Renata Bot
 Handles functional connections to external platforms like Notion, Drive, and Gmail
 Replicates Read.ai's 'Supercharge Your Workflow' integrations
 """
@@ -100,7 +100,25 @@ class IntegrationManager:
                 summaries.append(snippet)
             return summaries
         except Exception as e:
+            # Handle rate limit (429) gracefully
+            if "429" in str(e):
+                return "⚠️ **Gmail Rate Limit Exceeded:** You have fetched highlights too many times recently. Please wait about 30-60 minutes before trying again. Google has temporarily paused requests for your safety."
             raise e
+
+    # --- ZOOM INTEGRATION ---
+    def fetch_zoom_meetings(self, zoom_token):
+        """Fetch upcoming meetings directly from Zoom account"""
+        if not zoom_token: return "Zoom not connected"
+        url = "https://api.zoom.us/v2/users/me/meetings"
+        headers = {"Authorization": f"Bearer {zoom_token}"}
+        try:
+            resp = requests.get(url, headers=headers)
+            if resp.status_code == 200:
+                meetings = resp.json().get('meetings', [])
+                return [{"title": m['topic'], "start": m['start_time'], "url": m['join_url']} for m in meetings]
+            return f"Zoom API Error: {resp.status_code}"
+        except Exception as e:
+            return f"Zoom connection error: {str(e)}"
 
 from datetime import datetime
 # Singleton for reuse

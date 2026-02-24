@@ -1,5 +1,5 @@
 """
-Email Service for RENA Bot
+Email Service for Renata Bot
 Sends meeting summaries to participants via Gmail API
 Replicates Read.ai's email notification feature
 """
@@ -69,13 +69,13 @@ def create_meeting_summary_email(
     <body>
         <div class="container">
             <div class="header">
-                <h1>🤖 RENA Meeting Notes</h1>
+                <h1>🤖 Renata Meeting Notes</h1>
                 <p style="margin: 10px 0 0 0; opacity: 0.9;">Your AI Meeting Assistant</p>
             </div>
             
             <div class="content">
                 <p>Hi there! 👋</p>
-                <p>RENA has finished processing your meeting. Here's what was discussed:</p>
+                <p>Renata has finished processing your meeting. Here's what was discussed:</p>
                 
                 <div class="meeting-info">
                     <p><strong>📅 Meeting:</strong> {meeting_title}</p>
@@ -92,12 +92,12 @@ def create_meeting_summary_email(
                 <p><strong>📎 Attached:</strong> Complete meeting notes with transcript, action items, and detailed summary</p>
                 
                 <p style="margin-top: 30px;">
-                    <em>This meeting was recorded and transcribed by RENA AI. All participants were notified at the start of the meeting.</em>
+                    <em>This meeting was recorded and transcribed by Renata AI. All participants were notified at the start of the meeting.</em>
                 </p>
             </div>
             
             <div class="footer">
-                <p>Powered by RENA AI | Meeting Intelligence Platform</p>
+                <p>Powered by Renata AI | Meeting Intelligence Platform</p>
                 <p>Questions? Contact your workspace administrator</p>
             </div>
         </div>
