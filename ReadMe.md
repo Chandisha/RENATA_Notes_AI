@@ -248,8 +248,3 @@ github.com/Chandisha
 
 "Building a future where every conversation becomes actionable intelligence."
 
-Version: 1.0.0 · License: MIT
-
-Good  
-Bad  
-Review Changes
