@@ -1,11 +1,5 @@
 <div align="center">
   <h1>🤖 RENATA</h1>
-  <p><strong>Enterprise Meeting Intelligence System</strong></p>
-  <p>Your autonomous AI assistant that joins, records, transcribes, and summarizes every meeting — so you never miss a word.</p>
-  ![Python](https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python)
-  ![Streamlit](https://img.shields.io/badge/Dashboard-Streamlit-red?style=flat-square&logo=streamlit)
-  ![Gemini](https://img.shields.io/badge/AI-Gemini%203%20Flash-purple?style=flat-square&logo=google)
-  ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 </div>
 
 ---
