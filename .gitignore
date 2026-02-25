@@ -1,54 +1,67 @@
-# Python-generated files
+# Python
 __pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
-
-# Virtual environments
-rena/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
 renata/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Environment variables & secrets
+# Secrets & Config
 .env
 token.json
 credentials.json
 rena_config.json
-
-# Meeting Data & Media
-meeting_outputs/
-bot_session/
-*.mp3
-*.mp4
-*.wav
-
-# IDE
 .vscode/
 
-# Logs & temp files
+# Large Files & Media
+*.wav
+*.mp3
+*.m4a
+*.flac
+media/
+DocuVault/
+meeting_outputs/
+recordings/
+diarization/
+test_diar_outputs/
+
+# Logs & Temp
 *.log
 full_run.log
-uv.lock
-
-# Test & debug scripts (not needed in prod)
-test_*.py
-check_*.py
-debug_*.py
-inspect_*.py
+check_db.py
+check_models.py
+debug_voxtral.py
 find_best_model.py
+inspect_processor.py
 quick_meeting_audio.py
+test_local.py
+test_nemo_local.py
+test_voxtral_inputs.py
+test_voxtral_minimal.py
 
-# Backup & legacy files
-removed_features_backup/
-meeting_notes_generator_bak.py
-
-# Other non-essential
-DocuVault/
-python-clients/
-test_diar_outputs/
-media/rag/
-mono_audio.wav
-
-# macOS
+# OS
 .DS_Store
+Thumbs.db
+# RENATA Specific Ignores
+bot_session/
+python-clients/
+removed_features_backup/
+uv.lock
+meeting_notes_generator_bak.py

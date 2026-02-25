@@ -5,7 +5,7 @@ fastapi
 uvicorn[standard]
 jinja2
 python-multipart
-itsdangerous            # for session middleware
+itsdangerous
 starlette
 
 # === Core Audio & Transcription ===
@@ -16,10 +16,9 @@ soundfile
 
 # === AI & LLM Orchestration ===
 google-generativeai
-langchain-ollama
-ollama
+langchain
+langchain-community
 torch
-# nemo_toolkit[asr]     # Uncomment if using local NeMo diarization
 pandas
 
 # === Browser Automation (Pilot Bot) ===
@@ -36,11 +35,10 @@ google-auth-oauthlib
 google-auth-httplib2
 
 # === RAG / AI Search Pipeline ===
-langchain
-langchain-community
 sentence-transformers
 chromadb
 pdfplumber
+pypdf
 
 # === Utilities ===
 loguru
