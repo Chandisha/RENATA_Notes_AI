@@ -10,7 +10,7 @@
 
 Renata is an end-to-end meeting intelligence platform. It autonomously joins your **Google Meet and Zoom** calls, records the audio, and runs it through a multi-stage AI pipeline powered entirely by **Google Gemini**. It delivers structured meeting intelligence — full transcripts, summaries, minutes of meeting (MOM), action items, speaker analytics, and a searchable knowledge base — all accessible from a responsive, premium web dashboard.
 
-Built with **FastAPI** and **Jinja2**, RENATA is designed to be a lightweight, high-performance alternative to enterprise tools like Read.ai.
+Built with **FastAPI** and **Jinja2**, RENATA is designed to be a lightweight, high-performance tool
 
 ---
 
