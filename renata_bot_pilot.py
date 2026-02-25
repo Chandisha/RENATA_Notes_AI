@@ -17,6 +17,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 
+import meeting_database as db
+
 # --- HELPERS ---
 def is_meet_url(text: str) -> bool:
     if not isinstance(text, str): return False
@@ -26,37 +28,14 @@ def is_zoom_url(text: str) -> bool:
     if not isinstance(text, str): return False
     return "zoom.us/j/" in text or "zoom.us/my/" in text or "zoom.us/s/" in text or ".zoom.us/j/" in text
 
-# --- GOOGLE SIGN-IN ---
+# --- GOOGLE SIGN-IN (DEPRECATED FOR WEB FLOW) ---
 def run_gmail_registration():
-    SCOPES = [
-        'openid',
-        'https://www.googleapis.com/auth/userinfo.profile',
-        'https://www.googleapis.com/auth/userinfo.email',
-        'https://www.googleapis.com/auth/calendar',
-        'https://www.googleapis.com/auth/gmail.readonly',
-        'https://www.googleapis.com/auth/gmail.send',
-        'https://www.googleapis.com/auth/drive.metadata.readonly'
-    ]
-    if not os.path.exists('credentials.json'):
-        print("Error: credentials.json missing.")
-        return "error_missing_json"
-    try:
-        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-        
-        success_message = "Authentication successful! You can now close this tab and return to your Renata Dashboard which has been unlocked."
-        creds = flow.run_local_server(
-            port=0, 
-            success_message=success_message
-        )
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
-        return "success"
-    except Exception as e:
-        return str(e)
+    """Sign-in handled via Web OAuth flow in main.py"""
+    return "success"
 
 # --- CALENDAR OPERATIONS ---
-def get_service():
-    """Build and return the Calendar service with refreshed credentials."""
+def get_service(user_email=None):
+    """Build and return the Calendar service with refreshed credentials from DB."""
     SCOPES = [
         'openid',
         'https://www.googleapis.com/auth/userinfo.profile',
@@ -66,16 +45,34 @@ def get_service():
         'https://www.googleapis.com/auth/gmail.send',
         'https://www.googleapis.com/auth/drive.metadata.readonly'
     ]
-    if not os.path.exists('token.json'): return None
+    
+    # For now, default to first user if not specified (for cron/tasks)
+    if not user_email:
+        conn = db.get_db_connection()
+        user = conn.execute("SELECT email FROM users LIMIT 1").fetchone()
+        conn.close()
+        if user: user_email = user['email']
+        else: return None
+
+    serialized_token = db.get_user_token(user_email)
+    if not serialized_token: return None
+
     try:
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        creds_data = json.loads(serialized_token)
+        creds = Credentials.from_authorized_user_info(creds_data, SCOPES)
+
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
-            with open('token.json', 'w') as token:
-                token.write(creds.to_json())
+            # Save refreshed token back to DB
+            conn = db.get_db_connection()
+            conn.execute("UPDATE users SET google_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?", 
+                         (creds.to_json(), user_email))
+            conn.commit()
+            conn.close()
+
         return build('calendar', 'v3', credentials=creds)
     except Exception as e:
-        print(f"Auth/API Error: {e}")
+        print(f"Auth/API Error for {user_email}: {e}")
         return None
 
 def get_upcoming_events(max_results=5):
@@ -646,7 +643,7 @@ def run_auto_pilot(user_email):
                             rec_enabled = profile.get('bot_recording_enabled', 1)
                             
                             # Update status for UI feedback
-                            db.set_meeting_bot_status(m_id, "JOINING")
+                            db.set_meeting_bot_status(m_id, "JOINING", user_email=user_email, title=event.get('summary'), start_time=start_str)
                             
                             # CRITICAL: Join!
                             if is_meet_url(meet_url):
@@ -667,10 +664,22 @@ def run_auto_pilot(user_email):
 
 def main():
     import meeting_database as db
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Renata Meeting Bot")
+    parser.add_argument("command", nargs="?", help="URL, --manual, or --autopilot")
+    parser.add_argument("--user", help="User email to use for settings and auth")
+    args, unknown = parser.parse_known_args()
     
     # 1. Resolve User Context & Preferences
-    user_info = get_user_info() or {}
-    user_email = user_info.get('email', "default@rena.ai")
+    user_email = args.user
+    if not user_email:
+        # Fallback to first user in DB if not specified
+        conn = db.get_db_connection()
+        user = conn.execute("SELECT email FROM users LIMIT 1").fetchone()
+        conn.close()
+        user_email = user['email'] if user else "default@rena.ai"
+
     profile = db.get_user_profile(user_email) or {}
     
     # 2. Extract Managed Settings
@@ -686,19 +695,23 @@ def main():
     else:
         ffmpeg_src = f"audio={m_audio_dev}"
 
-    if len(sys.argv) > 1:
+    command = args.command or (unknown[0] if unknown else None)
+
+    if command:
         bot = RenaMeetingBot(bot_name=m_bot_name, audio_device=ffmpeg_src)
         
-        if sys.argv[1] == "--manual":
-            print(f"Starting Manual Desktop Capture (Device: {m_audio_dev})")
+        if command == "--manual":
+            print(f"Starting Manual Desktop Capture (Device: {m_audio_dev}) for {user_email}")
             bot.record_manual_audio()
-        elif sys.argv[1] == "--autopilot":
+        elif command == "--autopilot":
+            print(f"Starting Auto-Pilot for {user_email}")
             run_auto_pilot(user_email)
         else:
-            url = sys.argv[1]
-            bot.join_google_meet(url, record=m_rec_enabled)
+            url = command
+            print(f"Joining Meeting: {url} for {user_email}")
+            bot.join_google_meet(url, record=m_rec_enabled, db=db, user_email=user_email)
     else:
-        print("Usage: python renata_bot_pilot.py [URL], --manual, or --autopilot")
+        print("Usage: python renata_bot_pilot.py [URL/--manual/--autopilot] --user <email>")
 
 if __name__ == "__main__":
     main()

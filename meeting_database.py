@@ -39,6 +39,7 @@ def init_database():
             participant_count INTEGER,
             participant_emails TEXT,
             workspace_id TEXT,
+            user_email TEXT, -- Added for multi-user isolation
             status TEXT DEFAULT 'completed',
             recording_path TEXT,
             pdf_path TEXT,
@@ -56,6 +57,13 @@ def init_database():
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # Migration: Add user_email if missing
+    try:
+        cursor.execute("SELECT user_email FROM meetings LIMIT 1")
+    except:
+        cursor.execute("ALTER TABLE meetings ADD COLUMN user_email TEXT")
+        conn.commit()
 
     # Workspace Tables (Robust Re-creation to fix datatype mismatch)
     try:
@@ -141,10 +149,26 @@ def init_database():
             bot_recording_enabled INTEGER DEFAULT 1,
             bot_name TEXT DEFAULT 'Renata AI | Personal Meeting Assistant',
             summary_language TEXT DEFAULT 'English/Hindi',
+            google_token TEXT, -- Serialized Google OAuth token
+            zoom_token TEXT,   -- Serialized Zoom OAuth token
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # Migration: Add google_token if missing
+    try:
+        cursor.execute("SELECT google_token FROM users LIMIT 1")
+    except:
+        cursor.execute("ALTER TABLE users ADD COLUMN google_token TEXT")
+        conn.commit()
+
+    # Migration: Add zoom_token if missing
+    try:
+        cursor.execute("SELECT zoom_token FROM users LIMIT 1")
+    except:
+        cursor.execute("ALTER TABLE users ADD COLUMN zoom_token TEXT")
+        conn.commit()
 
     # Gmail Intelligence Table
     cursor.execute('''
@@ -277,7 +301,8 @@ def add_meeting(
     sentiment_analysis=None,
     engagement_metrics=None,
     speaker_analytics=None,
-    coaching_metrics=None
+    coaching_metrics=None,
+    user_email=None
 ):
     """Add a new meeting to the database"""
     init_database()
@@ -299,14 +324,14 @@ def add_meeting(
             INSERT INTO meetings (
                 meeting_id, title, start_time, end_time, duration_minutes,
                 meet_url, organizer_name, organizer_email, participant_count,
-                participant_emails, recording_path, pdf_path, json_path,
+                participant_emails, user_email, recording_path, pdf_path, json_path,
                 transcript_text, summary_text, action_items, chapters,
                 sentiment_analysis, engagement_metrics, speaker_analytics, coaching_metrics
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             meeting_id, title, start_time, end_time, duration_minutes,
             meet_url, organizer_name, organizer_email, participant_count,
-            participant_emails_json, recording_path, pdf_path, json_path,
+            participant_emails_json, user_email, recording_path, pdf_path, json_path,
             transcript_text, summary_text, action_items_json, chapters_json,
             sentiment_json, engagement_json, speaker_json, coaching_json
         ))
@@ -408,14 +433,28 @@ def toggle_meeting_skip(meeting_id, skip_status: bool, title="Unknown Meeting", 
             
     return success
 
-def set_meeting_bot_status(meeting_id, status, joined_at=None, status_note=None):
-    """Update connection status, joined timestamp, and status note."""
+def set_meeting_bot_status(meeting_id, status, user_email=None, joined_at=None, status_note=None, title="Upcoming Meeting", start_time=None):
+    """Update connection status or create skeleton record with status."""
     updates = {'bot_status': status}
-    if joined_at:
-        updates['bot_joined_at'] = joined_at
-    if status_note:
-        updates['bot_status_note'] = status_note
-    return update_meeting(meeting_id, updates)
+    if joined_at: updates['bot_joined_at'] = joined_at
+    if status_note: updates['bot_status_note'] = status_note
+    if user_email: updates['user_email'] = user_email
+    
+    success, _ = update_meeting(meeting_id, updates)
+    if not success:
+        # Create skeleton
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                INSERT INTO meetings (meeting_id, title, start_time, bot_status, user_email)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (meeting_id, title, start_time or datetime.now().isoformat(), status, user_email))
+            conn.commit()
+            success = True
+        except: success = False
+        finally: conn.close()
+    return success
 
 def get_active_joining_meeting():
     """Returns the first meeting that is currently JOINING or CONNECTED"""
@@ -442,22 +481,27 @@ def get_meeting(meeting_id):
         return dict(row)
     return None
 
-def get_all_meetings(limit=50, offset=0, order_by='start_time DESC'):
-    """Get all meetings with pagination"""
+def get_all_meetings(user_email=None, limit=50, offset=0, order_by='start_time DESC'):
+    """Get all meetings with pagination, scoped by user_email if provided."""
     init_database()
     
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
-    query = f"SELECT * FROM meetings ORDER BY {order_by} LIMIT ? OFFSET ?"
-    cursor.execute(query, (limit, offset))
+    if user_email:
+        query = f"SELECT * FROM meetings WHERE user_email = ? ORDER BY {order_by} LIMIT ? OFFSET ?"
+        cursor.execute(query, (user_email, limit, offset))
+    else:
+        query = f"SELECT * FROM meetings ORDER BY {order_by} LIMIT ? OFFSET ?"
+        cursor.execute(query, (limit, offset))
+        
     rows = cursor.fetchall()
     conn.close()
     
     return [dict(row) for row in rows]
 
-def search_meetings(query, limit=20):
+def search_meetings(query, user_email=None, limit=20):
     """
     Search meetings by title or transcript content
     
@@ -476,22 +520,29 @@ def search_meetings(query, limit=20):
     
     search_pattern = f"%{query}%"
     
-    cursor.execute('''
-        SELECT * FROM meetings 
-        WHERE title LIKE ? 
-           OR transcript_text LIKE ? 
-           OR summary_text LIKE ?
-        ORDER BY start_time DESC
-        LIMIT ?
-    ''', (search_pattern, search_pattern, search_pattern, limit))
-    
+    if user_email:
+        cursor.execute('''
+            SELECT * FROM meetings 
+            WHERE user_email = ? 
+              AND (title LIKE ? OR transcript_text LIKE ? OR summary_text LIKE ?)
+            ORDER BY start_time DESC
+            LIMIT ?
+        ''', (user_email, search_pattern, search_pattern, search_pattern, limit))
+    else:
+        cursor.execute('''
+            SELECT * FROM meetings 
+            WHERE title LIKE ? OR transcript_text LIKE ? OR summary_text LIKE ?
+            ORDER BY start_time DESC
+            LIMIT ?
+        ''', (search_pattern, search_pattern, search_pattern, limit))
+        
     rows = cursor.fetchall()
     conn.close()
     
     return [dict(row) for row in rows]
 
-def get_meeting_stats():
-    """Get statistics about meetings"""
+def get_meeting_stats(user_email=None):
+    """Get aggregated meeting stats, scoped by user_email if provided."""
     init_database()
     
     conn = sqlite3.connect(DB_PATH)
@@ -499,24 +550,28 @@ def get_meeting_stats():
     
     stats = {}
     
+    # Base query filter
+    where_clause = "WHERE user_email = ?" if user_email else "WHERE 1=1"
+    params = (user_email,) if user_email else ()
+    
     # Total meetings
-    cursor.execute("SELECT COUNT(*) FROM meetings")
+    cursor.execute(f"SELECT COUNT(*) FROM meetings {where_clause}", params)
     stats['total_meetings'] = cursor.fetchone()[0]
     
     # Total duration
-    cursor.execute("SELECT SUM(duration_minutes) FROM meetings WHERE duration_minutes IS NOT NULL")
+    cursor.execute(f"SELECT SUM(duration_minutes) FROM meetings {where_clause} AND duration_minutes IS NOT NULL", params)
     total_minutes = cursor.fetchone()[0] or 0
     stats['total_duration_hours'] = round(total_minutes / 60, 1)
     
     # Average participants
-    cursor.execute("SELECT AVG(participant_count) FROM meetings WHERE participant_count > 0")
+    cursor.execute(f"SELECT AVG(participant_count) FROM meetings {where_clause} AND participant_count > 0", params)
     stats['avg_participants'] = round(cursor.fetchone()[0] or 0, 1)
     
     # Meetings this week
-    cursor.execute('''
+    cursor.execute(f'''
         SELECT COUNT(*) FROM meetings 
-        WHERE start_time >= date('now', '-7 days')
-    ''')
+        {where_clause} AND start_time >= date('now', '-7 days')
+    ''', params)
     stats['meetings_this_week'] = cursor.fetchone()[0]
 
     # Aggregated Metrics (Engagement & Words)
@@ -797,6 +852,46 @@ def update_assistant_thread_title(thread_id, new_title):
     except:
         conn.close()
         return False
+
+def upsert_user(email, name=None, picture=None):
+    """Create or update a user profile."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT email FROM users WHERE email = ?", (email,))
+        if cursor.fetchone():
+            cursor.execute(
+                "UPDATE users SET name = COALESCE(?, name), picture = COALESCE(?, picture), updated_at = CURRENT_TIMESTAMP WHERE email = ?",
+                (name, picture, email)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO users (email, name, picture) VALUES (?, ?, ?)",
+                (email, name, picture)
+            )
+        conn.commit()
+    except Exception as e:
+        print(f"Error upserting user: {e}")
+    finally:
+        conn.close()
+
+def get_user_profile(email):
+    """Fetch user profile from the database."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_user_token(email):
+    """Retrieve the serialized Google OAuth token for a user."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT google_token FROM users WHERE email = ?", (email,))
+    row = cursor.fetchone()
+    conn.close()
+    return row['google_token'] if row else None
 
 def get_all_folders():
     """Returns list of folders - placeholder for now"""

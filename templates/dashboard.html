@@ -11,7 +11,7 @@
 </div>
 
 {% if error %}
-<div class="alert alert-warning">Calendar sync issue: {{ error }}. <a href="/auth/sync">Re-authenticate</a></div>
+<div class="alert alert-warning">Calendar sync issue: {{ error }}. <a href="/auth/google">Re-authenticate</a></div>
 {% endif %}
 
 <!-- Stats Row -->
@@ -71,7 +71,7 @@
 <div class="empty-state">
     <div class="empty-title">No upcoming meetings</div>
     <div class="empty-sub">Your next meetings will appear here automatically from Google Calendar.</div>
-    <a href="/auth/sync" class="btn btn-primary" style="margin-top:1rem">Sync Calendar</a>
+    <a href="/auth/google" class="btn btn-primary" style="margin-top:1rem">Sync Calendar</a>
 </div>
 {% endif %}
 
