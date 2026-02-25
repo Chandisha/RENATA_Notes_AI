@@ -16,7 +16,7 @@ from dotenv import load_dotenv
 # Internal imports
 import config
 
-# 🔥 DRIVE SPACE & TEMP FIX: Redirect all large AI models and temp files to D: drive
+# DRIVE SPACE & TEMP FIX: Redirect all large AI models and temp files to D: drive
 os.environ["HF_HOME"] = "D:\\RENATA_Models\\huggingface"
 os.environ["NEMO_CACHE_DIR"] = "D:\\RENATA_Models\\nemo"
 os.environ["TRANSFORMERS_CACHE"] = "D:\\RENATA_Models\\huggingface"
@@ -58,9 +58,9 @@ warnings.filterwarnings("ignore")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    logger.info("✅ Gemini 3 Flash Ready")
+    logger.info("Gemini 3 Flash Ready")
 else:
-    logger.error("❌ GEMINI_API_KEY not found in environment")
+    logger.error("GEMINI_API_KEY not found in environment")
 
 OUTPUT_DIR = Path("meeting_outputs")
 OUTPUT_DIR.mkdir(exist_ok=True)
@@ -78,7 +78,7 @@ def setup_fonts():
         if font_path.exists():
             try:
                 pdfmetrics.registerFont(TTFont('HindiFont', str(font_path)))
-                logger.info(f"✅ Registered Hindi font: {font_path}")
+                logger.info(f"Registered Hindi font: {font_path}")
                 return True
             except Exception as e:
                 logger.warning(f"Failed to register font {font_path}: {e}")
@@ -94,7 +94,7 @@ class AdaptiveMeetingNotesGenerator:
 
     def __init__(self, audio_path=None):
         self.bot_name = config.get_setting("bot_name", "Renata AI | Meeting Assistant")
-        logger.info(f"🚀 Initializing {self.bot_name} - Gemini 3 Flash Engine")
+        logger.info(f"Initializing {self.bot_name} - Gemini 3 Flash Engine")
         
         self.audio_path = audio_path
         self.speaker_segments = []
@@ -178,7 +178,7 @@ class AdaptiveMeetingNotesGenerator:
         
         for model_id in models_to_try:
             try:
-                logger.info(f"🤖 Attempting with model: {model_id}")
+                logger.info(f"Attempting with model: {model_id}")
                 model = genai.GenerativeModel(model_id)
                 if prompt_text:
                     response = model.generate_content([content, prompt_text])
@@ -186,13 +186,13 @@ class AdaptiveMeetingNotesGenerator:
                     response = model.generate_content(content)
                 return response
             except Exception as e:
-                logger.warning(f"⚠️ {model_id} failed: {e}")
+                logger.warning(f"{model_id} failed: {e}")
                 continue
         
         raise Exception("All Gemini models failed.")
 
     def _upload_to_gemini(self, path):
-        logger.info(f"📤 Uploading {path} to Gemini...")
+        logger.info(f"Uploading {path} to Gemini...")
         try:
             file = genai.upload_file(path=path)
             while file.state.name == "PROCESSING":
@@ -200,10 +200,10 @@ class AdaptiveMeetingNotesGenerator:
                 file = genai.get_file(file.name)
             if file.state.name == "FAILED":
                 raise Exception("Gemini file upload failed")
-            logger.info("✅ Upload Complete")
+            logger.info("Upload Complete")
             return file
         except Exception as e:
-            logger.error(f"❌ Gemini Upload Error: {e}")
+            logger.error(f"Gemini Upload Error: {e}")
             return None
 
     def perform_diarization(self, audio_path=None):
@@ -218,7 +218,7 @@ class AdaptiveMeetingNotesGenerator:
             return
 
         try:
-            logger.info("👥 Running NVIDIA NeMo Speaker Diarization...")
+            logger.info("Running NVIDIA NeMo Speaker Diarization...")
             device = "cuda" if torch.cuda.is_available() else "cpu"
             
             manifest_path = OUTPUT_DIR / "manifest.jsonl"
@@ -250,9 +250,9 @@ class AdaptiveMeetingNotesGenerator:
                             dur = float(parts[4])
                             speaker = parts[7]
                             self.speaker_segments.append({'start': start, 'end': start + dur, 'speaker': speaker})
-                logger.info(f"📊 Found {len(self.speaker_segments)} speech segments via NeMo.")
+                logger.info(f"Found {len(self.speaker_segments)} speech segments via NeMo.")
         except Exception as e:
-            logger.error(f"❌ NeMo Diarization failed: {e}")
+            logger.error(f"NeMo Diarization failed: {e}")
             logger.debug(traceback.format_exc())
 
     def _align_with_diarization(self, gemini_segments):
@@ -303,15 +303,16 @@ class AdaptiveMeetingNotesGenerator:
                 raise Exception("Failed to upload audio to Gemini")
 
             # 2. Prompt for Transcription
-            prompt = """
+            json_list = '[{"timestamp": "00:00", "text": "..."}]'
+            prompt = f"""
             Transcribe the following audio file. 
             Include timestamps in format [MM:SS] for every speaker turn or significant pause.
             Important: Ensure full transcription word-for-word.
             Return the result ONLY as a JSON list of objects:
-            [{"timestamp": "00:00", "text": "..."}]
+            {json_list}
             """
             
-            logger.info("🗣️ Requesting Gemini Transcription & Diarization...")
+            logger.info("Requesting Gemini Transcription & Diarization...")
             response = self._generate_with_fallback(self.gemini_file, prompt)
             
             raw_text = response.text.strip()
@@ -323,7 +324,7 @@ class AdaptiveMeetingNotesGenerator:
             json_match = re.search(r'\[.*\]', raw_text, re.DOTALL)
             if json_match:
                 gemini_results = json.loads(json_match.group())
-                logger.info(f"✅ Gemini Transcription Complete: {len(gemini_results)} segments.")
+                logger.info(f"Gemini Transcription Complete: {len(gemini_results)} segments.")
                 
                 # Run NeMo Diarization now
                 self.perform_diarization(path)
@@ -334,7 +335,7 @@ class AdaptiveMeetingNotesGenerator:
                 logger.error(f"Failed to parse Gemini transcription JSON. Raw response: {raw_text[:200]}...")
                 self.structured_transcript = [{"speaker": "System", "text": "Transcription failed to format correctly.", "timestamp": "00:00"}]
         except Exception as e:
-            logger.error(f"❌ Gemini Transcription failed: {e}")
+            logger.error(f"Gemini Transcription failed: {e}")
             self.structured_transcript = [{"speaker": "System", "text": f"Error: {str(e)}", "timestamp": "00:00"}]
 
     def generate_summary(self):
@@ -355,7 +356,7 @@ class AdaptiveMeetingNotesGenerator:
             Output ONLY valid JSON.
             """
             
-            logger.info("🧠 Generating Summary with Gemini 3 Flash...")
+            logger.info("Generating Summary with Gemini 3 Flash...")
             
             transcript_text = "\n".join([f"{s['speaker']} [{s['timestamp']}]: {s['text']}" for s in self.structured_transcript])
             full_prompt = f"{prompt}\n\nTranscript:\n{transcript_text}"
@@ -369,12 +370,12 @@ class AdaptiveMeetingNotesGenerator:
             json_match = re.search(r'\{.*\}', raw, re.DOTALL)
             if json_match:
                 self.intel = json.loads(json_match.group())
-                logger.info("🧠 Gemini Analysis Complete")
+                logger.info("Gemini Analysis Complete")
             else:
                 logger.error("Gemini returned invalid summary JSON")
                 self.intel = {"summary_en": "Failed to parse analysis JSON.", "summary_hi": "", "mom": [], "actions": []}
         except Exception as e:
-            logger.error(f"❌ Gemini Summary failed: {e}")
+            logger.error(f"Gemini Summary failed: {e}")
             self.intel = {"summary_en": f"Summary failed: {str(e)}", "summary_hi": "", "mom": [], "actions": []}
 
     def export_to_pdf(self):
@@ -561,7 +562,7 @@ class AdaptiveMeetingNotesGenerator:
                 elements.append(trans_table)
 
             doc.build(elements)
-            logger.info(f"✨ PDF Report: {pdf_path}")
+            logger.info(f"PDF Report: {pdf_path}")
         except Exception as e:
             logger.error(f"PDF creation failed: {e}")
             traceback.print_exc()
@@ -571,7 +572,7 @@ class AdaptiveMeetingNotesGenerator:
         if not self.structured_transcript:
             return
 
-        logger.info("📊 Calculating Meeting Analytics...")
+        logger.info("Calculating Meeting Analytics...")
         
         # 1. Speaker Time & Words
         speaker_data = {}
@@ -633,7 +634,7 @@ class AdaptiveMeetingNotesGenerator:
             "score": self.analytics["engagement_score"],
             "total_words": total_words
         }
-        logger.info(f"✅ Analytics: Score {engagement_score}, {num_speakers} Speakers detected.")
+        logger.info(f"Analytics: Score {engagement_score}, {num_speakers} Speakers detected.")
 
     def export_to_json(self):
         stem = Path(self.audio_path).stem if self.audio_path else "Meeting"
@@ -645,7 +646,7 @@ class AdaptiveMeetingNotesGenerator:
         }
         with open(json_path, 'w') as f:
             json.dump(data, f, indent=4)
-        logger.info(f"💾 JSON Data: {json_path}")
+        logger.info(f"JSON Data: {json_path}")
 
     def process_meeting(self, audio_path: str):
         """Hybrid Pipeline: Gemini 3 Flash (Transcription) + NVIDIA NeMo (Diarization)."""
@@ -661,7 +662,7 @@ class AdaptiveMeetingNotesGenerator:
         self.generate_summary()
         self.export_to_pdf()
         self.export_to_json()
-        logger.info("🏁 Hybrid Gemini + NeMo Pipeline Finished.")
+        logger.info("Hybrid Gemini + NeMo Pipeline Finished.")
 
 # ==========================================================
 # MAIN

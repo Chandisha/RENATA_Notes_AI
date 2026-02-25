@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">Manage your Renata profile and preferences</p>
+    </div>
+</div>
+
+{% if request.query_params.get('msg') %}
+<div class="alert alert-success">{{ request.query_params.get('msg') }}</div>
+{% endif %}
+
+<div class="settings-grid">
+    <div class="settings-card">
+        <div class="card-title">Profile Settings</div>
+        <form action="/settings/save" method="post" class="settings-form">
+            <div class="form-group">
+                <label>Display Name</label>
+                <input class="input-field" type="text" name="name" value="{{ profile.get('name', user.name) }}"
+                    placeholder="Your name" />
+            </div>
+            <div class="form-group">
+                <label>Bot Name (appears in meetings)</label>
+                <input class="input-field" type="text" name="bot_name"
+                    value="{{ profile.get('bot_name', 'Renata AI | Meeting Assistant') }}"
+                    placeholder="Renata AI | Meeting Assistant" />
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input class="input-field" type="email" value="{{ user.email }}" disabled />
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </form>
+    </div>
+
+    <div class="settings-card">
+        <div class="card-title">Authentication</div>
+        <div class="auth-info">
+            <div class="auth-row">
+                <span>Google Account</span>
+                <span class="status-connected">Connected</span>
+            </div>
+            <div class="auth-row">
+                <span>Calendar Access</span>
+                <span class="status-connected">Active</span>
+            </div>
+            <div class="auth-row">
+                <span>Gmail Access</span>
+                <span class="status-connected">Active</span>
+            </div>
+        </div>
+        <a href="/logout" class="btn btn-ghost" style="margin-top:1rem; color:#ef4444; border-color:#ef4444">Sign
+            Out</a>
+    </div>
+</div>
+{% endblock %}

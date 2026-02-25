@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Calendar{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Upcoming Meetings</h1>
+        <p class="page-subtitle">Auto-piloted by Renata from your Google Calendar</p>
+    </div>
+    <a href="/live" class="btn btn-primary">Add Live Meeting</a>
+</div>
+
+{% if error %}
+<div class="alert alert-warning">Calendar sync issue: {{ error }}. <a href="/auth/sync">Re-authenticate</a></div>
+{% endif %}
+
+<!-- Stats Row -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('total_meetings', 0) }}</div>
+        <div class="stat-label">Total Meetings</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('completed_count', 0) }}</div>
+        <div class="stat-label">AI Reports Generated</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('avg_engagement', 0) | round(1) }}</div>
+        <div class="stat-label">Avg. Engagement Score</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ events|length }}</div>
+        <div class="stat-label">Upcoming Events</div>
+    </div>
+</div>
+
+<!-- Calendar Events -->
+<div class="section-title">Scheduled Events</div>
+{% if events %}
+<div class="meetings-grid">
+    {% for event in events %}
+    {% set start = event.start.get('dateTime', event.start.get('date','')) %}
+    {% set end = event.end.get('dateTime', event.end.get('date','')) %}
+    {% set status_info = get_meeting_status(start, end) %}
+    <div class="meeting-card">
+        <div class="meeting-card-top">
+            <span class="status-badge" style="background:{{ status_info[1] }}20; color:{{ status_info[1] }};">
+                {{ status_info[0] }}
+            </span>
+            <span class="meeting-time">{{ fmt_time(start) }}</span>
+        </div>
+        <div class="meeting-title">{{ event.get('summary', 'Untitled Meeting') }}</div>
+        {% if event.get('description') %}
+        <div class="meeting-desc">{{ event.description[:100] }}...</div>
+        {% endif %}
+        {% set link = event.get('hangoutLink') or (event.get('conferenceData', {}).get('entryPoints',
+        [{}])[0].get('uri', '')) %}
+        {% if link %}
+        <div class="meeting-actions">
+            <form action="/live/join" method="post" style="display:inline">
+                <input type="hidden" name="meeting_url" value="{{ link }}" />
+                <button type="submit" class="btn btn-sm btn-primary">Send Renata</button>
+            </form>
+            <a href="{{ link }}" target="_blank" class="btn btn-sm btn-ghost">Join Myself</a>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <div class="empty-title">No upcoming meetings</div>
+    <div class="empty-sub">Your next meetings will appear here automatically from Google Calendar.</div>
+    <a href="/auth/sync" class="btn btn-primary" style="margin-top:1rem">Sync Calendar</a>
+</div>
+{% endif %}
+
+<!-- Recent Reports -->
+{% if recent_meetings %}
+<div class="section-title" style="margin-top:2rem">Recent AI Reports</div>
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Meeting</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in recent_meetings %}
+            <tr>
+                <td>{{ m.get('title','Untitled') }}</td>
+                <td>{{ fmt_time(m.get('start_time','')) }}</td>
+                <td><span class="badge badge-{{ m.get('status','scheduled') }}">{{ m.get('status','—').upper() }}</span>
+                </td>
+                <td><a href="/reports/{{ m.meeting_id }}" class="btn btn-sm btn-ghost">View Report</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -38,7 +38,7 @@ def run_gmail_registration():
         'https://www.googleapis.com/auth/drive.metadata.readonly'
     ]
     if not os.path.exists('credentials.json'):
-        print("❌ Error: credentials.json missing.")
+        print("Error: credentials.json missing.")
         return "error_missing_json"
     try:
         flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
@@ -75,7 +75,7 @@ def get_service():
                 token.write(creds.to_json())
         return build('calendar', 'v3', credentials=creds)
     except Exception as e:
-        print(f"⚠️ Auth/API Error: {e}")
+        print(f"Auth/API Error: {e}")
         return None
 
 def get_upcoming_events(max_results=5):
@@ -97,7 +97,7 @@ def get_upcoming_events(max_results=5):
         
         return events_result.get('items', [])
     except Exception as e:
-        print(f"⚠️ Calendar Error: {e}")
+        print(f"Calendar Error: {e}")
         return []
 
 def create_google_meeting(summary, start_time_iso, duration_minutes=30):
@@ -148,7 +148,7 @@ def get_user_info():
         google_info = service.userinfo().get().execute()
         return google_info
     except Exception as e:
-        print(f"⚠️ User Discovery Error: {e}")
+        print(f"User Discovery Error: {e}")
         return None
 
 # --- BOT CONFIGURATION ---
@@ -167,8 +167,8 @@ class RenaMeetingBot:
 
     def bot_setup_login(self):
         """Hidden feature to allow manual login for the bot's permanent email."""
-        print(f"🔧 Opening Browser for Bot Login...")
-        print(f"👉 Please log in to {PERMANENT_BOT_EMAIL}")
+        print(f"Opening Browser for Bot Login...")
+        print(f"Please log in to {PERMANENT_BOT_EMAIL}")
         with sync_playwright() as p:
             browser = p.chromium.launch_persistent_context(
                 self.session_dir,
@@ -177,10 +177,10 @@ class RenaMeetingBot:
             )
             page = browser.pages[0]
             page.goto("https://accounts.google.com/")
-            print("⏳ Waiting for you to finish login. Close the browser when done.")
+            print("Waiting for you to finish login. Close the browser when done.")
             while len(browser.pages) > 0:
                 time.sleep(1)
-        print("✅ Bot Login Session Saved.")
+        print("Bot Login Session Saved.")
 
     def start_audio_recording(self, filename):
         self.recording_path = self.output_dir / f"{filename}.wav"
@@ -195,7 +195,7 @@ class RenaMeetingBot:
 
     def join_zoom_meeting(self, zoom_url, record=True, db=None, meeting_id=None):
         """Joins a Zoom meeting via the web client."""
-        print(f"🔄 DEBUG: join_zoom_meeting called for {zoom_url}")
+        print(f"DEBUG: join_zoom_meeting called for {zoom_url}")
         
         # Transform URL to force web client: /j/123 -> /wc/join/123
         wc_url = zoom_url.replace("/j/", "/wc/join/").replace("/s/", "/wc/join/")
@@ -215,17 +215,17 @@ class RenaMeetingBot:
                 page = context.pages[0]
                 Stealth().apply_stealth_sync(page)
                 
-                print(f"🚀 Navigating to Zoom Web Client: {wc_url}")
+                print(f"Navigating to Zoom Web Client: {wc_url}")
                 page.goto(wc_url)
                 
                 # Wait for name input
                 try:
                     page.wait_for_selector('input[name="input-name"]', timeout=10000)
                     page.fill('input[name="input-name"]', self.bot_name)
-                    print(f"✍️ Entered bot name: {self.bot_name}")
+                    print(f"Entered bot name: {self.bot_name}")
                     page.click('button:has-text("Join")')
                 except:
-                    print("⚠️ Name input not found, maybe already joined or cached.")
+                    print("Name input not found, maybe already joined or cached.")
 
                 # Handle Zoom specifics (Mute/Uncam)
                 time.sleep(10) # Wait for join to complete
@@ -235,23 +235,23 @@ class RenaMeetingBot:
                     audio_btn = page.locator('button:has-text("Join Audio by Computer")')
                     if audio_btn.count() > 0:
                         audio_btn.click()
-                        print("🎧 Joined audio by computer")
+                        print("Joined audio by computer")
                 except: pass
 
                 # Mute & Stop Video
                 try:
                     page.keyboard.press("Alt+a") # Mute
                     page.keyboard.press("Alt+v") # Stop Video
-                    print("🔇 Muted and Camera OFF (Zoom Shortcuts)")
+                    print("Muted and Camera OFF (Zoom Shortcuts)")
                 except: pass
 
                 if record:
                     # Start recording the local audio output
                     self.start_audio_recording(f"Zoom_Meeting_{int(time.time())}")
-                    print(f"🔴 RECORDING STARTED: {self.recording_path}")
+                    print(f"RECORDING STARTED: {self.recording_path}")
 
                 # Keep session alive
-                print("🏁 Zoom Session LIVE. Monitoring for exit...")
+                print("Zoom Session LIVE. Monitoring for exit...")
                 if db and meeting_id:
                     db.set_meeting_bot_status(meeting_id, "CONNECTED")
                     db.update_meeting_bot_note(meeting_id, "Zoom Recording Active")
@@ -269,14 +269,14 @@ class RenaMeetingBot:
                 if db and meeting_id: db.set_meeting_bot_status(meeting_id, "COMPLETED")
                 
         except Exception as e:
-            print(f"❌ Zoom Error: {e}")
+            print(f"Zoom Error: {e}")
 
     def join_google_meet(self, meet_url, record=True, db=None, meeting_id=None):
-        print(f"🔄 DEBUG: join_google_meet called for {meet_url}")
+        print(f"DEBUG: join_google_meet called for {meet_url}")
         try:
             with sync_playwright() as p:
                 # ... (existing setup) ...
-                print("🔄 DEBUG: Launching Browser Context...")
+                print("DEBUG: Launching Browser Context...")
                 context = p.chromium.launch_persistent_context(
                     self.session_dir,
                     headless=False,
@@ -292,30 +292,30 @@ class RenaMeetingBot:
                 page = context.pages[0]
                 Stealth().apply_stealth_sync(page)
                 
-                print(f"🚀 DEBUG: Navigating to {meet_url}")
+                print(f"DEBUG: Navigating to {meet_url}")
                 page.goto(meet_url)
                 time.sleep(5)
 
                 # ... (login check, mute, join click logic same as before) ...
                 # Check if login is required (redirected to accounts.google.com)
                 if "accounts.google.com" in page.url:
-                    print("⚠️ DEBUG: Bot needs to sign in! Waiting for user...")
+                    print("DEBUG: Bot needs to sign in! Waiting for user...")
                     time.sleep(10) # Give some time, but this needs manual intervention mostly
 
                 # Dismiss any camera/microphone error dialogs
-                print("🔄 DEBUG: Dismissing any permission dialogs...")
+                print("Dismissing any permission dialogs...")
                 try:
                     # Close "Camera not found" or similar error dialogs
                     close_btns = page.locator('button[aria-label="Dismiss"], button:has-text("Got it"), button:has-text("Dismiss")').all()
                     for btn in close_btns:
                         try:
                             btn.click(timeout=1000)
-                            print("✅ Dismissed error dialog")
+                            print("Dismissed error dialog")
                         except: pass
                 except: pass
 
                 # Mute Mic & Camera (Multiple Methods for Reliability)
-                print("🔄 DEBUG: Ensuring mic and camera are OFF...")
+                print("Ensuring mic and camera are OFF...")
                 time.sleep(3)  # Wait for page to fully load
                 try:
                     # Method 1: Keyboard shortcuts (toggle twice to ensure OFF state)
@@ -331,7 +331,7 @@ class RenaMeetingBot:
                         mic_on_btn = page.locator('button[aria-label*="Turn off microphone" i]').first
                         if mic_on_btn.count() > 0:
                             mic_on_btn.click()
-                            print("✅ Turned OFF microphone")
+                            print("Turned OFF microphone")
                     except: pass
                     
                     try:
@@ -339,15 +339,15 @@ class RenaMeetingBot:
                         cam_on_btn = page.locator('button[aria-label*="Turn off camera" i]').first
                         if cam_on_btn.count() > 0:
                             cam_on_btn.click()
-                            print("✅ Turned OFF camera")
+                            print("Turned OFF camera")
                     except: pass
                     
-                    print("✅ DEBUG: Mic and camera are OFF")
+                    print("Mic and camera are OFF")
                 except Exception as e:
-                    print(f"⚠️ DEBUG: Mute operation: {e}")
+                    print(f"Mute operation: {e}")
 
                 # Auto-click "Ask to join" or "Join now" button
-                print("🔄 DEBUG: Looking for Join button...")
+                print("Looking for Join button...")
                 time.sleep(2)
                 try:
                     # Try multiple selectors for reliability
@@ -366,20 +366,20 @@ class RenaMeetingBot:
                             btn = page.locator(selector).first
                             if btn.count() > 0:
                                 btn.click()
-                                print(f"✅ DEBUG: Clicked join button: {selector}")
+                                print(f"Clicked join button: {selector}")
                                 clicked = True
                                 break
                         except: continue
                     
                     if not clicked:
-                        print("⚠️ DEBUG: Join button not found with standard selectors, trying fallback...")
+                        print("Join button not found with standard selectors, trying fallback...")
                         page.click('button:has-text("Join")', timeout=2000)
                         
                 except Exception as e: 
-                    print(f"❌ DEBUG: Join click failed: {e}")
+                    print(f"Join click failed: {e}")
 
                 # Wait for Admission
-                print("⏳ Waiting in lobby (infinite loop until admitted)...")
+                print("Waiting in lobby (infinite loop until admitted)...")
                 try:
                     # Look for clues that we are in the meeting
                     # 1. "You're waiting to be admitted" text
@@ -387,7 +387,7 @@ class RenaMeetingBot:
                     # 3. List of participants
                     while True:
                         if page.locator('button[aria-label*="Leave call" i], button[aria-label*="Leave meeting" i]').count() > 0:
-                            print("🎉 Admitted to Google Meet!")
+                            print("Admitted to Google Meet!")
                             if db and meeting_id: 
                                 db.set_meeting_bot_status(meeting_id, "CONNECTED")
                                 db.update_meeting_bot_note(meeting_id, "Recording active")
@@ -399,15 +399,15 @@ class RenaMeetingBot:
                         
                         time.sleep(5)
                 except Exception as e:
-                    print(f"⚠️ Lobby wait error: {e}")
+                    print(f"Lobby wait error: {e}")
 
                 if record:
                     # Start recording the local audio output
                     self.start_audio_recording(f"Meet_Meeting_{int(time.time())}")
-                    print(f"🔴 RECORDING STARTED: {self.recording_path}")
+                    print(f"RECORDING STARTED: {self.recording_path}")
                 
                 # Smart Meeting Monitor - Auto-leave when meeting ends
-                print("👀 Monitoring meeting status...")
+                print("Monitoring meeting status...")
                 start_monitor = time.time()
                 alone_since = None  # Track when bot became alone
                 
@@ -416,18 +416,18 @@ class RenaMeetingBot:
                     try:
                         # Check 1: Browser closed
                         if page.is_closed(): 
-                            print("❌ Browser closed.")
+                            print("Browser closed.")
                             break
                         
                         # Check 2: "You left" screen
                         if page.locator('text="You left the meeting"').count() > 0 or \
                            page.locator('text="Return to home screen"').count() > 0:
-                            print("✅ Meeting ended (detected exit screen).")
+                            print("Meeting ended (detected exit screen).")
                             break
                         
                         # Check 3: URL changed to home
                         if "meet.google.com" in page.url and len(page.url.split('/')) <= 3:
-                            print("✅ Meeting ended (returned to home).")
+                            print("Meeting ended (returned to home).")
                             break
                         
                         # Check 4: Participant count - auto-leave if alone for 5 mins
@@ -438,11 +438,11 @@ class RenaMeetingBot:
                             if participant_elements <= 1:  # Only bot remains
                                 if alone_since is None:
                                     alone_since = time.time()
-                                    print("⚠️ Bot is alone in meeting. Will auto-leave in 5 mins if no one joins...")
+                                    print("Bot is alone in meeting. Will auto-leave in 5 mins if no one joins...")
                                 else:
                                     alone_duration = (time.time() - alone_since) / 60
                                     if alone_duration >= 5:
-                                        print("🚪 Auto-leaving: Bot alone for 5+ minutes.")
+                                        print("Auto-leaving: Bot alone for 5+ minutes.")
                                         # Click leave button
                                         try:
                                             page.click('button[aria-label="Leave call"]', timeout=3000)
@@ -451,30 +451,30 @@ class RenaMeetingBot:
                             else:
                                 # Reset alone timer if others join
                                 if alone_since is not None:
-                                    print("✅ Others joined, continuing meeting...")
+                                    print("Others joined, continuing meeting...")
                                 alone_since = None
                         except:
                             pass  # Participant count check failed, continue monitoring
                             
                     except Exception as e:
-                        print(f"⚠️ Monitor error: {e}")
+                        print(f"Monitor error: {e}")
                         break
 
             # MEETING ENDED - CLEANUP & PIPELINE
-            print("🛑 Meeting Finished. Stopping recording...")
+            print("Meeting Finished. Stopping recording...")
             self.stop_audio_recording()
             
             # TRIGGER PIPELINE with detailed logging
             if db and meeting_id and self.recording_path and os.path.exists(self.recording_path):
                 print("=" * 60)
-                print("🚀 POST-MEETING PIPELINE ACTIVATED")
+                print("POST-MEETING PIPELINE ACTIVATED")
                 print("=" * 60)
                 db.set_meeting_bot_status(meeting_id, "PROCESSING", status_note="Meeting ended - Generating PDF...")
                 
                 try:
                     # Import and run the generator directly for better logging
-                    print(f"📁 Audio File: {self.recording_path}")
-                    print("🎙️ Stage 1/2: Running Gemini 3 Flash (Transcription + Diarization)...")
+                    print(f"Audio File: {self.recording_path}")
+                    print("Stage 1/2: Running Gemini 3 Flash (Transcription + Diarization)...")
                     
                     import meeting_notes_generator
                     generator = meeting_notes_generator.AdaptiveMeetingNotesGenerator(
@@ -483,15 +483,15 @@ class RenaMeetingBot:
                     
                     generator.transcribe_audio()
                     
-                    print("🧠 Stage 2/2: Generating AI Summary, MOM & Action Plans...")
+                    print("Stage 2/2: Generating AI Summary, MOM & Action Plans...")
                     generator.generate_summary()
                     
-                    print("📄 Exporting PDF & JSON Reports...")
+                    print("Exporting PDF & JSON Reports...")
                     generator.export_to_pdf()
                     generator.export_to_json()
                     
                     # NEW: Save all intelligence back to the database for Analytics/Dashboard
-                    print("🗄️ Saving results to database...")
+                    print("Saving results to database...")
                     db.save_meeting_results(
                         meeting_id=meeting_id,
                         transcript=json.dumps(generator.structured_transcript),
@@ -502,19 +502,19 @@ class RenaMeetingBot:
                     )
                     
                     print("=" * 60)
-                    print("✅ PIPELINE COMPLETE!")
+                    print("PIPELINE COMPLETE!")
                     print("=" * 60)
                     
                     # Update database with results
                     db.set_meeting_bot_status(meeting_id, "COMPLETED", status_note="Report ready")
                     
                 except Exception as e:
-                    print(f"❌ Pipeline Failed: {e}")
+                    print(f"Pipeline Failed: {e}")
                     import traceback
                     traceback.print_exc()
                     db.set_meeting_bot_status(meeting_id, "FAILED", status_note="Processing failed - Check logs")
         except Exception as e:
-            print(f"❌ FATAL ERROR in join_google_meet: {e}")
+            print(f"FATAL ERROR in join_google_meet: {e}")
             import traceback
             traceback.print_exc()
 
@@ -524,7 +524,7 @@ class RenaMeetingBot:
         manual_recording_dir = self.output_dir / f"manual_{timestamp}"
         manual_recording_dir.mkdir(parents=True, exist_ok=True)
         
-        print(f"🎙️ Manual Recording Started. Saving to {manual_recording_dir}")
+        print(f"Manual Recording Started. Saving to {manual_recording_dir}")
         print("Capturing system audio... Press Ctrl+C to stop.")
         
         try:
@@ -546,7 +546,7 @@ def run_auto_pilot(user_email):
     from gmail_scanner_service import gmail_scanner
     from dateutil import parser
     
-    print(f"🤖 Renata Auto-Pilot Active for {user_email}")
+    print(f"Renata Auto-Pilot Active for {user_email}")
     bot = RenaMeetingBot()
     joined_meetings = set() # Track IDs joined in this session
 
@@ -558,17 +558,17 @@ def run_auto_pilot(user_email):
                 continue
 
             # 1. SCAN GMAIL
-            print("📩 Scanning Gmail...")
+            print("Scanning Gmail...")
             gmail_scanner.scan_inbox(user_email)
 
             # 2. CHECK CALENDAR
             if profile.get('bot_auto_join', 1):
-                print("📅 Checking Calendar...")
+                print("Checking Calendar...")
                 upcoming = get_upcoming_events(max_results=5)
                 now = datetime.now(timezone.utc)
 
                 for event in upcoming:
-                    print(f"🔎 DEBUG: Found '{event.get('summary')}' | Status: {event.get('status')} | Conf: {event.get('conferenceData') is not None}")
+                    print(f"DEBUG: Found '{event.get('summary')}' | Status: {event.get('status')} | Conf: {event.get('conferenceData') is not None}")
                     m_id = event.get('id')
                     if m_id in joined_meetings: continue
 
@@ -583,7 +583,7 @@ def run_auto_pilot(user_email):
                     # - Join if meeting starts in next 5 mins (upcoming)
                     # - Join if meeting started within last 60 mins AND hasn't ended yet (ongoing)
                     time_diff = (now - start_dt).total_seconds() / 60
-                    print(f"⏰ Time Diff: {time_diff:.2f} mins | Start: {start_dt}")
+                    print(f"Time Diff: {time_diff:.2f} mins | Start: {start_dt}")
                     
                     # Check if meeting has ended
                     end_info = event.get('end', {})
@@ -594,12 +594,12 @@ def run_auto_pilot(user_email):
                         if end_dt.tzinfo is None:
                             end_dt = end_dt.replace(tzinfo=timezone.utc)
                         meeting_ended = now > end_dt
-                        print(f"📅 End Time: {end_dt} | Meeting Ended: {meeting_ended}")
+                        print(f"End Time: {end_dt} | Meeting Ended: {meeting_ended}")
                     else:
                         # No end time provided - assume default 60 min duration
                         assumed_end = start_dt + timedelta(minutes=60)
                         meeting_ended = now > assumed_end
-                        print(f"⚠️ No end time in event, assuming 60min duration | Assumed End: {assumed_end} | Meeting Ended: {meeting_ended}")
+                        print(f"No end time in event, assuming 60min duration | Assumed End: {assumed_end} | Meeting Ended: {meeting_ended}")
                     
                     # Only join if:
                     # 1. Meeting starts within 5 mins OR started within last 60 mins
@@ -629,19 +629,19 @@ def run_auto_pilot(user_email):
                                 if zoom_match:
                                     meet_url = zoom_match.group(0)
                         
-                        print(f"🔗 Extracted URL: {meet_url}")
+                        print(f"Extracted URL: {meet_url}")
                         
                         if not meet_url:
-                            print(f"⚠️ DEBUG: FULL EVENT DUMP: {event}")
+                            print(f"DEBUG: FULL EVENT DUMP: {event}")
                         
                         if meet_url:
                             # Check if skipped in DB
                             db_meeting = db.get_meeting(m_id)
                             if db_meeting and db_meeting.get('is_skipped'):
-                                print(f"⏭️ Skipping '{event.get('summary')}' (User cancelled).")
+                                print(f"Skipping '{event.get('summary')}' (User cancelled).")
                                 continue
                             
-                            print(f"🚀 Joining Meeting: {event.get('summary')} at {meet_url}")
+                            print(f"Joining Meeting: {event.get('summary')} at {meet_url}")
                             # Record preference from profile
                             rec_enabled = profile.get('bot_recording_enabled', 1)
                             
@@ -654,7 +654,7 @@ def run_auto_pilot(user_email):
                             elif is_zoom_url(meet_url):
                                 bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id)
                             else:
-                                print(f"⚠️ Unknown meeting type for URL: {meet_url}")
+                                print(f"Unknown meeting type for URL: {meet_url}")
                             
                             # Note: Status is now updated INSIDE join_google_meet upon admission
                             joined_meetings.add(m_id)
@@ -662,7 +662,7 @@ def run_auto_pilot(user_email):
             # Wait 30 seconds for aggressive detection
             time.sleep(30) 
         except Exception as e:
-            print(f"⚠️ Auto-Pilot Error: {e}")
+            print(f"Auto-Pilot Error: {e}")
             time.sleep(60)
 
 def main():
@@ -690,7 +690,7 @@ def main():
         bot = RenaMeetingBot(bot_name=m_bot_name, audio_device=ffmpeg_src)
         
         if sys.argv[1] == "--manual":
-            print(f"🚀 Starting Manual Desktop Capture (Device: {m_audio_dev})")
+            print(f"Starting Manual Desktop Capture (Device: {m_audio_dev})")
             bot.record_manual_audio()
         elif sys.argv[1] == "--autopilot":
             run_auto_pilot(user_email)

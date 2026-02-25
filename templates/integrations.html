@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Integrations{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Integrations Hub</h1>
+        <p class="page-subtitle">Connect your tools to power Renata's intelligence</p>
+    </div>
+</div>
+
+{% if request.query_params.get('msg') %}
+<div class="alert alert-success">{{ request.query_params.get('msg') }}</div>
+{% endif %}
+
+<div class="integrations-grid">
+    <!-- Google Calendar -->
+    <div class="integration-card connected">
+        <div class="int-icon-wrap">
+            <div class="int-icon-letter" style="background:#4285f4">G</div>
+        </div>
+        <div class="int-info">
+            <div class="int-name">Google Calendar</div>
+            <div class="int-desc">Auto-detect and join scheduled meetings</div>
+        </div>
+        <div class="int-status status-connected">Connected</div>
+    </div>
+
+    <!-- Gmail -->
+    <div class="integration-card connected">
+        <div class="int-icon-wrap">
+            <div class="int-icon-letter" style="background:#ea4335">M</div>
+        </div>
+        <div class="int-info">
+            <div class="int-name">Gmail</div>
+            <div class="int-desc">Scan emails for meeting links and follow-ups</div>
+        </div>
+        <div class="int-status status-connected">Connected</div>
+    </div>
+
+    <!-- Zoom -->
+    <div class="integration-card">
+        <div class="int-icon-wrap">
+            <div class="int-icon-letter" style="background:#2d8cff">Z</div>
+        </div>
+        <div class="int-info">
+            <div class="int-name">Zoom</div>
+            <div class="int-desc">Join Zoom meetings via calendar link or direct URL</div>
+        </div>
+        <div class="int-status status-info">Auto via Calendar</div>
+    </div>
+
+    <!-- Google Drive -->
+    <div class="integration-card connected">
+        <div class="int-icon-wrap">
+            <div class="int-icon-letter" style="background:#0f9d58">D</div>
+        </div>
+        <div class="int-info">
+            <div class="int-name">Google Drive</div>
+            <div class="int-desc">Search documents for meeting context</div>
+        </div>
+        <div class="int-status status-connected">Connected</div>
+    </div>
+</div>
+{% endblock %}

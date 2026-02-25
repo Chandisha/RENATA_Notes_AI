@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Add Live Meeting{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Add to Live Meeting</h1>
+        <p class="page-subtitle">Dispatch Renata to any meeting right now</p>
+    </div>
+</div>
+
+<div class="live-container">
+    <div class="live-card">
+        <div class="card-title">Paste a Meeting Link</div>
+        <p class="muted">Renata will open the browser, join silently, and start recording.</p>
+
+        <form id="liveForm" class="live-form">
+            <input type="url" id="meetingUrl" class="input-field large"
+                placeholder="https://meet.google.com/xxx-xxxx-xxx  or  https://zoom.us/j/..." required />
+            <button type="submit" class="btn btn-primary btn-large" id="joinBtn">
+                Send Renata Now
+            </button>
+        </form>
+
+        <div id="liveStatus" class="alert hidden" style="margin-top:1rem"></div>
+    </div>
+
+    <div class="live-tip-card">
+        <div class="card-title">How it works</div>
+        <div class="tip-list">
+            <div class="tip-item">Renata opens the meeting URL in a headless Chromium browser</div>
+            <div class="tip-item">Camera off, mic muted — completely silent in the call</div>
+            <div class="tip-item">Audio is recorded via VB-CABLE virtual driver</div>
+            <div class="tip-item">When the meeting ends, Gemini processes the recording</div>
+            <div class="tip-item">A full AI report appears in your Reports tab</div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('liveForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const url = document.getElementById('meetingUrl').value.trim();
+        if (!url) return;
+
+        const btn = document.getElementById('joinBtn');
+        const status = document.getElementById('liveStatus');
+        btn.disabled = true;
+        btn.textContent = 'Dispatching...';
+        status.className = 'alert hidden';
+
+        const formData = new FormData();
+        formData.append('meeting_url', url);
+
+        try {
+            const res = await fetch('/live/join', { method: 'POST', body: formData });
+            const data = await res.json();
+            status.textContent = data.message;
+            status.className = data.success ? 'alert alert-success' : 'alert alert-error';
+        } catch (err) {
+            status.textContent = 'Failed: ' + err.message;
+            status.className = 'alert alert-error';
+        }
+
+        btn.disabled = false;
+        btn.textContent = 'Send Renata Now';
+    });
+</script>
+{% endblock %}

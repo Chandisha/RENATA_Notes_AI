@@ -29,7 +29,7 @@ class VectorStore:
             name=self.collection_name,
             metadata={"description": "RENA meeting embeddings"}
         )
-        print(f"✅ Collection '{self.collection_name}' ready")
+        print(f"Collection '{self.collection_name}' ready")
     
     def add_documents(self, embeddings: List[List[float]], texts: List[str], metadatas: List[Dict], ids: List[str] = None):
         """Add documents to the vector store"""
@@ -46,7 +46,7 @@ class VectorStore:
             metadatas=metadatas,
             ids=ids
         )
-        print(f"✅ Added {len(texts)} chunks. Total: {self.collection.count()}")
+        print(f"Added {len(texts)} chunks. Total: {self.collection.count()}")
     
     def query(self, query_embedding: List[float], n_results: int = None, where: Dict = None) -> Dict:
         """Query for similar documents"""

@@ -29,21 +29,21 @@ def get_meeting_status(start_time, end_time=None):
     if end_time:
         end = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
         if now > end:
-            return ("COMPLETED", "#10b981", "✅")
+            return ("COMPLETED", "#10b981", "")
     
     # Calculate time difference
     time_diff = (start - now).total_seconds() / 60  # in minutes
     
     if time_diff < -5:  # Started more than 5 minutes ago
-        return ("IN PROGRESS", "#10b981", "🟢")
+        return ("IN PROGRESS", "#10b981", "")
     elif time_diff < 0:  # Started recently (within 5 min)
-        return ("JUST STARTED", "#f59e0b", "🟡")
+        return ("JUST STARTED", "#f59e0b", "")
     elif time_diff < 5:  # Starting very soon
-        return ("STARTING SOON", "#f59e0b", "🟡")
+        return ("STARTING SOON", "#f59e0b", "")
     elif time_diff < 60:  # Within next hour
-        return ("UPCOMING", "#3b82f6", "🔵")
+        return ("UPCOMING", "#3b82f6", "")
     else:  # Later
-        return ("SCHEDULED", "#6b7280", "⚪")
+        return ("SCHEDULED", "#6b7280", "")
 
 
 def get_relative_time(start_time):
@@ -92,7 +92,7 @@ def get_participant_count(event):
 st.set_page_config(
     page_title="Renata | Personal AI Assistant",
     layout="wide",
-    page_icon="🤖",
+    page_icon="AI",
     initial_sidebar_state="expanded"
 )
 
@@ -191,7 +191,7 @@ def get_user_info():
             if os.path.exists('token.json'):
                 try:
                     os.remove('token.json')
-                    print("⚠️ Expired token deleted. Please refresh the page to sign in again.")
+                    print("Expired token deleted. Please refresh the page to sign in again.")
                 except: pass
         return None
     return None
@@ -242,7 +242,7 @@ def display_bot_status_sidebar():
                     Renata: CONNECTED
                 </div>
                 <div style="font-size: 0.75rem; margin-top: 4px; color: #333;">{title}{duration_str}</div>
-                {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">💡 {status_note}</div>' if status_note else ''}
+                {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">{status_note}</div>' if status_note else ''}
              </div>
              """, unsafe_allow_html=True)
         
@@ -254,7 +254,7 @@ def display_bot_status_sidebar():
                     Renata: PROCESSING
                 </div>
                 <div style="font-size: 0.75rem; margin-top: 4px; color: #333;">{title}</div>
-                {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">⚙️ {status_note}</div>' if status_note else ''}
+                {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">{status_note}</div>' if status_note else ''}
              </div>
              """, unsafe_allow_html=True)
         
@@ -266,7 +266,7 @@ def display_bot_status_sidebar():
                     Renata: COMPLETED
                 </div>
                 <div style="font-size: 0.75rem; margin-top: 4px; color: #333;">{title}</div>
-                {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">✅ {status_note}</div>' if status_note else ''}
+                {f'<div style="font-size: 0.7rem; margin-top: 4px; color: #64748b; font-style: italic;">{status_note}</div>' if status_note else ''}
              </div>
              """, unsafe_allow_html=True)
         
@@ -360,13 +360,6 @@ if not os.path.exists("token.json"):
         display: flex; align-items: center; gap: 12px;
         margin-bottom: 55px; position: relative; z-index: 1;
     }
-    .hero-brand-icon {
-        width: 44px; height: 44px;
-        background: rgba(255,255,255,0.2);
-        border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.4rem;
-    }
     .hero-brand-name {
         font-size: 1.1rem; font-weight: 700;
         color: #fff; letter-spacing: 0.5px;
@@ -437,7 +430,6 @@ if not os.path.exists("token.json"):
         <div class="hero-panel">
             <div class="dot-grid"></div>
             <div class="hero-brand">
-                <div class="hero-brand-icon">🤖</div>
                 <span class="hero-brand-name">Renata AI</span>
             </div>
             <div class="hero-headline">Your AI<br>Meeting<br>Assistant</div>
@@ -447,21 +439,18 @@ if not os.path.exists("token.json"):
             </p>
             <div class="hero-features">
                 <div class="hero-fi">
-                    <div class="hero-fi-icon">📅</div>
                     <div class="hero-fi-text">
                         <strong>Automatic Calendar Sync</strong>
                         <span>Joins your Google Meet calls automatically</span>
                     </div>
                 </div>
                 <div class="hero-fi">
-                    <div class="hero-fi-icon">🎙️</div>
                     <div class="hero-fi-text">
                         <strong>Live Transcription</strong>
                         <span>Real-time speaker-attributed transcripts</span>
                     </div>
                 </div>
                 <div class="hero-fi">
-                    <div class="hero-fi-icon">✨</div>
                     <div class="hero-fi-text">
                         <strong>AI Intelligence Reports</strong>
                         <span>Summaries, action items &amp; chapter breakdowns</span>
@@ -536,9 +525,8 @@ if not os.path.exists("token.json"):
         </style>
 
         <div style="max-width: 360px; margin: 0 auto; padding-top: 30vh;">
-            <div class="welcome-icon">🤖</div>
             <div class="welcome-label">Renata AI Platform</div>
-            <div class="welcome-heading">Welcome<br>Back <span>👋</span></div>
+            <div class="welcome-heading">Welcome<br>Back</div>
             <p class="welcome-sub">
                 Sign in to access your meetings,<br>
                 transcripts and AI reports.
@@ -555,7 +543,7 @@ if not os.path.exists("token.json"):
                     import renata_bot_pilot
                     result = renata_bot_pilot.run_gmail_registration()
                     if result == "success":
-                        st.success("✅ Welcome! Unlocking your workspace...")
+                        st.success("Welcome! Unlocking your workspace...")
                         st.rerun()
                     else:
                         st.error(f"SignIn Failed: {result}")
@@ -635,30 +623,30 @@ else:
         with st.container():
             st.markdown("""
                 <div style="background: white; border-radius: 24px; padding: 40px; border: 1px solid #e2e8f0; margin-bottom: 40px; box-shadow: 0 20px 50px rgba(0,0,0,0.1);">
-                    <h2 style="margin-top:0;">🚀 Welcome to Renata AI Assistant</h2>
+                    <h2 style="margin-top:0;">Welcome to Renata AI Assistant</h2>
                     <p style="font-size: 1.1rem; color: #475569;">Let's get you set up for productive meetings in 3 simple steps.</p>
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 30px 0;">
                         <div style="padding: 20px; background: #f8fafc; border-radius: 15px;">
-                            <h4 style="margin: 0 0 10px 0;">📅 Sync Calendar</h4>
+                            <h4 style="margin: 0 0 10px 0;">Sync Calendar</h4>
                             <p style="font-size: 0.9rem; margin: 0;">Connect your Google Calendar to auto-join meetings.</p>
                         </div>
                         <div style="padding: 20px; background: #f8fafc; border-radius: 15px;">
-                            <h4 style="margin: 0 0 10px 0;">📂 Transcripts</h4>
+                            <h4 style="margin: 0 0 10px 0;">Transcripts</h4>
                             <p style="font-size: 0.9rem; margin: 0;">Enjoy unlimited free transcripts for all your calls.</p>
                         </div>
                         <div style="padding: 20px; background: #f8fafc; border-radius: 15px;">
-                            <h4 style="margin: 0 0 10px 0;">✨ AI Intelligence</h4>
+                            <h4 style="margin: 0 0 10px 0;">AI Intelligence</h4>
                             <p style="font-size: 0.9rem; margin: 0;">Unlock summaries and actions using your free credits.</p>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
-            if st.button("Got it, let's go! 🏁", use_container_width=True):
+            if st.button("Got it, let's go!", use_container_width=True):
                 st.session_state.show_onboarding = False
                 st.rerun()
 
     # --- 7. MAIN CONTENT AREA (FEATURE-BASED) ---
-    st.markdown(f"# 🤖 Renata {st.session_state.active_page.replace('_', ' ').title()}")
+    st.markdown(f"# Renata {st.session_state.active_page.replace('_', ' ').title()}")
     
     # FEATURE: SEARCH ASSISTANT
     if st.session_state.active_page == "search_assistant":
@@ -672,8 +660,8 @@ else:
         main_chat, history_sidebar = st.columns([3.5, 1.2])
         
         with history_sidebar:
-            st.markdown("### 📜 Saved Chats")
-            if st.button("➕ New Chat", use_container_width=True, type="secondary"):
+            st.markdown("### Saved Chats")
+            if st.button("New Chat", use_container_width=True, type="secondary"):
                 st.session_state.chat_thread_id = None
                 st.session_state.messages = []
                 st.rerun()
@@ -689,7 +677,7 @@ else:
                 is_active = st.session_state.chat_thread_id == t['id']
                 btn_type = "primary" if is_active else "secondary"
                 
-                if st.button(f"💬 {title}", key=f"th_{t['id']}", use_container_width=True, type=btn_type):
+                if st.button(title, key=f"th_{t['id']}", use_container_width=True, type=btn_type):
                     st.session_state.chat_thread_id = t['id']
                     st.session_state.messages = db.get_assistant_thread_messages(t['id'])
                     st.rerun()
@@ -697,15 +685,15 @@ else:
         with main_chat:
             col1, col2, col3 = st.columns([3, 1, 1])
             with col1:
-                st.warning("🔄 **Quick Step:** Please click **Sync Knowledge** to update my memory, then you can search for anything from your meetings.")
+                st.warning("Quick Step: Please click Sync Knowledge to update my memory, then you can search for anything from your meetings.")
             with col2:
-                if st.button("🔄 Sync Knowledge", use_container_width=True, type="primary"):
+                if st.button("Sync Knowledge", use_container_width=True, type="primary"):
                     with st.spinner("Re-indexing meeting data..."):
                         assistant._ensure_indexed(force_reset=True)
                     st.success("Knowledge Base Synced!")
                     st.rerun()
             with col3:
-                if st.button("🗑️ Clear Chat", use_container_width=True):
+                if st.button("Clear Chat", use_container_width=True):
                     st.session_state.messages = []
                     # Don't reset thread_id, just clear local list
                     st.rerun()
@@ -728,7 +716,7 @@ else:
                 available_files = [f for f in os.listdir(output_dir) if f.endswith(('.pdf', '.json'))]
             
             selected_files = st.multiselect(
-                "📑 **Focus on specific documents:**",
+                "Focus on specific documents:",
                 options=available_files,
                 placeholder="Select reports...",
                 key="doc_selector"
@@ -766,7 +754,7 @@ else:
     elif st.session_state.active_page == "analytics":
         import meeting_database as db
         import pandas as pd
-        st.subheader("📊 Meeting Engagement Analytics")
+        st.subheader("Meeting Engagement Analytics")
         
         stats = db.get_meeting_stats()
         c1, c2, c3, c4 = st.columns(4)
@@ -782,7 +770,7 @@ else:
         c7.metric("Storage Used", stats.get('storage_used', '0 MB'))
         
         st.divider()
-        st.markdown("### 🗣️ Speaker Talk Time (Last 10 Meetings)")
+        st.markdown("### Speaker Talk Time (Last 10 Meetings)")
         
         # Get real data from database stats
         speaker_dist = stats.get('speaker_distribution', {})
@@ -811,7 +799,7 @@ else:
             search_query = st.text_input("📁 Filter by report title or content...", placeholder="Search...")
         with col2:
             st.write("") # Spacer
-            with st.popover("➕ Upload Recording", use_container_width=True):
+            with st.popover("Upload Recording", use_container_width=True):
                 st.write("Process meetings recorded outside of Renata.")
                 u_file = st.file_uploader("Choose an audio file", type=["mp3", "mp4", "wav", "m4a"])
                 if u_file:
@@ -821,16 +809,16 @@ else:
                     with open(temp_path, "wb") as f:
                         f.write(u_file.getbuffer())
                     
-                    if st.button("🚀 Start AI Analysis", use_container_width=True):
+                    if st.button("Start AI Analysis", use_container_width=True):
                         with st.status("Renata is analyzing your recording...", expanded=True) as status:
-                            st.write("👂 Transcribing audio...")
+                            st.write("Transcribing audio...")
                             from meeting_notes_generator import AdaptiveMeetingNotesGenerator
                             generator = AdaptiveMeetingNotesGenerator()
                             
-                            st.write("🧠 Extracting intelligence...")
+                            st.write("Extracting intelligence...")
                             generator.process(str(temp_path))
                             
-                            status.update(label="✅ Analysis Complete!", state="complete", expanded=False)
+                            status.update(label="Analysis Complete!", state="complete", expanded=False)
                         st.success(f"Report for '{u_file.name}' is now available in your dashboard.")
                         time.sleep(1)
                         st.rerun()
@@ -838,11 +826,11 @@ else:
         # FILTERS (Screenshot 4)
         f_col1, f_col2, f_col3 = st.columns(3)
         with f_col1: 
-            time_filter = st.selectbox("📅 Date Filter", ["Anytime", "Today", "Yesterday", "Last 7 Days", "Last 30 Days"])
+            time_filter = st.selectbox("Date Filter", ["Anytime", "Today", "Yesterday", "Last 7 Days", "Last 30 Days"])
         with f_col2: 
-            sort_order = st.selectbox("🔃 Sort By", ["Newest First", "Oldest First", "Title (A-Z)", "Title (Z-A)", "Size (Large to Small)"])
+            sort_order = st.selectbox("Sort By", ["Newest First", "Oldest First", "Title (A-Z)", "Title (Z-A)", "Size (Large to Small)"])
         with f_col3: 
-            view_type = st.radio("👁️ View Type", ["Cards", "FileList"], horizontal=True)
+            view_type = st.radio("View Type", ["Cards", "FileList"], horizontal=True)
 
         st.divider()
         
@@ -892,13 +880,12 @@ else:
             filtered_pdfs.sort(key=lambda x: x['size'], reverse=True)
 
         if not filtered_pdfs:
-            st.info("📭 No reports found matching your criteria. Start by recording a meeting!")
+            st.info("No reports found matching your criteria. Start by recording a meeting!")
         else:
             if view_type == "FileList":
                 # Table style
                 for p in filtered_pdfs:
                     col_icon, col_name, col_date, col_size, col_act = st.columns([0.2, 3, 1.5, 1, 1])
-                    col_icon.write("📄")
                     col_name.write(p['name'])
                     col_date.write(p['date'].strftime("%Y-%m-%d %H:%M"))
                     col_size.write(f"{p['size']/1024:.1f} KB")
@@ -910,7 +897,6 @@ else:
                 for p in filtered_pdfs:
                     with st.container(border=True):
                         c1, c2, c3 = st.columns([0.1, 3, 1])
-                        c1.markdown("### 📄")
                         with c2:
                             st.markdown(f"**{p['name']}**")
                             st.caption(f"Created: {p['date'].strftime('%b %d, %Y %I:%M %p')} • Size: {p['size']/1024:.1f} KB")
@@ -919,11 +905,11 @@ else:
                                 st.download_button("Download PDF", f, file_name=p['name'], use_container_width=True, key=f"dl_card_{p['name']}")
                                 
         # Also show database records if they exist and are useful
-        st.markdown("### 🗄️ Database Archive")
+        st.markdown("### Database Archive")
         meetings = db.search_meetings(search_query) if search_query else db.get_all_meetings()
         if meetings:
             for meet in meetings:
-                with st.expander(f"📌 {meet['title']} ({meet['start_time']})"):
+                with st.expander(f"{meet['title']} ({meet['start_time']})"):
                     st.caption(f"{meet['start_time']} • {meet['duration_minutes'] or '??'}m • {meet['organizer_name'] or 'Unknown'}")
                     
                     st.markdown("#### 📝 Summary")
@@ -939,9 +925,9 @@ else:
                                 else: st.markdown(f"- {item}")
                         except: st.write(meet['action_items'])
 
-                    with st.status("🧠 View Deep Intelligence", expanded=False):
+                    with st.status("View Deep Intelligence", expanded=False):
                         tab_sum, tab_chap, tab_intel = st.tabs([
-                            "📝 Summary", "🔖 Chapters", "📊 Intelligence"
+                            "Summary", "Chapters", "Intelligence"
                         ])
                         
                         with tab_sum:
@@ -971,7 +957,7 @@ else:
 
                             i_col1, i_col2 = st.columns(2)
                             with i_col1:
-                                st.write("🗣️ **Speaker Distribution**")
+                                st.write("Speaker Distribution")
                                 if spk_data:
                                     chart_data = {
                                         'Speaker': list(spk_data.keys()),
@@ -982,25 +968,25 @@ else:
                                     st.info("No speaker data.")
                             
                             with i_col2:
-                                st.write("📊 **Engagement**")
+                                st.write("Engagement")
                                 score = eng_data.get('score', 0)
                                 st.metric("Engagement Score", f"{score}/100")
                                 st.progress(score / 100)
                                 
                                 words = eng_data.get('total_words', 0)
-                                st.write(f"✍️ **Total Words:** {words}")
+                                st.write(f"Total Words: {words}")
                                 
                                 if spk_data:
                                     dominant = max(spk_data.items(), key=lambda x: x[1].get('percentage', 0))[0]
-                                    st.write(f"🏆 **Primary Speaker:** {dominant}")
+                                    st.write(f"Primary Speaker: {dominant}")
                                     
                                     st.write("---")
                                     st.write("**Speaker Metrics (WPM)**")
                                     for spk, v in spk_data.items():
-                                        st.caption(f"🎙️ {spk}: **{v.get('wpm', 0)} WPM**")
+                                        st.caption(f"{spk}: **{v.get('wpm', 0)} WPM**")
 
                     # Full Transcript
-                    with st.expander("📜 Full Transcript", expanded=False):
+                    with st.expander("Full Transcript", expanded=False):
                         st.markdown(f"```\n{meet['transcript_text'] or 'No transcript available'}\n```")
                     st.divider()
 
@@ -1024,7 +1010,7 @@ else:
                     if isinstance(summaries, list):
                         if not summaries:
                             st.info("No recent emails found.")
-                        for s in summaries: st.info(f"📩 {s}")
+                        for s in summaries: st.info(f"{s}")
                     else: st.warning(summaries)
                 except Exception as e:
                     if "insufficientPermissions" in str(e):
@@ -1054,14 +1040,14 @@ else:
                 with st.spinner("Syncing with Zoom..."):
                     results = integrations.fetch_zoom_meetings(profile["zoom_token"])
                     if isinstance(results, list):
-                        for m in results: st.success(f"📅 Found: {m['title']} at {m['start']}")
+                        for m in results: st.success(f"Found: {m['title']} at {m['start']}")
                     else: st.warning(results)
 
     # FEATURE: ADD LIVE MEETING
     elif st.session_state.active_page == "add_live":
         st.subheader("Add RENA to a Live Meeting")
         meet_url = st.text_input("Paste Google Meet or Zoom URL", placeholder="https://meet.google.com/abc-defg-hij")
-        if st.button("➕ Inject Bot Now", use_container_width=True, type="primary"):
+        if st.button("Inject Bot Now", use_container_width=True, type="primary"):
             if "meet.google.com" in meet_url or "zoom.us" in meet_url:
                 with st.spinner("Inviting RENA to the call..."):
                     import meeting_database as db
@@ -1081,7 +1067,7 @@ else:
         with tab_join:
             st.markdown("""
                 <div style='background: #f0fdf4; padding: 15px; border-radius: 10px; border-left: 4px solid #22c55e; margin-bottom: 20px;'>
-                    <h5 style='margin-bottom: 8px;'>✨ Join an existing team</h5>
+                    <h5 style='margin-bottom: 8px;'>Join an existing team</h5>
                     <p style='font-size: 0.9rem; color: #166534;'>Enter the unique Workspace ID provided by your team lead to join their digital HQ.</p>
                 </div>
             """, unsafe_allow_html=True)
@@ -1105,7 +1091,7 @@ else:
         with tab_create:
             st.markdown("""
                 <div style='background: #f0f9ff; padding: 15px; border-radius: 10px; border-left: 4px solid #0ea5e9; margin-bottom: 20px;'>
-                    <h5 style='margin-bottom: 8px;'>🏗️ Build your own digital HQ</h5>
+                    <h5 style='margin-bottom: 8px;'>Build your own digital HQ</h5>
                     <p style='font-size: 0.9rem; color: #0369a1;'>Create a workspace to share meeting intelligence with your entire team. You'll get a unique ID to share with others.</p>
                 </div>
             """, unsafe_allow_html=True)
@@ -1132,7 +1118,7 @@ else:
         with tab_mine:
             st.markdown("""
                 <div style='background: #faf5ff; padding: 15px; border-radius: 10px; border-left: 4px solid #7c3aed; margin-bottom: 20px;'>
-                    <h5 style='margin-bottom: 6px;'>🗂️ Your Created & Joined Spaces</h5>
+                    <h5 style='margin-bottom: 6px;'>Your Created & Joined Spaces</h5>
                     <p style='font-size: 0.9rem; color: #5b21b6; margin: 0;'>Click any workspace to see its members and share its ID.</p>
                 </div>
             """, unsafe_allow_html=True)
@@ -1152,7 +1138,7 @@ else:
                     ws_name = ws.get('name', 'Unnamed Workspace')
                     ws_desc = ws.get('description', '')
                     ws_role = ws.get('role', 'member')
-                    role_badge = "👑 Owner" if ws_role == 'owner' else "👤 Member"
+                    role_badge = "Owner" if ws_role == 'owner' else "Member"
                     is_expanded = (st.session_state.expanded_ws_id == ws_id)
 
                     # Workspace card header (clickable button)
@@ -1181,14 +1167,13 @@ else:
                         # Members list
                         members = db.get_workspace_members(ws_id)
                         if members:
-                            st.markdown(f"<p style='font-size:0.85rem;font-weight:700;color:#334155;margin-bottom:8px;'>👥 Members ({len(members)})</p>", unsafe_allow_html=True)
+                            st.markdown(f"<p style='font-size:0.85rem;font-weight:700;color:#334155;margin-bottom:8px;'>Members ({len(members)})</p>", unsafe_allow_html=True)
                             for m in members:
-                                m_role_icon = "👑" if m.get('role') == 'owner' else "👤"
                                 m_email = m.get('user_email', m.get('email', ''))
                                 m_joined = m.get('joined_at', '')
                                 st.markdown(f"""
                                 <div style='display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:white;border-radius:8px;border:1px solid #f1f5f9;margin-bottom:5px;'>
-                                    <span style='font-size:0.88rem;'>{m_role_icon} {m_email}</span>
+                                    <span style='font-size:0.88rem;'>{m_email}</span>
                                     <span style='font-size:0.72rem;color:#94a3b8;'>Joined {m_joined}</span>
                                 </div>""", unsafe_allow_html=True)
                         else:
@@ -1207,7 +1192,7 @@ else:
         if not ws_id:
             st.warning("Please select or create a workspace first.")
         else:
-            st.subheader(f"💬 {ws_name} Collaboration")
+            st.subheader(f"{ws_name} Collaboration")
             
             # Chat History
             chat_container = st.container(height=500)
@@ -1250,7 +1235,7 @@ else:
 
     elif st.session_state.active_page == "settings":
         import meeting_database as db
-        st.markdown("<h2 style='color: #0f172a;'>⚙️ User Settings</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color: #0f172a;'>User Settings</h2>", unsafe_allow_html=True)
         st.write("Manage your personal profile and account preferences below.")
         
         # User details from database
@@ -1286,12 +1271,12 @@ else:
                     st.text_input("Email Address (Immutable)", value=user_info['email'], disabled=True)
                 
                 st.divider()
-                st.markdown("**📍 Contact Locations**")
+                st.markdown("**Contact Locations**")
                 h_addr = st.text_input("Home Address", value=profile.get('home_address') or "", placeholder="e.g., 123 Maple St, NY")
                 o_addr = st.text_input("Office Address", value=profile.get('office_address') or "", placeholder="e.g., One Infinity Loop, Cupertino")
                 
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.form_submit_button("✅ Save Changes", use_container_width=True):
+                if st.form_submit_button("Save Changes", use_container_width=True):
                     final_picture = profile.get('picture')
                     
                     if uploaded_avatar:
@@ -1322,17 +1307,17 @@ else:
 
     elif st.session_state.active_page == "add_live":
         st.subheader("Join a Live Meeting")
-        st.info("💡 **How it works:** Enter any Google Meet URL, and RENA will join as a guest to record and transcribe the session for you.")
+        st.info("How it works: Enter any Google Meet URL, and RENA will join as a guest to record and transcribe the session for you.")
         live_url = st.text_input("Enter the Meeting URL (Google Meet, Zoom, etc.)", placeholder="https://meet.google.com/abc-defg-hij")
         
-        if st.button("🔴 Join & Record Now", use_container_width=True):
+        if st.button("Join & Record Now", use_container_width=True):
             if not live_url:
                 st.warning("Please provide a meeting URL.")
             else:
                 import meeting_database as db
                 success, msg = db.inject_bot_now(live_url)
                 if success:
-                    st.success("🚀 RENA is on the way! The bot will join and start recording in a few seconds.")
+                    st.success("RENA is on the way! The bot will join and start recording in a few seconds.")
                 else:
                     st.error(f"Failed to join meeting: {msg}")
 
@@ -1346,7 +1331,6 @@ else:
             st.markdown("""
                 <div style="background: white; border-radius: 20px; padding: 25px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; margin-bottom: 30px;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
-                        <span style="font-size: 1.5rem;">🤖</span>
                         <h3 style="margin: 0; color: #0f172a;">Renata Intelligence Hub</h3>
                     </div>
                     <p style="color: #64748b; font-size: 0.95rem;">I've detected the following action points from your Gmail inbox:</p>
@@ -1403,9 +1387,9 @@ else:
                                 else:
                                     # Show special status if bot is active
                                     if bot_stat == "JOINING":
-                                        st.markdown("<div class='bot-status-active' style='font-size: 0.7rem;'>🛡️ Renata: JOINING...</div>", unsafe_allow_html=True)
+                                        st.markdown("<div class='bot-status-active' style='font-size: 0.7rem;'>Renata: JOINING...</div>", unsafe_allow_html=True)
                                     elif bot_stat == "CONNECTED":
-                                        st.markdown("<div style='color: #10b981; font-size: 0.7rem; font-weight: 800;'>🛡️ Renata: CONNECTED</div>", unsafe_allow_html=True)
+                                        st.markdown("<div style='color: #10b981; font-size: 0.7rem; font-weight: 800;'>Renata: CONNECTED</div>", unsafe_allow_html=True)
                                     else:
                                         st.markdown("<span style='color: #10b981; font-size: 0.7rem; font-weight: 800;'>Status: AUTO-JOIN: ON</span>", unsafe_allow_html=True)
                                     
@@ -1417,16 +1401,16 @@ else:
                 st.subheader("Quick Access")
                 
                 # --- INSTANT JOIN ---
-                with st.expander("⚡ Instant Join", expanded=True):
+                with st.expander("Instant Join", expanded=True):
                     inst_url = st.text_input("Meeting Link", placeholder="meet.google.com/...", label_visibility="collapsed")
-                    if st.button("🚀 Join Now", use_container_width=True, type="primary"):
+                    if st.button("Join Now", use_container_width=True, type="primary"):
                         if inst_url:
                             # Silent background launch
                             CREATE_NO_WINDOW = 0x08000000
                             subprocess.Popen(f'title Renata_INSTANT_JOIN && {sys.executable} renata_bot_pilot.py --url "{inst_url}"', 
                                              shell=True,
                                              creationflags=CREATE_NO_WINDOW if os.name == 'nt' else 0)
-                            st.toast(f"✅ Renata is joining {inst_url}...")
+                            st.toast(f"Renata is joining {inst_url}...")
                         else:
                             st.warning("Please enter a link.")
 
@@ -1447,7 +1431,7 @@ else:
                     
                     m_duration = 120 # Default to 2 hours for flexibility, as requested
                     
-                    if st.button("🚀 Confirm & Create", use_container_width=True):
+                    if st.button("Confirm & Create", use_container_width=True):
                         if not m_title:
                             st.warning("Please enter a meeting title.")
                         else:
@@ -1469,7 +1453,7 @@ else:
                                     import meeting_database as db
                                     if m_type == "💨 Instant (Start Now)":
                                         db.inject_bot_now(meet_link)
-                                        st.success(f"🚀 Meeting Created & Renata is joining: {m_title}")
+                                        st.success(f"Meeting Created & Renata is joining: {m_title}")
                                     else:
                                         st.success(f"Successfully Created: {m_title}")
                                     
@@ -1489,7 +1473,7 @@ else:
                         
                         col_a, col_b = st.columns(2)
                         with col_a:
-                            if st.button("🔴 Join & Record Now", key="join_now_btn", use_container_width=True):
+                            if st.button("Join & Record Now", key="join_now_btn", use_container_width=True):
                                 import meeting_database as db
                                 db.inject_bot_now(m['link'])
                                 st.toast("Bot is joining the meeting...")

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ meeting.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <a href="/reports" class="back-link">Back to Reports</a>
+        <h1 class="page-title">{{ meeting.get('title', 'Meeting Report') }}</h1>
+        <p class="page-subtitle">{{ fmt_time(meeting.get('start_time','')) }}</p>
+    </div>
+    <div class="header-actions">
+        {% if meeting.get('pdf_path') %}
+        <a href="/download/pdf/{{ meeting.pdf_path }}" class="btn btn-primary">Download PDF</a>
+        {% endif %}
+        {% if meeting.get('json_path') %}
+        <a href="/download/json/{{ meeting.json_path }}" class="btn btn-ghost">JSON Data</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="report-grid">
+    <!-- Summary -->
+    <div class="report-card full-width">
+        <div class="card-title">Executive Summary</div>
+        <div class="summary-text">{{ meeting.get('summary_en', 'No summary available.') }}</div>
+        {% if meeting.get('summary_hi') %}
+        <div class="hindi-summary">{{ meeting.summary_hi }}</div>
+        {% endif %}
+    </div>
+
+    <!-- MOM & Actions -->
+    <div class="report-card">
+        <div class="card-title">Minutes of Meeting</div>
+        {% if meeting.get('minutes_of_meeting') %}
+        <ul class="bullet-list">
+            {% for item in meeting.minutes_of_meeting.split('\n') if item.strip() %}
+            <li>{{ item.strip().lstrip('•-*') }}</li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">No MoM recorded.</p>
+        {% endif %}
+    </div>
+
+    <div class="report-card">
+        <div class="card-title">Action Items</div>
+        {% if meeting.get('action_items') %}
+        {% set actions = meeting.action_items if meeting.action_items is iterable and meeting.action_items is not string
+        else [] %}
+        {% if actions %}
+        <ul class="action-list">
+            {% for action in actions %}
+            <li class="action-item">
+                <span class="action-task">{{ action.get('task', action) }}</span>
+                {% if action.get('owner') %}<span class="action-owner">Owner: {{ action.owner }}</span>{% endif %}
+                {% if action.get('deadline') %}<span class="action-deadline">Due: {{ action.deadline }}</span>{% endif
+                %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="muted">{{ meeting.action_items }}</p>
+        {% endif %}
+        {% else %}
+        <p class="muted">No action items recorded.</p>
+        {% endif %}
+    </div>
+
+    <!-- Analytics -->
+    <div class="report-card">
+        <div class="card-title">Meeting Analytics</div>
+        <div class="analytics-row">
+            <div class="analytic-item">
+                <div class="analytic-val">{{ meeting.get('duration_minutes', '—') }}</div>
+                <div class="analytic-lbl">Duration (min)</div>
+            </div>
+            <div class="analytic-item">
+                <div class="analytic-val">{{ meeting.get('engagement_score', '—') }}</div>
+                <div class="analytic-lbl">Engagement Score</div>
+            </div>
+            <div class="analytic-item">
+                <div class="analytic-val">{{ meeting.get('total_words', '—') }}</div>
+                <div class="analytic-lbl">Total Words</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Full Transcript -->
+    {% if meeting.get('transcript') %}
+    <div class="report-card full-width">
+        <div class="card-title">Full Transcript</div>
+        <div class="transcript-box">
+            {% for line in meeting.transcript.split('\n') if line.strip() %}
+            <div class="transcript-line">{{ line }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -34,14 +34,14 @@ class RAGChatbot:
             config=self.config
         )
         self.is_initialized = True
-        print("✅ RAG System initialized")
+        print("RAG System initialized")
         
     def index_documents(self, directory_path: str, files: List[str] = None):
         """Index all or specific files in a directory"""
         if not self.is_initialized:
             self.initialize()
             
-        print(f"📚 Indexing files from: {directory_path} (Files: {files if files else 'All'})")
+        print(f"Indexing files from: {directory_path} (Files: {files if files else 'All'})")
         
         chunks = []
         if files:
@@ -54,7 +54,7 @@ class RAGChatbot:
             chunks = self.document_processor.load_directory(directory_path)
         
         if not chunks:
-            print("⚠️ No valid content found to index")
+            print("No valid content found to index")
             return
             
         texts = [c.page_content for c in chunks]
@@ -67,7 +67,7 @@ class RAGChatbot:
             texts=texts,
             metadatas=metadatas
         )
-        print(f"✅ Indexed {len(chunks)} chunks")
+        print(f"Indexed {len(chunks)} chunks")
         
     def query(self, question: str, thread_id: str = "default", filter_files: List[str] = None) -> Tuple[str, List[Dict]]:
         """Process a user query with optional file filtering"""

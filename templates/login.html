@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RENATA · Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body class="login-body">
+    <div class="login-bg">
+        <div class="login-glow login-glow-1"></div>
+        <div class="login-glow login-glow-2"></div>
+    </div>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-logo-text">R</div>
+            <h1 class="login-title">RENATA</h1>
+            <p class="login-subtitle">Enterprise Meeting Intelligence</p>
+            <p class="login-desc">Your autonomous AI that joins, transcribes, and summarizes every meeting — powered by
+                Google Gemini.</p>
+
+            {% if error %}
+            <div class="alert alert-error">{{ error }}</div>
+            {% endif %}
+
+            <div class="login-actions">
+                <a href="/auth/sync" class="btn btn-primary login-btn">
+                    Continue with Google
+                </a>
+            </div>
+
+            <p class="login-note">
+                First time? Make sure <code>credentials.json</code> is in the project root.<br />
+                <a href="https://console.cloud.google.com" target="_blank">Get credentials from Google Cloud</a>
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

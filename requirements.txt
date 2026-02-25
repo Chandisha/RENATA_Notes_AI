@@ -1,46 +1,50 @@
-# Renata - Meeting Intelligence System Dependencies (Local AI)
+# Renata - Meeting Intelligence System Dependencies
 
-# Core Audio & Transcription
+# === Web Framework (FastAPI Production Stack) ===
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+itsdangerous            # for session middleware
+starlette
+
+# === Core Audio & Transcription ===
 faster-whisper
 librosa
 numpy
 soundfile
 
-# AI & LLM Orchestration
+# === AI & LLM Orchestration ===
+google-generativeai
 langchain-ollama
 ollama
 torch
-nemo_toolkit[asr]
+# nemo_toolkit[asr]     # Uncomment if using local NeMo diarization
 pandas
 
-# Remote Offloading
-fastapi
-uvicorn
-requests
-python-multipart
-
-# Browser Automation (Pilot Bot)
+# === Browser Automation (Pilot Bot) ===
 playwright
 playwright-stealth
+pyperclip
 
-# PDF Generation & Reporting
+# === PDF Generation & Reporting ===
 reportlab
 
-# Google API Integrations (Calendar/Gmail Only)
+# === Google API Integrations (Calendar / Gmail / Drive) ===
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
+
+# === RAG / AI Search Pipeline ===
 langchain
 langchain-community
 sentence-transformers
 chromadb
 pdfplumber
 
-# Utilities
+# === Utilities ===
 loguru
 scikit-learn
 python-dotenv
-pyperclip
-streamlit-autorefresh
-streamlit
-google-generativeai
+omegaconf
+requests

@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Analytics{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Analytics</h1>
+        <p class="page-subtitle">Intelligence metrics across all your meetings</p>
+    </div>
+</div>
+
+<!-- Overview Stats -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('total_meetings', 0) }}</div>
+        <div class="stat-label">Total Meetings</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('total_duration_hours', 0) | round(1) }}h</div>
+        <div class="stat-label">Total Meeting Time</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('avg_engagement', 0) | round(1) }}</div>
+        <div class="stat-label">Avg. Engagement Score</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('total_words', 0) | int }}</div>
+        <div class="stat-label">Total Words Transcribed</div>
+    </div>
+</div>
+
+<!-- Charts Row -->
+<div class="charts-grid">
+    <div class="chart-card">
+        <div class="card-title">Speaker Talk-Time Distribution</div>
+        {% if speaker_json != '{}' %}
+        <canvas id="speakerChart"></canvas>
+        {% else %}
+        <div class="empty-state-small">No speaker data yet. Process a meeting to see distribution.</div>
+        {% endif %}
+    </div>
+
+    <div class="chart-card">
+        <div class="card-title">Meeting Status Breakdown</div>
+        <canvas id="statusChart"></canvas>
+    </div>
+</div>
+
+<!-- Meeting Status Breakdown -->
+<div class="section-title" style="margin-top:1.5rem">Status Breakdown</div>
+<div class="stats-grid">
+    <div class="stat-card stat-scheduled">
+        <div class="stat-value">{{ stats.get('scheduled_count', 0) }}</div>
+        <div class="stat-label">Scheduled</div>
+    </div>
+    <div class="stat-card stat-completed">
+        <div class="stat-value">{{ stats.get('completed_count', 0) }}</div>
+        <div class="stat-label">Completed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('avg_duration', 0) | round(0) | int }} min</div>
+        <div class="stat-label">Avg. Duration</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-value">{{ stats.get('total_action_items', 0) }}</div>
+        <div class="stat-label">Action Items Generated</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Speaker Chart
+    {% if speaker_json != '{}' %}
+    const speakerData = {{ speaker_json | safe }};
+    const labels = Object.keys(speakerData);
+    const vals = Object.values(speakerData).map(v => typeof v === 'object' ? v.percentage || 0 : v);
+    new Chart(document.getElementById('speakerChart'), {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{ data: vals, backgroundColor: ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#7c2d12'], borderWidth: 0 }]
+        },
+        options: { plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }, cutout: '65%' }
+    });
+    {% endif %}
+
+    // Status Chart
+    const completedCount = {{ stats.get('completed_count', 0) }};
+    const scheduledCount = {{ stats.get('scheduled_count', 0) }};
+    new Chart(document.getElementById('statusChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Completed', 'Scheduled'],
+            datasets: [{ data: [completedCount, scheduledCount], backgroundColor: ['#059669', '#2563eb'], borderRadius: 8 }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }, x: { ticks: { color: '#94a3b8' }, grid: { display: false } } }
+        }
+    });
+</script>
+{% endblock %}

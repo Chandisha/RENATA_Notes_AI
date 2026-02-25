@@ -132,7 +132,7 @@ def render_sidebar(user_info, current_page="calendar"):
                 st.markdown(f"""
 <div class="user-account">
 <div style="width: 70px; height: 70px; border-radius: 50%; background: rgba(255,255,255,0.3); margin: 0 auto 12px; display: flex; align-items: center; justify-content: center; font-size: 2rem;">
-👤
+(USER)
 </div>
 <div class="user-name">{user_info['name']}</div>
 <div class="user-email">{user_info['email']}</div>
@@ -145,22 +145,22 @@ def render_sidebar(user_info, current_page="calendar"):
         selected_page = current_page
         
         # Main Navigation
-        if st.button("📅 Calendar", key="nav_calendar", use_container_width=True):
+        if st.button("Calendar", key="nav_calendar", use_container_width=True):
             selected_page = "calendar"
 
-        if st.button("👥 Add People", key="nav_add_people", use_container_width=True):
+        if st.button("Add People", key="nav_add_people", use_container_width=True):
             selected_page = "add_people"
         
-        if st.button("🔍 Search Assistant", key="nav_search", use_container_width=True):
+        if st.button("Search Assistant", key="nav_search", use_container_width=True):
             selected_page = "search_assistant"
         
-        if st.button("📈 Analytics", key="nav_analytics", use_container_width=True):
+        if st.button("Analytics", key="nav_analytics", use_container_width=True):
             selected_page = "analytics"
             
-        if st.button("📄 Reports / History", key="nav_reports", use_container_width=True):
+        if st.button("Reports / History", key="nav_reports", use_container_width=True):
             selected_page = "reports"
         
-        if st.button("🔌 Integrations", key="nav_integrations", use_container_width=True):
+        if st.button("Integrations", key="nav_integrations", use_container_width=True):
             selected_page = "integrations"
         
         st.divider()
@@ -177,7 +177,7 @@ def render_sidebar(user_info, current_page="calendar"):
         st.markdown('<div class="nav-section">Workspaces & Teams</div>', unsafe_allow_html=True)
         
         if not workspaces:
-            if st.button("➕ Create/Join Workspace", key="nav_ws_none", use_container_width=True):
+            if st.button("Create/Join Workspace", key="nav_ws_none", use_container_width=True):
                 selected_page = "add_people"
         else:
             # Selector for active workspace
@@ -199,10 +199,10 @@ def render_sidebar(user_info, current_page="calendar"):
                 st.session_state.active_workspace_name = selected_ws['name']
                 st.rerun()
 
-            if st.button("🏁 Manage Workspace", key="nav_ws_manage", use_container_width=True):
+            if st.button("Manage Workspace", key="nav_ws_manage", use_container_width=True):
                 selected_page = "add_people"
             
-            if st.button("💬 Workspace Chat", key="nav_ws_chat", use_container_width=True):
+            if st.button("Workspace Chat", key="nav_ws_chat", use_container_width=True):
                 selected_page = "workspace_chat"
         
         st.divider()
@@ -210,18 +210,18 @@ def render_sidebar(user_info, current_page="calendar"):
         # Quick Actions
         st.markdown('<div class="nav-section">Quick Actions</div>', unsafe_allow_html=True)
         
-        if st.button("➕ Add to live meeting", key="nav_live", use_container_width=True):
+        if st.button("Add to live meeting", key="nav_live", use_container_width=True):
             selected_page = "add_live"
 
         st.divider()
         st.markdown('<div class="nav-section">Account & Support</div>', unsafe_allow_html=True)
-        if st.button("⚙️ Profile Settings", key="nav_settings", use_container_width=True):
+        if st.button("Profile Settings", key="nav_settings", use_container_width=True):
             selected_page = "settings"
         
         st.divider()
         
         # Logout
-        if st.button("🚪 Logout", key="logout", use_container_width=True):
+        if st.button("Logout", key="logout", use_container_width=True):
             if os.path.exists("token.json"):
                 os.remove("token.json")
             st.rerun()

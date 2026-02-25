@@ -23,16 +23,16 @@ class MeetingRAGAssistant:
         if os.path.exists(meeting_dir):
             if files:
                 # Granular indexing of specific files
-                print(f"📥 Indexing specific files: {files}")
+                print(f"Indexing specific files: {files}")
                 self.chatbot.index_documents(meeting_dir, files=files)
             elif force_reset or self.chatbot.vector_store.get_document_count() == 0:
-                print(f"📥 Indexing ALL meeting records from {meeting_dir}...")
+                print(f"Indexing ALL meeting records from {meeting_dir}...")
                 self.chatbot.index_documents(meeting_dir)
             else:
                 if not self.is_indexed:
-                    print(f"📊 RAG System ready with {self.chatbot.vector_store.get_document_count()} indexed segments.")
+                    print(f"RAG System ready with {self.chatbot.vector_store.get_document_count()} indexed segments.")
         else:
-            print(f"⚠️ Warning: Meeting directory {meeting_dir} not found")
+            print(f"Warning: Meeting directory {meeting_dir} not found")
         self.is_indexed = True
 
     def _get_filter_files(self, question: str) -> List[str]:
@@ -83,7 +83,7 @@ class MeetingRAGAssistant:
             
             return answer
         except Exception as e:
-            return f"❌ RAG Assistant Error: {str(e)}"
+            return f"RAG Assistant Error: {str(e)}"
 
 # Singleton instance
 assistant = MeetingRAGAssistant()

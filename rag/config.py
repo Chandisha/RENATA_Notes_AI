@@ -10,7 +10,7 @@ class RAGConfig:
     
     # Models
     EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-    LLM_MODEL = "gemma2"  # Using Local Ollama
+    LLM_MODEL = "gemini-2.5-flash"  # Using Google Gemini API
     
     # Text Processing
     CHUNK_SIZE = 512

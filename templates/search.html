@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% block title %}AI Search{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">AI Search Assistant</h1>
+        <p class="page-subtitle">Ask anything about your past meetings - powered by RAG + Gemini</p>
+    </div>
+</div>
+
+<div class="search-container">
+    <div class="search-card">
+        <!-- Knowledge Base Status Bar -->
+        <div class="kb-status-bar" id="kbStatusBar">
+            <div class="kb-stats">
+                <span class="kb-stat">
+                    <span class="kb-dot" id="kbDot"></span>
+                    <span id="kbStatusText">
+                        {% if kb_stats.indexed_segments > 0 %}
+                        Knowledge Base: <strong>{{ kb_stats.indexed_segments }}</strong> segments indexed
+                        {% else %}
+                        Knowledge Base: Not synced yet
+                        {% endif %}
+                    </span>
+                </span>
+                <span class="kb-stat kb-file-count">
+                    {{ kb_stats.pdf_count }} PDFs &middot; {{ kb_stats.json_count }} JSONs available
+                </span>
+            </div>
+            <button class="btn-sync" id="syncBtn" onclick="syncKnowledgeBase()">
+                <svg id="syncIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                </svg>
+                <span id="syncBtnText">Sync Knowledge Base</span>
+            </button>
+        </div>
+
+        <!-- Example Chips -->
+        <div class="search-examples">
+            <div class="example-title">Try asking:</div>
+            <div class="example-chips">
+                <span class="chip" onclick="setQ(this)">What was decided in the last meeting?</span>
+                <span class="chip" onclick="setQ(this)">List all action items from this week</span>
+                <span class="chip" onclick="setQ(this)">Who spoke the most in the Q4 planning call?</span>
+                <span class="chip" onclick="setQ(this)">What budget was discussed?</span>
+            </div>
+        </div>
+
+        <!-- Search Form -->
+        <form id="searchForm">
+            <div class="search-input-wrap">
+                <input type="text" id="questionInput" class="search-input"
+                    placeholder="Ask a question about your meetings..." autocomplete="off" />
+                <button type="submit" class="btn btn-primary search-submit" id="searchBtn">
+                    Ask Renata
+                </button>
+            </div>
+        </form>
+
+        <!-- Answer Display -->
+        <div id="searchResult" class="search-result hidden">
+            <div class="result-label">Renata's Answer:</div>
+            <div id="answerText" class="answer-text"></div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="searchLoading" class="search-loading hidden">
+            <div class="loading-spinner"></div>
+            <span>Searching your meeting archive...</span>
+        </div>
+
+        <!-- Error Display -->
+        <div id="searchError" class="alert alert-error hidden"></div>
+
+        <!-- Sync Status Message -->
+        <div id="syncStatus" class="sync-status hidden"></div>
+    </div>
+
+    <div class="search-tip-card">
+        <div class="card-title">How it works</div>
+        <div class="tip-list">
+            <div class="tip-item">Click <strong>Sync Knowledge Base</strong> to index your meeting PDFs and JSONs</div>
+            <div class="tip-item">Gemini reads the indexed context and gives you precise answers</div>
+            <div class="tip-item">You can filter by meeting name just by mentioning it</div>
+            <div class="tip-item">New meetings are auto-indexed on first query after sync</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .kb-status-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 12px 18px;
+        margin-bottom: 20px;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .kb-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .kb-stat {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
+
+    .kb-file-count {
+        font-size: 0.78rem;
+        color: #64748b;
+        padding-left: 18px;
+    }
+
+    .kb-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #f59e0b;
+        flex-shrink: 0;
+    }
+
+    .kb-dot.synced {
+        background: #10b981;
+        box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
+    }
+
+    .btn-sync {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 18px;
+        background: linear-gradient(135deg, #7c3aed, #6d28d9);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        white-space: nowrap;
+    }
+
+    .btn-sync:hover {
+        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
+    }
+
+    .btn-sync:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .btn-sync.syncing #syncIcon {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .sync-status {
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin-top: 12px;
+    }
+
+    .sync-status.success {
+        background: rgba(16, 185, 129, 0.1);
+        border: 1px solid rgba(16, 185, 129, 0.3);
+        color: #10b981;
+    }
+
+    .sync-status.error {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #ef4444;
+    }
+
+    .sync-status.info {
+        background: rgba(99, 102, 241, 0.1);
+        border: 1px solid rgba(99, 102, 241, 0.3);
+        color: #818cf8;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function setQ(el) {
+        document.getElementById('questionInput').value = el.textContent;
+        document.getElementById('questionInput').focus();
+    }
+
+    // Sync Knowledge Base
+    async function syncKnowledgeBase() {
+        const btn = document.getElementById('syncBtn');
+        const statusEl = document.getElementById('syncStatus');
+        const btnText = document.getElementById('syncBtnText');
+
+        btn.disabled = true;
+        btn.classList.add('syncing');
+        btnText.textContent = 'Syncing...';
+        statusEl.className = 'sync-status info';
+        statusEl.textContent = 'Indexing all meeting PDFs and JSONs... This may take a moment.';
+        statusEl.classList.remove('hidden');
+
+        try {
+            const res = await fetch('/search/index', { method: 'POST' });
+            const data = await res.json();
+
+            if (data.success) {
+                statusEl.className = 'sync-status success';
+                statusEl.textContent = data.message;
+                // Update the stats display
+                document.getElementById('kbStatusText').innerHTML =
+                    'Knowledge Base: <strong>' + data.indexed_segments + '</strong> segments indexed';
+                document.getElementById('kbDot').classList.add('synced');
+            } else {
+                statusEl.className = 'sync-status error';
+                statusEl.textContent = data.message;
+            }
+        } catch (err) {
+            statusEl.className = 'sync-status error';
+            statusEl.textContent = 'Sync failed: ' + err.message;
+        }
+
+        btn.disabled = false;
+        btn.classList.remove('syncing');
+        btnText.textContent = 'Sync Knowledge Base';
+    }
+
+    // Search Form
+    document.getElementById('searchForm').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const q = document.getElementById('questionInput').value.trim();
+        if (!q) return;
+
+        document.getElementById('searchResult').classList.add('hidden');
+        document.getElementById('searchError').classList.add('hidden');
+        document.getElementById('searchLoading').classList.remove('hidden');
+        document.getElementById('searchBtn').disabled = true;
+        document.getElementById('searchBtn').textContent = 'Searching...';
+
+        const formData = new FormData();
+        formData.append('question', q);
+
+        try {
+            const res = await fetch('/search/ask', { method: 'POST', body: formData });
+            const data = await res.json();
+            document.getElementById('searchLoading').classList.add('hidden');
+
+            if (data.success) {
+                document.getElementById('answerText').innerHTML = data.answer.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                document.getElementById('searchResult').classList.remove('hidden');
+            } else {
+                document.getElementById('searchError').textContent = data.answer;
+                document.getElementById('searchError').classList.remove('hidden');
+            }
+        } catch (err) {
+            document.getElementById('searchLoading').classList.add('hidden');
+            document.getElementById('searchError').textContent = 'Request failed: ' + err.message;
+            document.getElementById('searchError').classList.remove('hidden');
+        }
+
+        document.getElementById('searchBtn').disabled = false;
+        document.getElementById('searchBtn').textContent = 'Ask Renata';
+    });
+
+    // On load: set dot color based on initial state
+    {% if kb_stats.indexed_segments > 0 %}
+    document.getElementById('kbDot').classList.add('synced');
+    {% endif %}
+</script>
+{% endblock %}

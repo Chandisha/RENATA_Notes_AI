@@ -17,13 +17,13 @@ class EmbeddingManager:
         if self.model is not None:
             return
         
-        print(f"🔄 Loading embedding model: {self.config.EMBEDDING_MODEL}")
+        print(f"Loading embedding model: {self.config.EMBEDDING_MODEL}")
         self.model = SentenceTransformer(
             self.config.EMBEDDING_MODEL,
             device=self.device,
             trust_remote_code=True
         )
-        print(f"✅ Embedding model loaded")
+        print(f"Embedding model loaded")
     
     def generate_embeddings(self, texts: List[str], show_progress: bool = True) -> np.ndarray:
         """Generate embeddings for a list of texts"""

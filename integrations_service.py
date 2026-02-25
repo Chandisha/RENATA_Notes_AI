@@ -36,52 +36,6 @@ class IntegrationManager:
         except Exception as e:
             return f"Drive error: {str(e)}"
 
-    # --- NOTION INTEGRATION ---
-    def push_to_notion(self, title, summary, token, db_id):
-        """Push meeting reports to a Notion database"""
-        if not token or not db_id: return False, "Missing configuration"
-        url = "https://api.notion.com/v1/pages"
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Notion-Version": "2022-06-28"
-        }
-        data = {
-            "parent": {"database_id": db_id},
-            "properties": {
-                "Name": {"title": [{"text": {"content": title}}]},
-                "Summary": {"rich_text": [{"text": {"content": summary[:2000]}}]}
-            }
-        }
-        try:
-            resp = requests.post(url, headers=headers, json=data)
-            if resp.status_code == 200: return True, "Synced to Notion!"
-            return False, f"Notion Error: {resp.text}"
-        except Exception as e:
-            return False, str(e)
-
-    # --- HUBSPOT INTEGRATION ---
-    def sync_to_hubspot(self, title, summary, api_key):
-        """Push meeting intelligence to HubSpot CRM as a Note"""
-        if not api_key: return False, "Missing HubSpot API Key"
-        url = "https://api.hubapi.com/crm/v3/objects/notes"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "properties": {
-                "hs_note_body": f"<b>RENA AI Summary: {title}</b><br>{summary}",
-                "hs_timestamp": datetime.now().isoformat() + "Z"
-            }
-        }
-        try:
-            resp = requests.post(url, headers=headers, json=data)
-            if resp.status_code == 201: return True, "Exported to HubSpot!"
-            return False, f"HubSpot Error: {resp.text}"
-        except Exception as e:
-            return False, str(e)
-
     # --- GMAIL INTEGRATION (INBOX SUMMARIES) ---
     def summarize_emails(self, max_results=5):
         """Fetch and briefly summarize recent important emails"""
@@ -102,7 +56,7 @@ class IntegrationManager:
         except Exception as e:
             # Handle rate limit (429) gracefully
             if "429" in str(e):
-                return "⚠️ **Gmail Rate Limit Exceeded:** You have fetched highlights too many times recently. Please wait about 30-60 minutes before trying again. Google has temporarily paused requests for your safety."
+                return "**Gmail Rate Limit Exceeded:** You have fetched highlights too many times recently. Please wait about 30-60 minutes before trying again. Google has temporarily paused requests for your safety."
             raise e
 
     # --- ZOOM INTEGRATION ---

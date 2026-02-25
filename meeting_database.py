@@ -826,12 +826,12 @@ if __name__ == "__main__":
         action_items=["Review proposal", "Schedule follow-up"]
     )
     
-    print(f"✅ Added meeting: {success}, ID: {meeting_id}")
+    print(f"Added meeting: {success}, ID: {meeting_id}")
     
     # Get stats
     stats = get_meeting_stats()
-    print(f"\n📊 Stats: {stats}")
+    print(f"\nStats: {stats}")
     
     # Search
     results = search_meetings("project")
-    print(f"\n🔍 Search results: {len(results)} meetings found")
+    print(f"\nSearch results: {len(results)} meetings found")

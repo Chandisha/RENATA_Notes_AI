@@ -8,6 +8,7 @@ wheels/
 
 # Virtual environments
 rena/
+renata/
 
 # Environment variables & secrets
 .env
@@ -21,6 +22,33 @@ bot_session/
 *.mp3
 *.mp4
 *.wav
+
+# IDE
+.vscode/
+
+# Logs & temp files
+*.log
+full_run.log
+uv.lock
+
+# Test & debug scripts (not needed in prod)
+test_*.py
+check_*.py
+debug_*.py
+inspect_*.py
+find_best_model.py
+quick_meeting_audio.py
+
+# Backup & legacy files
+removed_features_backup/
+meeting_notes_generator_bak.py
+
+# Other non-essential
+DocuVault/
+python-clients/
+test_diar_outputs/
+media/rag/
+mono_audio.wav
 
 # macOS
 .DS_Store

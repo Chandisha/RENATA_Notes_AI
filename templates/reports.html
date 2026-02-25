@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Reports{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Meeting Reports</h1>
+        <p class="page-subtitle">Full history of AI-generated meeting intelligence</p>
+    </div>
+</div>
+
+{% if meetings %}
+<div class="table-wrap">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Meeting Title</th>
+                <th>Date & Time</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Engagement</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in meetings %}
+            <tr>
+                <td class="td-title">{{ m.get('title','Untitled Meeting') }}</td>
+                <td>{{ fmt_time(m.get('start_time','')) }}</td>
+                <td>
+                    {% if m.get('duration_minutes') %}
+                    {{ m.duration_minutes }} min
+                    {% else %}—{% endif %}
+                </td>
+                <td>
+                    <span class="badge badge-{{ m.get('status','scheduled') }}">
+                        {{ m.get('status','—').upper() }}
+                    </span>
+                </td>
+                <td>
+                    {% if m.get('engagement_score') %}
+                    <div class="score-bar-wrap">
+                        <div class="score-bar" style="width:{{ m.engagement_score }}%"></div>
+                        {{ m.engagement_score }}
+                    </div>
+                    {% else %}—{% endif %}
+                </td>
+                <td class="td-actions">
+                    <a href="/reports/{{ m.meeting_id }}" class="btn btn-sm btn-primary">View</a>
+                    {% if m.get('pdf_path') %}
+                    <a href="/download/pdf/{{ m.pdf_path | basename }}" class="btn btn-sm btn-ghost">PDF</a>
+                    {% endif %}
+                    {% if m.get('json_path') %}
+                    <a href="/download/json/{{ m.json_path | basename }}" class="btn btn-sm btn-ghost">JSON</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% else %}
+<div class="empty-state">
+    <div class="empty-title">No meeting reports yet</div>
+    <div class="empty-sub">Once Renata processes a meeting, the full AI report will appear here.</div>
+</div>
+{% endif %}
+{% endblock %}

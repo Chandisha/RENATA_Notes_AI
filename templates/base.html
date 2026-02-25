@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}RENATA{% endblock %} | Meeting Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/style.css" />
+  {% block head %}{% endblock %}
+</head>
+
+<body>
+
+  <div class="layout">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <span class="brand-name">RENATA</span>
+      </div>
+
+      <!-- User Profile -->
+      <div class="user-card">
+        {% if user.picture %}
+        <img src="{{ user.picture }}" class="user-avatar" alt="avatar" />
+        {% else %}
+        <div class="user-avatar-placeholder">R</div>
+        {% endif %}
+        <div class="user-name">{{ user.name }}</div>
+        <div class="user-email">{{ user.email }}</div>
+      </div>
+
+      <div class="sidebar-status">
+        <span class="status-dot"></span> Renata AI: Active
+      </div>
+
+      <nav class="sidebar-nav">
+        <a href="/dashboard" class="nav-item {% if active_page == 'calendar' %}active{% endif %}">Calendar</a>
+        <a href="/search" class="nav-item {% if active_page == 'search' %}active{% endif %}">Search Assistant</a>
+        <a href="/analytics" class="nav-item {% if active_page == 'analytics' %}active{% endif %}">Analytics</a>
+        <a href="/reports" class="nav-item {% if active_page == 'reports' %}active{% endif %}">Reports / History</a>
+        <a href="/integrations"
+          class="nav-item {% if active_page == 'integrations' %}active{% endif %}">Integrations</a>
+      </nav>
+
+      <div class="sidebar-section-title">Quick Actions</div>
+      <nav class="sidebar-nav">
+        <a href="/live" class="nav-item {% if active_page == 'live' %}active{% endif %}">Add to Live Meeting</a>
+      </nav>
+
+      <div class="sidebar-section-title">Account</div>
+      <nav class="sidebar-nav">
+        <a href="/settings" class="nav-item {% if active_page == 'settings' %}active{% endif %}">Settings</a>
+        <a href="/logout" class="nav-item logout">Logout</a>
+      </nav>
+
+      <div class="sidebar-footer">v1.0.0 · {{ now_year }}</div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% block scripts %}{% endblock %}
+</body>
+
+</html>
