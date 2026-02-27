@@ -10,6 +10,7 @@ from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
 
 import pyperclip
+import json
 
 # --- GOOGLE CALENDAR INTEGRATIONS ---
 from googleapiclient.discovery import build
@@ -150,6 +151,7 @@ def get_user_info():
 
 # --- BOT CONFIGURATION ---
 PERMANENT_BOT_EMAIL = "chandisha.das.fit.cse22@teamfuture.in"
+PERMANENT_BOT_PASS = "123Chandisha#"
 BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session")
 
 class RenaMeetingBot:
@@ -179,6 +181,50 @@ class RenaMeetingBot:
                 time.sleep(1)
         print("Bot Login Session Saved.")
 
+    def automate_google_login(self, page):
+        """Automated login for the bot's Gmail account with handling for multiple scenarios."""
+        print(f"DEBUG: Attempting automated login for {PERMANENT_BOT_EMAIL}...")
+        try:
+            # Scenario 1: Choose an account screen
+            if "AccountChooser" in page.url or page.locator('div[data-email="' + PERMANENT_BOT_EMAIL + '"]').count() > 0:
+                print("DEBUG: Account chooser detected. Selecting bot account...")
+                page.click('div[data-email="' + PERMANENT_BOT_EMAIL + '"]')
+                time.sleep(2)
+
+            # Scenario 2: Email input screen
+            if page.locator('input[type="email"]').is_visible(timeout=5000):
+                page.fill('input[type="email"]', PERMANENT_BOT_EMAIL)
+                page.click('#identifierNext')
+                print("DEBUG: Entered email.")
+                page.wait_for_load_state("networkidle")
+                time.sleep(2)
+            
+            # Scenario 3: Password input screen
+            # Wait for password field to be interactive
+            password_field = page.locator('input[type="password"]')
+            password_field.wait_for(state="visible", timeout=10000)
+            password_field.fill(PERMANENT_BOT_PASS)
+            
+            # Click next and wait for navigation
+            page.click('#passwordNext')
+            print("DEBUG: Entered password. Waiting for redirection...")
+            
+            # Check for "Security check" or "Recovery email" - though automated bypass is hard, we wait a bit
+            page.wait_for_load_state("networkidle")
+            time.sleep(5)
+            
+            # Handle "Keep me signed in" or "Update recovery" if they appear
+            try:
+                if "Confirm your recovery email" in page.content():
+                    print("DEBUG: Security prompt detected. Trying to skip...")
+                    page.click('div[role="button"]:has-text("Confirm")', timeout=2000)
+            except: pass
+
+            return "accounts.google.com" not in page.url
+        except Exception as e:
+            print(f"DEBUG: Automated login failed attempt: {e}")
+            return False
+
     def start_audio_recording(self, filename):
         self.recording_path = self.output_dir / f"{filename}.wav"
         # Dynamic device selection
@@ -190,9 +236,13 @@ class RenaMeetingBot:
             self.audio_process.send_signal(signal.CTRL_BREAK_EVENT)
             self.audio_process.wait()
 
-    def join_zoom_meeting(self, zoom_url, record=True, db=None, meeting_id=None):
+    def join_zoom_meeting(self, zoom_url, record=True, db=None, meeting_id=None, user_email=None):
         """Joins a Zoom meeting via the web client."""
-        print(f"DEBUG: join_zoom_meeting called for {zoom_url}")
+        if not meeting_id:
+            # Generate a temporary ID for URL-based joins
+            meeting_id = f"zoom_live_{int(time.time())}"
+        
+        print(f"DEBUG: join_zoom_meeting called for {zoom_url} (User: {user_email})")
         
         # Transform URL to force web client: /j/123 -> /wc/join/123
         wc_url = zoom_url.replace("/j/", "/wc/join/").replace("/s/", "/wc/join/")
@@ -250,7 +300,7 @@ class RenaMeetingBot:
                 # Keep session alive
                 print("Zoom Session LIVE. Monitoring for exit...")
                 if db and meeting_id:
-                    db.set_meeting_bot_status(meeting_id, "CONNECTED")
+                    db.set_meeting_bot_status(meeting_id, "CONNECTED", user_email=user_email)
                     db.update_meeting_bot_note(meeting_id, "Zoom Recording Active")
 
                 while True:
@@ -268,8 +318,11 @@ class RenaMeetingBot:
         except Exception as e:
             print(f"Zoom Error: {e}")
 
-    def join_google_meet(self, meet_url, record=True, db=None, meeting_id=None):
-        print(f"DEBUG: join_google_meet called for {meet_url}")
+    def join_google_meet(self, meet_url, record=True, db=None, meeting_id=None, user_email=None):
+        if not meeting_id:
+            meeting_id = f"meet_live_{int(time.time())}"
+            
+        print(f"DEBUG: join_google_meet called for {meet_url} (User: {user_email})")
         try:
             with sync_playwright() as p:
                 # ... (existing setup) ...
@@ -296,8 +349,15 @@ class RenaMeetingBot:
                 # ... (login check, mute, join click logic same as before) ...
                 # Check if login is required (redirected to accounts.google.com)
                 if "accounts.google.com" in page.url:
-                    print("DEBUG: Bot needs to sign in! Waiting for user...")
-                    time.sleep(10) # Give some time, but this needs manual intervention mostly
+                    print(f"DEBUG: Bot needs to sign in to {PERMANENT_BOT_EMAIL}...")
+                    login_success = self.automate_google_login(page)
+                    if login_success:
+                        print("DEBUG: Login handled via automation. Returning to Meet...")
+                        page.goto(meet_url) # Return to meeting URL
+                        time.sleep(5)
+                    else:
+                        print("DEBUG: Automated login failed. Please ensure bot account is verified.")
+                        time.sleep(5)
 
                 # Dismiss any camera/microphone error dialogs
                 print("Dismissing any permission dialogs...")
@@ -345,35 +405,50 @@ class RenaMeetingBot:
 
                 # Auto-click "Ask to join" or "Join now" button
                 print("Looking for Join button...")
-                time.sleep(2)
+                time.sleep(5) # Wait for page stabilty
                 try:
-                    # Try multiple selectors for reliability
+                    # Very aggressive join button detection
                     join_selectors = [
-                        'span:has-text("Ask to join")',
-                        'span:has-text("Join now")',
-                        'button:has-text("Ask to join")',
+                        '//span[contains(text(), "Join now")]',
+                        '//span[contains(text(), "Ask to join")]',
                         'button:has-text("Join now")',
-                        'div[role="button"]:has-text("Ask to join")',
-                        'div[role="button"]:has-text("Join now")'
+                        'button:has-text("Ask to join")',
+                        '[aria-label="Join now"]',
+                        '[aria-label="Ask to join"]',
+                        'div[role="button"]:has-text("Join now")',
+                        'div[role="button"]:has-text("Ask to join")'
                     ]
                     
                     clicked = False
-                    for selector in join_selectors:
-                        try:
-                            btn = page.locator(selector).first
-                            if btn.count() > 0:
-                                btn.click()
-                                print(f"Clicked join button: {selector}")
-                                clicked = True
-                                break
-                        except: continue
+                    # Loop a few times as the button might appear after a delay
+                    for attempt in range(5):
+                        for selector in join_selectors:
+                            try:
+                                # Use JS click for bypass if normal click fails
+                                btn = page.locator(selector).first
+                                if btn.is_visible(timeout=1000):
+                                    btn.click(force=True)
+                                    print(f"Clicked join button: {selector}")
+                                    clicked = True
+                                    break
+                            except: continue
+                        if clicked: break
+                        time.sleep(2)
                     
                     if not clicked:
-                        print("Join button not found with standard selectors, trying fallback...")
-                        page.click('button:has-text("Join")', timeout=2000)
+                        print("Join button not found with standard selectors, trying forced script click...")
+                        # Fallback: Find any button that looks like a join button and click it
+                        page.evaluate('''() => {
+                            const buttons = Array.from(document.querySelectorAll('button, div[role="button"], span'));
+                            const joinBtn = buttons.find(b => 
+                                b.innerText.includes('Join now') || 
+                                b.innerText.includes('Ask to join')
+                            );
+                            if (joinBtn) joinBtn.click();
+                        }''')
                         
                 except Exception as e: 
-                    print(f"Join click failed: {e}")
+                    print(f"Join click system failed: {e}")
 
                 # Wait for Admission
                 print("Waiting in lobby (infinite loop until admitted)...")
@@ -386,7 +461,7 @@ class RenaMeetingBot:
                         if page.locator('button[aria-label*="Leave call" i], button[aria-label*="Leave meeting" i]').count() > 0:
                             print("Admitted to Google Meet!")
                             if db and meeting_id: 
-                                db.set_meeting_bot_status(meeting_id, "CONNECTED")
+                                db.set_meeting_bot_status(meeting_id, "CONNECTED", user_email=user_email)
                                 db.update_meeting_bot_note(meeting_id, "Recording active")
                             break
                         
@@ -435,11 +510,11 @@ class RenaMeetingBot:
                             if participant_elements <= 1:  # Only bot remains
                                 if alone_since is None:
                                     alone_since = time.time()
-                                    print("Bot is alone in meeting. Will auto-leave in 5 mins if no one joins...")
+                                    print("Bot is alone in meeting. Will auto-leave in 1 min if no one joins...")
                                 else:
                                     alone_duration = (time.time() - alone_since) / 60
-                                    if alone_duration >= 5:
-                                        print("Auto-leaving: Bot alone for 5+ minutes.")
+                                    if alone_duration >= 1: # Reduced to 1 minute as requested for automation
+                                        print("Auto-leaving: Bot alone for 1+ minute.")
                                         # Click leave button
                                         try:
                                             page.click('button[aria-label="Leave call"]', timeout=3000)
@@ -466,7 +541,7 @@ class RenaMeetingBot:
                 print("=" * 60)
                 print("POST-MEETING PIPELINE ACTIVATED")
                 print("=" * 60)
-                db.set_meeting_bot_status(meeting_id, "PROCESSING", status_note="Meeting ended - Generating PDF...")
+                db.set_meeting_bot_status(meeting_id, "PROCESSING", user_email=user_email, status_note="Meeting ended - Generating PDF...")
                 
                 try:
                     # Import and run the generator directly for better logging
@@ -503,13 +578,13 @@ class RenaMeetingBot:
                     print("=" * 60)
                     
                     # Update database with results
-                    db.set_meeting_bot_status(meeting_id, "COMPLETED", status_note="Report ready")
+                    db.set_meeting_bot_status(meeting_id, "COMPLETED", user_email=user_email, status_note="Report ready")
                     
                 except Exception as e:
                     print(f"Pipeline Failed: {e}")
                     import traceback
                     traceback.print_exc()
-                    db.set_meeting_bot_status(meeting_id, "FAILED", status_note="Processing failed - Check logs")
+                    db.set_meeting_bot_status(meeting_id, "FAILED", user_email=user_email, status_note="Processing failed - Check logs")
         except Exception as e:
             print(f"FATAL ERROR in join_google_meet: {e}")
             import traceback
@@ -647,9 +722,9 @@ def run_auto_pilot(user_email):
                             
                             # CRITICAL: Join!
                             if is_meet_url(meet_url):
-                                bot.join_google_meet(meet_url, record=rec_enabled, db=db, meeting_id=m_id)
+                                bot.join_google_meet(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
                             elif is_zoom_url(meet_url):
-                                bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id)
+                                bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
                             else:
                                 print(f"Unknown meeting type for URL: {meet_url}")
                             
@@ -709,7 +784,14 @@ def main():
         else:
             url = command
             print(f"Joining Meeting: {url} for {user_email}")
-            bot.join_google_meet(url, record=m_rec_enabled, db=db, user_email=user_email)
+            
+            if is_meet_url(url):
+                bot.join_google_meet(url, record=m_rec_enabled, db=db, user_email=user_email)
+            elif is_zoom_url(url):
+                bot.join_zoom_meeting(url, record=m_rec_enabled, db=db, user_email=user_email)
+            else:
+                # Default to Google Meet if unknown but provided as URL
+                bot.join_google_meet(url, record=m_rec_enabled, db=db, user_email=user_email)
     else:
         print("Usage: python renata_bot_pilot.py [URL/--manual/--autopilot] --user <email>")
 

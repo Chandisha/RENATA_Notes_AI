@@ -46,12 +46,10 @@
                     {% else %}—{% endif %}
                 </td>
                 <td class="td-actions">
-                    <a href="/reports/{{ m.meeting_id }}" class="btn btn-sm btn-primary">View</a>
                     {% if m.get('pdf_path') %}
-                    <a href="/download/pdf/{{ m.pdf_path | basename }}" class="btn btn-sm btn-ghost">PDF</a>
-                    {% endif %}
-                    {% if m.get('json_path') %}
-                    <a href="/download/json/{{ m.json_path | basename }}" class="btn btn-sm btn-ghost">JSON</a>
+                    <a href="/download/pdf/{{ m.pdf_path | basename }}" class="btn btn-sm btn-primary">PDF</a>
+                    {% else %}
+                    <span class="muted">Processing...</span>
                     {% endif %}
                 </td>
             </tr>

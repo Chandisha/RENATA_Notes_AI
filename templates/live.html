@@ -59,13 +59,38 @@
             const data = await res.json();
             status.textContent = data.message;
             status.className = data.success ? 'alert alert-success' : 'alert alert-error';
+
+            if (data.success) {
+                // Poll for bot status updates
+                const pollInterval = setInterval(async () => {
+                    try {
+                        const statusRes = await fetch('/search/status'); // Redirected to current status check
+                        const botRes = await fetch('/live/status');
+                        const botData = await botRes.json();
+
+                        if (botData.active) {
+                            let msg = "<b>Status:</b> " + botData.status;
+                            if (botData.note) msg += " (" + botData.note + ")";
+                            status.innerHTML = msg;
+
+                            if (botData.status === 'COMPLETED' || botData.status === 'FAILED') {
+                                clearInterval(pollInterval);
+                                btn.disabled = false;
+                                btn.textContent = 'Send Renata Now';
+                            }
+                        }
+                    } catch (e) { console.error("Polling error:", e); }
+                }, 3000);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Send Renata Now';
+            }
         } catch (err) {
             status.textContent = 'Failed: ' + err.message;
             status.className = 'alert alert-error';
+            btn.disabled = false;
+            btn.textContent = 'Send Renata Now';
         }
-
-        btn.disabled = false;
-        btn.textContent = 'Send Renata Now';
     });
 </script>
 {% endblock %}

@@ -43,6 +43,7 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "re
 # Static files & templates
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+templates.env.filters["basename"] = lambda p: os.path.basename(p) if p else ""
 
 # Init database on startup
 db.init_database()
@@ -462,10 +463,22 @@ async def live_join(request: Request, meeting_url: str = Form(...)):
     user = require_user(request)
     try:
         # Pass the user email to the bot subprocess
-        proc = subprocess.Popen([sys.executable, "renata_bot_pilot.py", meeting_url, "--user", user['email']])
-        return {"success": True, "message": f"Renata is joining {meeting_url} for {user['email']}..."}
+        subprocess.Popen([sys.executable, "renata_bot_pilot.py", meeting_url, "--user", user['email']])
+        return {"success": True, "message": f"Renata is preparing to join {meeting_url}..."}
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+@app.get("/live/status", response_class=JSONResponse)
+async def live_status(request: Request):
+    user = require_user(request)
+    meeting = db.get_active_joining_meeting()
+    if meeting:
+        return {
+            "active": True,
+            "status": meeting.get("bot_status", "UNKNOWN"),
+            "note": meeting.get("bot_status_note", "")
+        }
+    return {"active": False}
 
 # ============================================================
 # SETTINGS / PROFILE

@@ -456,6 +456,11 @@ def set_meeting_bot_status(meeting_id, status, user_email=None, joined_at=None, 
         finally: conn.close()
     return success
 
+def update_meeting_bot_note(meeting_id, note):
+    """Update only the status note for the bot."""
+    success, _ = update_meeting(meeting_id, {'bot_status_note': note})
+    return success
+
 def get_active_joining_meeting():
     """Returns the first meeting that is currently JOINING or CONNECTED"""
     with get_db_connection() as conn:

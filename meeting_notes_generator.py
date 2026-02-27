@@ -173,7 +173,7 @@ class AdaptiveMeetingNotesGenerator:
         return config_obj
         
     def _generate_with_fallback(self, content, prompt_text=None):
-        """Try Gemini 3 Flash, fallback to 2.5 Flash if needed."""
+        """Try Gemini 3 Flash and Gemini 2.5 Flash as per technical IDs."""
         models_to_try = ["gemini-3-flash-preview", "gemini-2.5-flash"]
         
         for model_id in models_to_try:
@@ -356,9 +356,9 @@ class AdaptiveMeetingNotesGenerator:
             Output ONLY valid JSON.
             """
             
-            logger.info("Generating Summary with Gemini 3 Flash...")
+            logger.info("Generating Summary..." )
             
-            transcript_text = "\n".join([f"{s['speaker']} [{s['timestamp']}]: {s['text']}" for s in self.structured_transcript])
+            transcript_text = "\n".join([f"{s.get('speaker', 'Unknown')} [{s.get('timestamp', '00:00')}]: {s.get('text', '')}" for s in self.structured_transcript])
             full_prompt = f"{prompt}\n\nTranscript:\n{transcript_text}"
             
             response = self._generate_with_fallback(full_prompt)
