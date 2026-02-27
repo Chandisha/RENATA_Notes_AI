@@ -134,13 +134,15 @@ python renata_bot_pilot.py "https://meet.google.com/xxx-xxxx-xxx" --user "user@e
 ```
 RENATA_Notes_AI/
 ├── main.py                    # FastAPI Production App & OAuth Handlers
+├── credentials.json           # Google OAuth Client Secrets (From Cloud Console)
 ├── renata_bot_pilot.py        # Meeting Join Automation (User-Aware)
 ├── meeting_notes_generator.py # Gemini AI Processing Pipeline
 ├── meeting_database.py        # SQLite Multi-User Storage Layer
 ├── rag/                       # RAG Knowledge Base Logic
 ├── templates/                 # Jinja2 Layouts & Pages
 ├── static/                    # Global CSS Styles
-└── requirements.txt           # Unified Dependency List
+├── requirements.txt           # Unified Dependency List
+└── .env                       # API Keys & Local Configuration
 ```
 
 ---
