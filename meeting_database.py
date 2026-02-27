@@ -645,7 +645,7 @@ def get_meeting_stats(user_email=None):
     conn.close()
     return stats
 
-def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_stats, engagement):
+def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_stats, engagement, pdf_path=None, json_path=None):
     """Save final AI intelligence and analytics to the DB"""
     updates = {
         'transcript_text': transcript,
@@ -653,6 +653,8 @@ def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_
         'action_items': action_items,
         'speaker_analytics': speaker_stats,
         'engagement_metrics': engagement,
+        'pdf_path': pdf_path,
+        'json_path': json_path,
         'status': 'completed'
     }
     return update_meeting(meeting_id, updates)

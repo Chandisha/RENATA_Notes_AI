@@ -570,7 +570,9 @@ class RenaMeetingBot:
                         summary=generator.intel.get('summary_en', ''),
                         action_items=generator.intel.get('actions', []),
                         speaker_stats=generator.intel.get('speaker_analytics', {}),
-                        engagement=generator.intel.get('engagement_metrics', {})
+                        engagement=generator.intel.get('engagement_metrics', {}),
+                        pdf_path=generator.last_pdf_path,
+                        json_path=generator.last_json_path
                     )
                     
                     print("=" * 60)

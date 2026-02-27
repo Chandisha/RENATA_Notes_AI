@@ -107,6 +107,8 @@ class AdaptiveMeetingNotesGenerator:
             "total_words": 0
         }
         self.gemini_file = None
+        self.last_pdf_path = None
+        self.last_json_path = None
 
     def _setup_diarizer_config(self, audio_path: str):
         out_dir = str(OUTPUT_DIR / "diarization")
@@ -382,6 +384,7 @@ class AdaptiveMeetingNotesGenerator:
         stem = Path(self.audio_path).stem if self.audio_path else "Meeting"
         filename = f"{stem}_Renata_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         pdf_path = OUTPUT_DIR / filename
+        self.last_pdf_path = str(pdf_path)
 
         try:
             # Page setup: letter with 0.75in margins on all sides
@@ -640,6 +643,7 @@ class AdaptiveMeetingNotesGenerator:
         stem = Path(self.audio_path).stem if self.audio_path else "Meeting"
         filename = f"{stem}_RENA_Data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         json_path = OUTPUT_DIR / filename
+        self.last_json_path = str(json_path)
         data = {
             "intelligence": self.intel,
             "transcript": self.structured_transcript
