@@ -41,7 +41,7 @@ Built with **FastAPI**, **SQLite**, and **OAuth 2.0**, RENATA is designed to be 
 
 ### 🎙️ Gemini AI pipeline
 - **Direct Gemini Processing**: Meeting recordings are uploaded to the Gemini File API for state-of-the-art long-context processing.
-- **Transcription**: Uses `gemini-1.5-flash` for word-for-word accuracy with timestamps.
+- **Transcription**: Uses **Gemini 3 Flash** for word-for-word accuracy with timestamps (fallback to **Gemini 2.5 Flash**).
 - **Local Diarization**: NVIDIA NeMo TitaNet-L runs locally to accurately attribute speech to specific speakers.
 - **Deep Intelligence**: Structured JSON generation for English/Hindi summaries, MOM, and actionable tasks.
 - **Professional Reports**: Clean PDF exports with full Hindi font support.
@@ -91,7 +91,7 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 2. Configure Credentials
+### 2. Configure Credentials & OAuth
 Create a `.env` file in the root directory:
 ```env
 # AI & Database
@@ -103,7 +103,14 @@ ZOOM_CLIENT_ID=your_zoom_id
 ZOOM_CLIENT_SECRET=your_zoom_secret
 ```
 
-*Note: For Google Login, ensure your `credentials.json` from Google Cloud Console is placed in the project root.*
+#### 🔑 Google Sign-In Setup (Required for Login)
+To enable the **Sign in with Google** feature, you must have a `credentials.json` file in the project root:
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a project and enable the **Google Calendar API** and **People API**.
+3. Go to **APIs & Services > Credentials**.
+4. Create an **OAuth 2.0 Client ID** (Type: Desktop or Web Application).
+5. Download the JSON and rename it to `credentials.json`.
+6. Use **http://127.0.0.1:8000/auth/callback** as your Authorized Redirect URI.
 
 ---
 
@@ -113,7 +120,7 @@ ZOOM_CLIENT_SECRET=your_zoom_secret
 ```bash
 uvicorn main:app --reload --port 8000
 ```
-Visit **http://localhost:8000** to access the dashboard.
+Visit **http://127.0.0.1:8000** to access the dashboard.
 
 ### 🤖 Running the Bot Manually
 ```bash
