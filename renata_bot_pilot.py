@@ -155,7 +155,16 @@ PERMANENT_BOT_PASS = "123Chandisha#"
 BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session")
 
 class RenaMeetingBot:
-    def __init__(self, bot_name="Rena AI | Meeting Assistant", audio_device="audio=CABLE Output (VB-Audio Virtual Cable)"):
+    def __init__(self, bot_name="Renata AI | Meeting Assistant", audio_device="audio=CABLE Output (VB-Audio Virtual Cable)", user_email=None):
+        self.user_email = user_email
+        if user_email:
+            # db is already imported in global scope or will be imported locally in methods
+            try:
+                profile = db.get_user_profile(user_email)
+                if profile and profile.get('bot_name'):
+                    bot_name = profile['bot_name']
+            except: pass
+            
         self.bot_name = bot_name
         self.audio_device = audio_device
         self.output_dir = Path("meeting_outputs") / "recordings"
@@ -326,10 +335,10 @@ class RenaMeetingBot:
         try:
             with sync_playwright() as p:
                 # ... (existing setup) ...
-                print("DEBUG: Launching Browser Context...")
+                print("DEBUG: Launching Browser Context (Headless)...")
                 context = p.chromium.launch_persistent_context(
                     self.session_dir,
-                    headless=False,
+                    headless=True,
                     args=[
                         "--use-fake-ui-for-media-stream",
                         "--use-fake-device-for-media-stream",
@@ -347,17 +356,29 @@ class RenaMeetingBot:
                 time.sleep(5)
 
                 # ... (login check, mute, join click logic same as before) ...
-                # Check if login is required (redirected to accounts.google.com)
+                # --- READ.AI STYLE AUTO-JOIN MECHANISM ---
+                # Check if we can join as a Guest (No account needed)
+                try:
+                    name_input = page.locator('input[placeholder*="What\'s your name"], input[aria-label*="What\'s your name"]').first
+                    if name_input.count() > 0:
+                        bot_display_name = self.bot_name
+                        print(f"DEBUG: Guest mode detected. Joining as '{bot_display_name}'...")
+                        name_input.fill(bot_display_name)
+                        time.sleep(1)
+                        page.keyboard.press("Enter")
+                        time.sleep(2)
+                except: pass
+
+                # Fallback: If still on login page, use the system-managed bot account
                 if "accounts.google.com" in page.url:
-                    print(f"DEBUG: Bot needs to sign in to {PERMANENT_BOT_EMAIL}...")
+                    print(f"DEBUG: Guest join not available. Using system bot account {PERMANENT_BOT_EMAIL}...")
                     login_success = self.automate_google_login(page)
                     if login_success:
-                        print("DEBUG: Login handled via automation. Returning to Meet...")
-                        page.goto(meet_url) # Return to meeting URL
+                        print("DEBUG: Login handled. Returning to Meet...")
+                        page.goto(meet_url) 
                         time.sleep(5)
                     else:
-                        print("DEBUG: Automated login failed. Please ensure bot account is verified.")
-                        time.sleep(5)
+                        print("DEBUG: Login failed. Meeting may be restricted.")
 
                 # Dismiss any camera/microphone error dialogs
                 print("Dismissing any permission dialogs...")
