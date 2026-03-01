@@ -122,6 +122,29 @@ def require_user(request: Request):
         raise HTTPException(status_code=302, headers={"Location": "/login"})
     return user
 
+# --- Google OAuth Flow Helper ---
+def create_google_flow(request: Request):
+    """Create a Flow object from credentials.json or GOOGLE_CREDENTIALS_JSON env var."""
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    redirect_uri = f"{request.url.scheme}://{request.url.netloc}/auth/callback"
+    
+    if creds_json:
+        # Load from JSON string in environment variable
+        creds_info = json.loads(creds_json)
+        return Flow.from_client_config(
+            creds_info,
+            scopes=GOOGLE_SCOPES,
+            redirect_uri=redirect_uri
+        )
+    elif os.path.exists('credentials.json'):
+        # Fallback to local file
+        return Flow.from_client_secrets_file(
+            'credentials.json',
+            scopes=GOOGLE_SCOPES,
+            redirect_uri=redirect_uri
+        )
+    return None
+
 # ============================================================
 # AUTH ROUTES
 # ============================================================
@@ -144,14 +167,9 @@ async def login_page(request: Request):
 @app.get("/auth/google")
 async def trigger_google_auth(request: Request):
     """Initiate Google OAuth flow (Multi-User)"""
-    if not os.path.exists('credentials.json'):
+    flow = create_google_flow(request)
+    if not flow:
         return RedirectResponse("/login?error=credentials_missing")
-        
-    flow = Flow.from_client_secrets_file(
-        'credentials.json',
-        scopes=GOOGLE_SCOPES,
-        redirect_uri=f"{request.url.scheme}://{request.url.netloc}/auth/callback"
-    )
     
     auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline', include_granted_scopes='true')
     return RedirectResponse(auth_url)
@@ -210,11 +228,9 @@ async def google_callback(request: Request):
         return RedirectResponse("/login?error=no_code")
 
     try:
-        flow = Flow.from_client_secrets_file(
-            'credentials.json',
-            scopes=GOOGLE_SCOPES,
-            redirect_uri=f"{request.url.scheme}://{request.url.netloc}/auth/callback"
-        )
+        flow = create_google_flow(request)
+        if not flow:
+            return RedirectResponse("/login?error=credentials_missing")
         flow.fetch_token(code=code)
         creds = flow.credentials
 

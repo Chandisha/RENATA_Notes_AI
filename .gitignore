@@ -65,3 +65,7 @@ python-clients/
 removed_features_backup/
 uv.lock
 meeting_notes_generator_bak.py
+meetings.db
+*.wav
+*.pyc
+__pycache__/
