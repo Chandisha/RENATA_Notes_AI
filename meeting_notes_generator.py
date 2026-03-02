@@ -16,14 +16,20 @@ from dotenv import load_dotenv
 # Internal imports
 import config
 
-# DRIVE SPACE & TEMP FIX: Redirect all large AI models and temp files to D: drive
-os.environ["HF_HOME"] = "D:\\RENATA_Models\\huggingface"
-os.environ["NEMO_CACHE_DIR"] = "D:\\RENATA_Models\\nemo"
-os.environ["TRANSFORMERS_CACHE"] = "D:\\RENATA_Models\\huggingface"
-os.environ["TEMP"] = "D:\\RENATA_Models\\temp"
-os.environ["TMP"] = "D:\\RENATA_Models\\temp"
-os.makedirs("D:\\RENATA_Models\\temp", exist_ok=True)
-os.makedirs("D:\\RENATA_Models", exist_ok=True)
+# DRIVE SPACE & TEMP FIX: Redirect all large AI models and temp files
+# Use MODELS_DIR from env or default to ./models
+MODELS_DIR = os.getenv("MODELS_DIR", os.path.join(os.getcwd(), "models"))
+os.makedirs(MODELS_DIR, exist_ok=True)
+
+os.environ["HF_HOME"] = os.path.join(MODELS_DIR, "huggingface")
+os.environ["NEMO_CACHE_DIR"] = os.path.join(MODELS_DIR, "nemo")
+os.environ["TRANSFORMERS_CACHE"] = os.path.join(MODELS_DIR, "huggingface")
+
+# Use a relative temp dir if needed, but only if not on Linux which handles /tmp well
+if os.name == 'nt':
+    os.environ["TEMP"] = os.path.join(MODELS_DIR, "temp")
+    os.environ["TMP"] = os.path.join(MODELS_DIR, "temp")
+    os.makedirs(os.environ["TEMP"], exist_ok=True)
 
 load_dotenv()
 
@@ -69,10 +75,11 @@ logger.remove()
 logger.add(sys.stderr, format="<blue>{time:HH:mm:ss}</blue> | <level>{message}</level>")
 
 def setup_fonts():
-    # Try local fonts directory
+    # Try local fonts directory relative to the script
+    base_path = Path(__file__).parent
     possible_paths = [
+        base_path / "fonts" / "NotoSansDevanagari-Regular.ttf",
         Path("fonts/NotoSansDevanagari-Regular.ttf"),
-        Path(r"C:\Users\admin\Desktop\RENA-Meet\fonts\NotoSansDevanagari-Regular.ttf"),
     ]
     for font_path in possible_paths:
         if font_path.exists():
