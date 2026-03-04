@@ -3,12 +3,15 @@ Meeting Database for Renata Bot
 Stores meeting metadata and enables search/history features
 Replicates Read.ai's meeting archive and search functionality
 """
+import os
 import sqlite3
 import json
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path("meeting_outputs") / "meetings.db"
+# Handle persistent storage directory (for Render/cloud deployment)
+BASE_DIR = Path(os.getenv("OUTPUT_DIR", "meeting_outputs"))
+DB_PATH = BASE_DIR / "meetings.db"
 
 def get_db_connection():
     """Get a connection to the database."""

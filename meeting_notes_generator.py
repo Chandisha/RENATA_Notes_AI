@@ -68,8 +68,9 @@ if GEMINI_API_KEY:
 else:
     logger.error("GEMINI_API_KEY not found in environment")
 
-OUTPUT_DIR = Path("meeting_outputs")
-OUTPUT_DIR.mkdir(exist_ok=True)
+# Handle persistent storage directory (for Render/cloud deployment)
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "meeting_outputs"))
+OUTPUT_DIR.mkdir(exist_ok=True, parents=True)
 
 logger.remove()
 logger.add(sys.stderr, format="<blue>{time:HH:mm:ss}</blue> | <level>{message}</level>")

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: renata-meeting-intelligence
+    runtime: docker
+    plan: starter # NeMo/Torch require at least 2GB RAM; Free tier (512MB) will likely crash.
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: MODELS_DIR
+        value: /var/lib/renata/models
+      - key: GOOGLE_CREDENTIALS_JSON
+        sync: false # Set this in Render Dashboard with contents of credentials.json
+      - key: ZOOM_CLIENT_ID
+        sync: false
+      - key: ZOOM_CLIENT_SECRET
+        sync: false
+    disk:
+      name: renata-storage
+      mountPath: /var/lib/renata
+      sizeGB: 10 # Adjust based on how many recordings you want to keep
