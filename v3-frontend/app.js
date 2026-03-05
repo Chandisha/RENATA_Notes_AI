@@ -110,6 +110,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
+            // Update Integrations
+            if (data.integrations) {
+                const gStatus = document.getElementById('google-status');
+                const zStatus = document.getElementById('zoom-status');
+                if (gStatus) {
+                    gStatus.textContent = data.integrations.google ? 'Connected' : 'Disconnected';
+                    gStatus.style.color = data.integrations.google ? 'var(--accent-green)' : 'var(--text-secondary)';
+                }
+                if (zStatus) {
+                    zStatus.textContent = data.integrations.zoom ? 'Connected' : 'Disconnected';
+                    zStatus.style.color = data.integrations.zoom ? 'var(--accent-green)' : 'var(--text-secondary)';
+                }
+            }
+
             feather.replace();
         } catch (err) {
             console.error("Dashboard load failed", err);

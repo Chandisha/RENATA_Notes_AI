@@ -219,16 +219,18 @@
                                 <div class="int-icon google">G</div>
                                 <span class="int-name">Google Workspace</span>
                             </div>
-                            <span class="status-text">Disconnected</span>
-                            <a href="https://github.com/login" class="secondary-btn">Link Account</a>
+                            <span class="status-text" id="google-status">Disconnected</span>
+                            <button onclick="window.location.href=API_BASE+'/auth/google'" class="secondary-btn">Link
+                                Account</button>
                         </div>
                         <div class="card integration-card" id="int-zoom">
                             <div class="int-header">
                                 <div class="int-icon zoom">Z</div>
                                 <span class="int-name">Zoom API</span>
                             </div>
-                            <span class="status-text">Disconnected</span>
-                            <a href="#" class="secondary-btn">Link ZOOM</a>
+                            <span class="status-text" id="zoom-status">Disconnected</span>
+                            <button onclick="window.location.href=API_BASE+'/auth/zoom'" class="secondary-btn">Link
+                                ZOOM</button>
                         </div>
                     </div>
                 </section>
