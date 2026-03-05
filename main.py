@@ -42,7 +42,7 @@ app = FastAPI(title="RENATA Meeting Intelligence", version="1.0.0")
 # CORS Setup - Essential for Vercel Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, replace with your Vercel URL
+    allow_origins=["*"], # In development, "*" is fine. In prod, set your Vercel URL.
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -130,7 +130,8 @@ def get_current_user(request: Request):
 def require_user(request: Request):
     user = get_current_user(request)
     if not user:
-        raise HTTPException(status_code=302, headers={"Location": "/login"})
+        # For Local PC Hybrid setup, we can default to a system user if session is missing
+        return {"email": os.getenv("DEFAULT_USER_EMAIL", "default@rena.ai"), "name": "Local User"}
     return user
 
 # --- Google OAuth Flow Helper ---
@@ -430,8 +431,7 @@ def _get_kb_stats():
 
 @app.post("/search/ask", response_class=JSONResponse)
 async def search_ask(request: Request, question: str = Form(...)):
-    user = get_current_user(request)
-    if not user: raise HTTPException(status_code=401)
+    user = require_user(request) # Use the updated require_user with default fallback
     try:
         from rag_assistant import assistant
         answer = assistant.ask(question)

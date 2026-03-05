@@ -174,6 +174,26 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.error(err); }
     }
 
+    // Server Status Checker
+    async function checkServerStatus() {
+        const dot = document.querySelector('.status-dot');
+        const text = document.querySelector('.status-text');
+        try {
+            const res = await apiFetch("/health");
+            if (res.ok) {
+                dot.style.background = 'var(--accent-green)';
+                text.textContent = 'Server: Connected';
+                dot.classList.add('pulse');
+            } else {
+                throw new Error();
+            }
+        } catch (err) {
+            dot.style.background = '#ef4444';
+            text.textContent = 'Server: Offline';
+            dot.classList.remove('pulse');
+        }
+    }
+
     window.dispatchRenata = async (url) => {
         const formData = new FormData();
         formData.append('meeting_url', url);
@@ -182,7 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Initial Load
+    checkServerStatus();
     loadDashboardData();
+    setInterval(checkServerStatus, 10000); // Check every 10s
 
     // Modal Interaction
     const joinBtn = document.getElementById('join-btn');
@@ -246,11 +268,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const data = await response.json();
+            const answer = data.answer || "Renata could not generate an answer at this time.";
 
             // Add assistant message
             const assistantMsg = document.createElement('div');
             assistantMsg.className = 'message assistant';
-            assistantMsg.innerHTML = `<p>${data.answer}</p>`;
+            assistantMsg.innerHTML = `<p>${answer}</p>`;
             chatBox.appendChild(assistantMsg);
             chatBox.scrollTop = chatBox.scrollHeight;
         } catch (err) {
