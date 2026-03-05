@@ -42,7 +42,7 @@ app = FastAPI(title="RENATA Meeting Intelligence", version="1.0.0")
 # CORS Setup - Essential for Vercel Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In development, "*" is fine. In prod, set your Vercel URL.
+    allow_origins=["https://renata-notes-ai.vercel.app", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -130,8 +130,15 @@ def get_current_user(request: Request):
 def require_user(request: Request):
     user = get_current_user(request)
     if not user:
-        # For Local PC Hybrid setup, we can default to a system user if session is missing
-        return {"email": os.getenv("DEFAULT_USER_EMAIL", "default@rena.ai"), "name": "Local User"}
+        # If no session, try to find the "main" user in the DB (since this is a private server)
+        conn = db.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT email, name, picture FROM users LIMIT 1")
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {"email": row["email"], "name": row["name"], "picture": row["picture"]}
+        return {"email": "default@rena.ai", "name": "Local User"}
     return user
 
 # --- Google OAuth Flow Helper ---
@@ -286,7 +293,8 @@ async def google_callback(request: Request):
             "picture": picture
         }
         
-        return RedirectResponse("/dashboard")
+        # If the origin was Vercel, redirect back there
+        return RedirectResponse("https://renata-notes-ai.vercel.app/#dashboard")
         
     except Exception as e:
         print(f"Auth Callback Error: {e}")

@@ -7,7 +7,11 @@ async function apiFetch(endpoint, options = {}) {
         'ngrok-skip-browser-warning': 'true',
         ...options.headers
     };
-    return fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    return fetch(`${API_BASE}${endpoint}`, {
+        ...options,
+        headers,
+        credentials: 'include'
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -93,21 +97,28 @@ document.addEventListener('DOMContentLoaded', () => {
             const calendarGrid = document.getElementById('calendar-grid');
             if (calendarGrid) {
                 calendarGrid.innerHTML = '';
-                (data.events || []).forEach(event => {
-                    const card = document.createElement('div');
-                    card.className = 'meeting-card';
-                    card.innerHTML = `
-                        <div class="meeting-card-top">
-                            <span class="status-badge">Upcoming</span>
-                            <span class="meeting-time">${event.start_time}</span>
-                        </div>
-                        <div class="meeting-title">${event.summary}</div>
-                        <div class="meeting-actions">
-                            <button class="btn-sm primary-btn" onclick="dispatchRenata('${event.link}')">Send Renata</button>
-                        </div>
+                if ((data.events || []).length === 0) {
+                    calendarGrid.innerHTML = `
+                        <p class="muted">No upcoming meetings found.</p>
+                        <button onclick="window.location.href=API_BASE+'/auth/google'" class="btn-sm secondary-btn">Sync Google Calendar</button>
                     `;
-                    calendarGrid.appendChild(card);
-                });
+                } else {
+                    (data.events || []).forEach(event => {
+                        const card = document.createElement('div');
+                        card.className = 'meeting-card';
+                        card.innerHTML = `
+                            <div class="meeting-card-top">
+                                <span class="status-badge">Upcoming</span>
+                                <span class="meeting-time">${event.start_time}</span>
+                            </div>
+                            <div class="meeting-title">${event.summary}</div>
+                            <div class="meeting-actions">
+                                <button class="btn-sm primary-btn" onclick="dispatchRenata('${event.link}')">Send Renata</button>
+                            </div>
+                        `;
+                        calendarGrid.appendChild(card);
+                    });
+                }
             }
 
             // Update Integrations
