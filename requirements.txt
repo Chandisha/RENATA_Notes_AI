@@ -46,3 +46,5 @@ scikit-learn
 python-dotenv
 omegaconf
 requests
+ollama
+pyngrok

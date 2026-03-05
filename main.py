@@ -34,8 +34,19 @@ ZOOM_CLIENT_SECRET = os.getenv("ZOOM_CLIENT_SECRET")
 ZOOM_AUTH_URL = "https://zoom.us/oauth/authorize"
 ZOOM_TOKEN_URL = "https://zoom.us/oauth/token"
 
+from fastapi.middleware.cors import CORSMiddleware
+
 # --- App Setup ---
 app = FastAPI(title="RENATA Meeting Intelligence", version="1.0.0")
+
+# CORS Setup - Essential for Vercel Frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # In production, replace with your Vercel URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Session middleware (secret key from env for production)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "renata-local-dev-secret-2024"))

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RENATA | AI Meeting Intelligence</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
+</head>
+
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon"></div>
+                    <span class="logo-text">RENATA</span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                    <i data-feather="grid"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#reports" class="nav-item" data-page="reports">
+                    <i data-feather="file-text"></i>
+                    <span>Reports</span>
+                </a>
+                <a href="#search" class="nav-item" data-page="search">
+                    <i data-feather="search"></i>
+                    <span>AI Search</span>
+                </a>
+                <a href="#live" class="nav-item" data-page="live">
+                    <i data-feather="video"></i>
+                    <span>Live Meeting</span>
+                </a>
+                <a href="#analytics" class="nav-item" data-page="analytics">
+                    <i data-feather="pie-chart"></i>
+                    <span>Analytics</span>
+                </a>
+                <div class="nav-spacer"></div>
+                <a href="#settings" class="nav-item" data-page="settings">
+                    <i data-feather="settings"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="User" class="avatar">
+                    <div class="user-info">
+                        <span class="user-name">User</span>
+                        <span class="user-status">Online</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="search-box">
+                    <i data-feather="search"></i>
+                    <input type="text" placeholder="Search meetings, speakers, or topics...">
+                </div>
+                <div class="top-bar-actions">
+                    <div class="status-badge">
+                        <span class="status-dot pulse"></span>
+                        <span class="status-text">Server: Connected</span>
+                    </div>
+                    <button class="icon-btn">
+                        <i data-feather="bell"></i>
+                    </button>
+                    <button class="primary-btn" id="join-btn">
+                        <i data-feather="plus"></i>
+                        <span>New Meeting</span>
+                    </button>
+                </div>
+            </header>
+
+            <div id="content-area">
+                <!-- Dashboard Page (Default) -->
+                <section id="dashboard-page" class="page active">
+                    <div class="page-header">
+                        <h1>Executive Dashboard</h1>
+                        <p class="subtitle">Welcome back! Here's what Renata captured today.</p>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon purple">
+                                <i data-feather="video"></i>
+                            </div>
+                            <div class="stat-data">
+                                <span class="stat-value">12</span>
+                                <span class="stat-label">Total Meetings</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon blue">
+                                <i data-feather="clock"></i>
+                            </div>
+                            <div class="stat-data">
+                                <span class="stat-value">8.5h</span>
+                                <span class="stat-label">Hours Captured</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green">
+                                <i data-feather="target"></i>
+                            </div>
+                            <div class="stat-data">
+                                <span class="stat-value">42</span>
+                                <span class="stat-label">Action Items</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon cyan">
+                                <i data-feather="users"></i>
+                            </div>
+                            <div class="stat-data">
+                                <span class="stat-value">15</span>
+                                <span class="stat-label">Active Participants</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-secondary">
+                        <div class="card recent-meetings">
+                            <div class="card-header">
+                                <h2>Recent Reports</h2>
+                                <a href="#reports" class="link-btn">View All</a>
+                            </div>
+                            <div class="meeting-list" id="recent-list">
+                                <!-- Dynamic List -->
+                                <div class="list-item">
+                                    <div class="item-icon">
+                                        <i data-feather="file"></i>
+                                    </div>
+                                    <div class="item-details">
+                                        <span class="item-title">Weekly Sync - Product Design</span>
+                                        <span class="item-meta">Yesterday • 45 mins</span>
+                                    </div>
+                                    <div class="item-actions">
+                                        <span class="badge blue">New</span>
+                                        <button class="icon-btn"><i data-feather="chevron-right"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card analytics-preview">
+                            <div class="card-header">
+                                <h2>Engagement Overview</h2>
+                            </div>
+                            <div class="chart-container">
+                                <canvas id="engagementChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Other pages are hidden by default and managed by JS -->
+                <section id="reports-page" class="page">
+                    <div class="page-header">
+                        <h1>Meeting Reports</h1>
+                    </div>
+                    <div class="reports-container" id="reports-grid">
+                        <!-- Dynamic Grid -->
+                    </div>
+                </section>
+
+                <section id="search-page" class="page">
+                    <div class="page-header">
+                        <h1>AI Assistant</h1>
+                        <p>Search across all your meetings with natural language.</p>
+                    </div>
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chat-box">
+                            <div class="message assistant">
+                                <p>Hello! I'm Renata. Ask me anything about your meetings, like 'What were the action
+                                    items for John?'</p>
+                            </div>
+                        </div>
+                        <div class="chat-input-area">
+                            <input type="text" id="chat-input" placeholder="Type your question...">
+                            <button id="send-chat" class="primary-btn">
+                                <i data-feather="send"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="join-modal" class="modal">
+        <div class="modal-content">
+            <h3>Join Live Meeting</h3>
+            <p>Paste the Google Meet or Zoom link below.</p>
+            <input type="text" id="meeting-url" placeholder="https://meet.google.com/xxx-xxxx-xxx">
+            <div class="modal-actions">
+                <button class="secondary-btn" onclick="closeModal()">Cancel</button>
+                <button class="primary-btn" id="confirm-join">Launch Bot</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

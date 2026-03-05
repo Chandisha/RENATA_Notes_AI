@@ -152,9 +152,7 @@ def get_user_info():
 # --- BOT CONFIGURATION ---
 PERMANENT_BOT_EMAIL = "chandisha.das.fit.cse22@teamfuture.in"
 PERMANENT_BOT_PASS = "123Chandisha#"
-# Handle persistent session directory
-BASE_OUTPUT_DIR = os.getenv("OUTPUT_DIR", "meeting_outputs")
-BOT_SESSION_DIR = os.path.join(BASE_OUTPUT_DIR, "bot_session")
+BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session")
 
 class RenaMeetingBot:
     def __init__(self, bot_name="Renata AI | Meeting Assistant", audio_device="audio=CABLE Output (VB-Audio Virtual Cable)", user_email=None):
@@ -169,8 +167,7 @@ class RenaMeetingBot:
             
         self.bot_name = bot_name
         self.audio_device = audio_device
-        # Handle persistent storage directory (for Render/cloud deployment)
-        self.output_dir = Path(os.getenv("OUTPUT_DIR", "meeting_outputs")) / "recordings"
+        self.output_dir = Path("meeting_outputs") / "recordings"
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.audio_process = None
         self.recording_path = None
@@ -239,32 +236,13 @@ class RenaMeetingBot:
 
     def start_audio_recording(self, filename):
         self.recording_path = self.output_dir / f"{filename}.wav"
-        
-        # Dynamic device and flags selection
-        if os.name == 'nt':
-            # Windows: Use DirectShow
-            cmd = ["ffmpeg", "-y", "-f", "dshow", "-i", self.audio_device, str(self.recording_path)]
-            creation_flags = getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
-        else:
-            # Linux (Render/Docker): Use PulseAudio
-            # Note: We assume 'default' maps to the virtual sink in our Docker/Pulse setup
-            cmd = ["ffmpeg", "-y", "-f", "pulse", "-i", "default", str(self.recording_path)]
-            creation_flags = 0
-            
-        print(f"DEBUG: Starting recording with command: {' '.join(cmd)}")
-        self.audio_process = subprocess.Popen(
-            cmd, 
-            stdout=subprocess.DEVNULL, 
-            stderr=subprocess.DEVNULL, 
-            creationflags=creation_flags
-        )
+        # Dynamic device selection
+        cmd = ["ffmpeg", "-y", "-f", "dshow", "-i", self.audio_device, str(self.recording_path)]
+        self.audio_process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
 
     def stop_audio_recording(self):
         if self.audio_process:
-            if os.name == 'nt':
-                self.audio_process.send_signal(getattr(signal, 'CTRL_BREAK_EVENT', signal.SIGTERM))
-            else:
-                self.audio_process.terminate()
+            self.audio_process.send_signal(signal.CTRL_BREAK_EVENT)
             self.audio_process.wait()
 
     def join_zoom_meeting(self, zoom_url, record=True, db=None, meeting_id=None, user_email=None):
@@ -589,21 +567,15 @@ class RenaMeetingBot:
                 try:
                     # Import and run the generator directly for better logging
                     print(f"Audio File: {self.recording_path}")
-                    print("Stage 1/2: Running Gemini 3 Flash (Transcription + Diarization)...")
+                    print("Stage 1/2: Running Gemini 3.0 Flash Priority (Transcription + Diarization)...")
                     
                     import meeting_notes_generator
                     generator = meeting_notes_generator.AdaptiveMeetingNotesGenerator(
                         audio_path=str(self.recording_path)
                     )
                     
-                    generator.transcribe_audio()
-                    
-                    print("Stage 2/2: Generating AI Summary, MOM & Action Plans...")
-                    generator.generate_summary()
-                    
-                    print("Exporting PDF & JSON Reports...")
-                    generator.export_to_pdf()
-                    generator.export_to_json()
+                    # This calls Diarization (Local), Gemini Transcription, Gemini Summary, and Export
+                    generator.process_meeting(str(self.recording_path))
                     
                     # NEW: Save all intelligence back to the database for Analytics/Dashboard
                     print("Saving results to database...")
@@ -619,7 +591,7 @@ class RenaMeetingBot:
                     )
                     
                     print("=" * 60)
-                    print("PIPELINE COMPLETE!")
+                    print("GEMINI 3.0 PIPELINE COMPLETE!")
                     print("=" * 60)
                     
                     # Update database with results
