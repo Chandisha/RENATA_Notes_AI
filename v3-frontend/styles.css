@@ -588,3 +588,68 @@ body {
     cursor: pointer;
     font-weight: 600;
 }
+
+/* Custom Integration Cards */
+.integrations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.integration-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 24px;
+}
+
+.int-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.int-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    color: white;
+}
+
+.int-icon.google {
+    background: #4285f4;
+}
+
+.int-icon.zoom {
+    background: #2d8cff;
+}
+
+.meeting-card {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.meeting-card-top {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.meeting-title {
+    font-weight: 700;
+    margin-bottom: 12px;
+}
+
+.report-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+}

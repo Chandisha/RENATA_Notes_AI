@@ -132,26 +132,14 @@
                     </div>
 
                     <div class="dashboard-secondary">
-                        <div class="card recent-meetings">
+                        <div class="card calendar-card">
                             <div class="card-header">
-                                <h2>Recent Reports</h2>
-                                <a href="#reports" class="link-btn">View All</a>
+                                <h2>Upcoming Meetings</h2>
+                                <span class="badge blue">Google Calendar</span>
                             </div>
-                            <div class="meeting-list" id="recent-list">
-                                <!-- Dynamic List -->
-                                <div class="list-item">
-                                    <div class="item-icon">
-                                        <i data-feather="file"></i>
-                                    </div>
-                                    <div class="item-details">
-                                        <span class="item-title">Weekly Sync - Product Design</span>
-                                        <span class="item-meta">Yesterday • 45 mins</span>
-                                    </div>
-                                    <div class="item-actions">
-                                        <span class="badge blue">New</span>
-                                        <button class="icon-btn"><i data-feather="chevron-right"></i></button>
-                                    </div>
-                                </div>
+                            <div id="calendar-grid" class="meeting-list">
+                                <!-- Calendar Events Loaded via JS -->
+                                <p class="muted">Scanning your calendar...</p>
                             </div>
                         </div>
                         <div class="card analytics-preview">
@@ -161,6 +149,16 @@
                             <div class="chart-container">
                                 <canvas id="engagementChart"></canvas>
                             </div>
+                        </div>
+                    </div>
+
+                    <div class="card recent-meetings" style="margin-top: 24px;">
+                        <div class="card-header">
+                            <h2>Recent AI Reports</h2>
+                            <a href="#reports" class="link-btn">View All History</a>
+                        </div>
+                        <div class="meeting-list" id="recent-list">
+                            <!-- Dynamic List -->
                         </div>
                     </div>
                 </section>
@@ -192,6 +190,45 @@
                             <button id="send-chat" class="primary-btn">
                                 <i data-feather="send"></i>
                             </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="live-page" class="page">
+                    <div class="page-header">
+                        <h1>Live Control Room</h1>
+                        <p>Manually dispatch Renata to any call.</p>
+                    </div>
+                    <div class="card live-dispatch">
+                        <h3>Join a Meeting</h3>
+                        <div class="input-group">
+                            <input type="text" id="manual-url" placeholder="https://meet.google.com/xxx-xxxx-xxx">
+                            <button class="primary-btn" id="manual-join">Dispatch Renata</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="settings-page" class="page">
+                    <div class="page-header">
+                        <h1>Integrations & Settings</h1>
+                        <p>Manage your linked accounts and bot preferences.</p>
+                    </div>
+                    <div class="integrations-grid">
+                        <div class="card integration-card" id="int-google">
+                            <div class="int-header">
+                                <div class="int-icon google">G</div>
+                                <span class="int-name">Google Workspace</span>
+                            </div>
+                            <span class="status-text">Disconnected</span>
+                            <a href="https://github.com/login" class="secondary-btn">Link Account</a>
+                        </div>
+                        <div class="card integration-card" id="int-zoom">
+                            <div class="int-header">
+                                <div class="int-icon zoom">Z</div>
+                                <span class="int-name">Zoom API</span>
+                            </div>
+                            <span class="status-text">Disconnected</span>
+                            <a href="#" class="secondary-btn">Link ZOOM</a>
                         </div>
                     </div>
                 </section>

@@ -548,6 +548,55 @@ async def download_json(filename: str, request: Request):
     return FileResponse(path, media_type="application/json", filename=filename)
 
 # ============================================================
+# JSON API FOR STATIC FRONTEND (VERCEL)
+# ============================================================
+
+@app.get("/dashboard_data", response_class=JSONResponse)
+async def get_dashboard_data(user_email: str = "default@rena.ai"): # Fallback for dev
+    """Data for the static dashboard."""
+    stats = db.get_meeting_stats(user_email=user_email)
+    recent = db.get_all_meetings(user_email=user_email, limit=5)
+    
+    # Calendar
+    calendar_events = []
+    creds = get_user_credentials(user_email)
+    if creds:
+        try:
+            from googleapiclient.discovery import build
+            svc = build("calendar", "v3", credentials=creds)
+            now_iso = datetime.utcnow().isoformat() + "Z"
+            result = svc.events().list(
+                calendarId="primary", timeMin=now_iso,
+                maxResults=10, singleEvents=True, orderBy="startTime"
+            ).execute()
+            items = result.get("items", [])
+            for i in items:
+                calendar_events.append({
+                    "summary": i.get("summary", "Untitled"),
+                    "start_time": fmt_time(i.start.get('dateTime', i.start.get('date',''))),
+                    "link": i.get('hangoutLink') or i.get('location', '')
+                })
+        except: pass
+
+    # Profile for integrations
+    profile = db.get_user_profile(user_email) or {}
+    
+    return {
+        "stats": stats,
+        "recent_meetings": recent,
+        "events": calendar_events,
+        "integrations": {
+            "google": True if creds else False,
+            "zoom": True if profile.get("zoom_token") else False
+        }
+    }
+
+@app.get("/reports_data", response_class=JSONResponse)
+async def get_reports_data(user_email: str = "default@rena.ai"):
+    meetings = db.get_all_meetings(user_email=user_email, limit=50)
+    return {"meetings": meetings}
+
+# ============================================================
 # HEALTH CHECK (Railway uses this)
 # ============================================================
 

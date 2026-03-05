@@ -26,8 +26,8 @@ def start_ollama():
         logger.error(f"Failed to start Ollama: {e}")
 
 def start_fastapi():
-    logger.info("Starting FastAPI Backend (main.py) on port 8000...")
-    subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"],
+    logger.info("Starting FastAPI Backend (main.py) on port 8000 with auto-reload...")
+    subprocess.Popen([sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"],
                      creationflags=subprocess.CREATE_NEW_CONSOLE)
 
 def start_tunnel():
