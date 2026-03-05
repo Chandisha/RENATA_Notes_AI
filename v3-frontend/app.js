@@ -1,5 +1,5 @@
 // RENATA Frontend Logic
-const API_BASE = "http://localhost:8000"; // This will be updated by the user when Ngrok starts
+const API_BASE = "https://inimitably-cytotropic-fatimah.ngrok-free.dev";
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize Feather icons
@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
         item.addEventListener('click', (e) => {
             e.preventDefault();
             const targetPage = item.getAttribute('data-page');
-            
+
             // Update Active Nav
             navItems.forEach(i => i.classList.remove('active'));
             item.classList.add('active');
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const data = await response.json();
-            
+
             // Add assistant message
             const assistantMsg = document.createElement('div');
             assistantMsg.className = 'message assistant';
