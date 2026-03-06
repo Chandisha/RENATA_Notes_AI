@@ -371,39 +371,31 @@ def search_meetings(query, user_email=None, limit=20):
     """
     init_database()
     
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
     search_pattern = f"%{query}%"
     
     if user_email:
-        cursor.execute('''
+        query_sql = '''
             SELECT * FROM meetings 
             WHERE user_email = ? 
               AND (title LIKE ? OR transcript_text LIKE ? OR summary_text LIKE ?)
             ORDER BY start_time DESC
             LIMIT ?
-        ''', (user_email, search_pattern, search_pattern, search_pattern, limit))
+        '''
+        return fetch_all(query_sql, (user_email, search_pattern, search_pattern, search_pattern, limit))
     else:
-        cursor.execute('''
+        query_sql = '''
             SELECT * FROM meetings 
             WHERE title LIKE ? OR transcript_text LIKE ? OR summary_text LIKE ?
             ORDER BY start_time DESC
             LIMIT ?
-        ''', (search_pattern, search_pattern, search_pattern, limit))
-        
-    rows = cursor.fetchall()
-    conn.close()
+        '''
+        return fetch_all(query_sql, (search_pattern, search_pattern, search_pattern, limit))
     
     return [dict(row) for row in rows]
 
 def get_meeting_stats(user_email=None):
     """Get aggregated meeting stats, scoped by user_email if provided."""
     init_database()
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
     
     stats = {}
     
@@ -412,33 +404,36 @@ def get_meeting_stats(user_email=None):
     params = (user_email,) if user_email else ()
     
     # Total meetings
-    cursor.execute(f"SELECT COUNT(*) FROM meetings {where_clause}", params)
-    stats['total_meetings'] = cursor.fetchone()[0]
+    row = fetch_one(f"SELECT COUNT(*) as count FROM meetings {where_clause}", params)
+    stats['total_meetings'] = row['count'] if row else 0
     
     # Total duration
-    cursor.execute(f"SELECT SUM(duration_minutes) FROM meetings {where_clause} AND duration_minutes IS NOT NULL", params)
-    total_minutes = cursor.fetchone()[0] or 0
+    row = fetch_one(f"SELECT SUM(duration_minutes) as sum FROM meetings {where_clause} AND duration_minutes IS NOT NULL", params)
+    total_minutes = (row['sum'] if row else 0) or 0
     stats['total_duration_hours'] = round(total_minutes / 60, 1)
     
     # Average participants
-    cursor.execute(f"SELECT AVG(participant_count) FROM meetings {where_clause} AND participant_count > 0", params)
-    stats['avg_participants'] = round(cursor.fetchone()[0] or 0, 1)
+    row = fetch_one(f"SELECT AVG(participant_count) as avg FROM meetings {where_clause} AND participant_count > 0", params)
+    stats['avg_participants'] = round((row['avg'] if row else 0) or 0, 1)
     
     # Meetings this week
-    cursor.execute(f'''
-        SELECT COUNT(*) FROM meetings 
-        {where_clause} AND start_time >= date('now', '-7 days')
-    ''', params)
-    stats['meetings_this_week'] = cursor.fetchone()[0]
+    if DATABASE_URL:
+        # PostgreSQL syntax
+        week_query = f"{where_clause} AND start_time >= (CURRENT_TIMESTAMP - INTERVAL '7 days')::text"
+    else:
+        # SQLite syntax
+        week_query = f"{where_clause} AND start_time >= date('now', '-7 days')"
+        
+    row = fetch_one(f"SELECT COUNT(*) as count FROM meetings {week_query}", params)
+    stats['meetings_this_week'] = row['count'] if row else 0
 
     # Aggregated Metrics (Engagement & Words)
-    cursor.execute("SELECT engagement_metrics FROM meetings WHERE engagement_metrics IS NOT NULL")
-    eng_rows = cursor.fetchall()
+    eng_rows = fetch_all("SELECT engagement_metrics FROM meetings WHERE engagement_metrics IS NOT NULL")
     total_eng = 0
     total_words = 0
     for row in eng_rows:
         try:
-            d = json.loads(row[0])
+            d = json.loads(row['engagement_metrics'])
             total_eng += d.get('score', 0)
             total_words += d.get('total_words', 0)
         except: continue
@@ -469,17 +464,16 @@ def get_meeting_stats(user_email=None):
         stats['storage_used'] = "0 MB"
 
     # Speaker Talk Time (Last 10 Meetings) - Aggregated
-    cursor.execute('''
+    rows = fetch_all('''
         SELECT speaker_analytics FROM meetings 
         WHERE speaker_analytics IS NOT NULL 
         ORDER BY start_time DESC 
         LIMIT 10
     ''')
-    rows = cursor.fetchall()
     speaker_totals = {}
     for row in rows:
         try:
-            data = json.loads(row[0])
+            data = json.loads(row['speaker_analytics'])
             for spk, vals in data.items():
                 if spk not in speaker_totals:
                     speaker_totals[spk] = 0
@@ -494,7 +488,6 @@ def get_meeting_stats(user_email=None):
     else:
         stats['speaker_distribution'] = {}
     
-    conn.close()
     return stats
 
 def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_stats, engagement, pdf_path=None, json_path=None):
@@ -513,104 +506,69 @@ def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_
 
 # --- WORKSPACE OPERATIONS (Restored & Enhanced) ---
 
-def create_workspace(name, owner_email, description=None):
-    """Create a new organization workspace with a unique shareable ID"""
-    import secrets
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
     workspace_id = ""
     # Ensure uniqueness
     for _ in range(10):
+        import secrets
         workspace_id = secrets.token_hex(4).upper() # 8 characters
-        cursor.execute("SELECT id FROM workspaces WHERE id = ?", (workspace_id,))
-        if not cursor.fetchone():
+        if not fetch_one("SELECT id FROM workspaces WHERE id = ?", (workspace_id,)):
             break
             
     try:
-        cursor.execute(
+        exec_commit(
             "INSERT INTO workspaces (id, name, owner_email, description) VALUES (?, ?, ?, ?)",
             (workspace_id, name, owner_email, description)
         )
         # Add owner as first member
-        cursor.execute(
+        exec_commit(
             "INSERT INTO workspace_members (workspace_id, user_email, role) VALUES (?, ?, 'owner')",
             (workspace_id, owner_email)
         )
-        conn.commit()
-        conn.close()
         return True, workspace_id
-    except sqlite3.Error as e:
-        conn.close()
+    except Exception as e:
         return False, str(e)
 
 def join_workspace(workspace_id, email):
     """Join an existing workspace using its unique ID"""
     workspace_id = workspace_id.strip().upper()
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
     try:
         # Verify workspace exists
-        cursor.execute("SELECT id FROM workspaces WHERE id = ?", (workspace_id,))
-        if not cursor.fetchone():
-            conn.close()
+        if not fetch_one("SELECT id FROM workspaces WHERE id = ?", (workspace_id,)):
             return False, "Workspace not found. Check the ID."
             
-        cursor.execute(
+        exec_commit(
             "INSERT INTO workspace_members (workspace_id, user_email, role) VALUES (?, ?, 'member')",
             (workspace_id, email)
         )
-        conn.commit()
-        conn.close()
         return True, "Joined successfully!"
-    except sqlite3.IntegrityError:
-        conn.close()
-        return False, "You are already a member of this workspace."
-    except sqlite3.Error as e:
-        conn.close()
+    except Exception as e:
+        if "UNIQUE" in str(e).upper():
+            return False, "You are already a member of this workspace."
         return False, str(e)
 
 def get_user_workspaces(email):
     """Get all workspaces a user belongs to"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute('''
+    return fetch_all('''
         SELECT w.*, wm.role 
         FROM workspaces w
         JOIN workspace_members wm ON w.id = wm.workspace_id
         WHERE wm.user_email = ?
     ''', (email,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
 
 def get_workspace_members(workspace_id):
     """List all members of a workspace"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_email, role, joined_at FROM workspace_members WHERE workspace_id = ?", (workspace_id,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    return fetch_all("SELECT user_email, role, joined_at FROM workspace_members WHERE workspace_id = ?", (workspace_id,))
 
 def send_workspace_message(workspace_id, sender_email, sender_name, message, attachment_path=None, attachment_name=None):
     """Send a message to workspace chat"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
     try:
-        cursor.execute('''
+        exec_commit('''
             INSERT INTO workspace_chats 
             (workspace_id, sender_email, sender_name, message, attachment_path, attachment_name)
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (workspace_id, sender_email, sender_name, message, attachment_path, attachment_name))
-        conn.commit()
-        conn.close()
         return True
-    except sqlite3.Error:
-        conn.close()
+    except:
         return False
 
 def get_workspace_messages(workspace_id, limit=50):
@@ -643,67 +601,40 @@ def create_assistant_thread(user_email, title="New Conversation"):
     """Create a new personal chat thread for the assistant"""
     import secrets
     thread_id = secrets.token_hex(8).upper()
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
     try:
-        cursor.execute(
+        exec_commit(
             "INSERT INTO assistant_threads (id, user_email, title) VALUES (?, ?, ?)",
             (thread_id, user_email, title)
         )
-        conn.commit()
-        conn.close()
         return thread_id
-    except sqlite3.Error:
-        conn.close()
+    except:
         return None
 
 def save_assistant_message(thread_id, role, content):
     """Save a single message to a chat thread"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
     try:
-        cursor.execute(
+        exec_commit(
             "INSERT INTO assistant_messages (thread_id, role, content) VALUES (?, ?, ?)",
             (thread_id, role, content)
         )
-        conn.commit()
-        conn.close()
         return True
-    except sqlite3.Error:
-        conn.close()
+    except:
         return False
 
 def get_user_assistant_threads(user_email):
     """Get all chat threads for a specific user"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM assistant_threads WHERE user_email = ? ORDER BY created_at DESC", (user_email,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    return fetch_all("SELECT * FROM assistant_threads WHERE user_email = ? ORDER BY created_at DESC", (user_email,))
 
 def get_assistant_thread_messages(thread_id):
     """Get all messages for a specific chat thread"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT role, content FROM assistant_messages WHERE thread_id = ? ORDER BY created_at ASC", (thread_id,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
+    return fetch_all("SELECT role, content FROM assistant_messages WHERE thread_id = ? ORDER BY created_at ASC", (thread_id,))
 
 def update_assistant_thread_title(thread_id, new_title):
     """Update conversation title (first few words of first user message)"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
     try:
-        cursor.execute("UPDATE assistant_threads SET title = ? WHERE id = ?", (new_title, thread_id))
-        conn.commit()
-        conn.close()
+        exec_commit("UPDATE assistant_threads SET title = ? WHERE id = ?", (new_title, thread_id))
         return True
     except:
-        conn.close()
         return False
 
 def get_user_token(email):
