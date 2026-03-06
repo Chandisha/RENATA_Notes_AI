@@ -367,18 +367,10 @@ async def logout(request: Request):
 # ============================================================
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(request: Request):
-    user = require_user(request)
-    email = user['email']
-    stats = db.get_meeting_stats(user_email=email)
-    recent = db.get_all_meetings(user_email=email, limit=5)
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
-        "user": user,
-        "stats": stats,
-        "recent_meetings": recent,
-        "active_page": "calendar"
-    })
+async def dashboard_page_spa(request: Request):
+    """Serve the SPA shell for the dashboard."""
+    require_user(request)
+    return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.get("/dashboard_data")
 async def dashboard_data(request: Request):
@@ -391,8 +383,10 @@ async def dashboard_data(request: Request):
     try:
         creds = get_user_credentials(email)
         if creds:
-            svc = googleapiclient.discovery.build("calendar", "v3", credentials=creds)
-            now_iso = datetime.utcnow().isoformat() + "Z"
+            from googleapiclient.discovery import build
+            svc = build("calendar", "v3", credentials=creds)
+            # RFC3339 compliant format
+            now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
             result = svc.events().list(
                 calendarId="primary", timeMin=now_iso,
                 maxResults=10, singleEvents=True, orderBy="startTime"
@@ -400,7 +394,6 @@ async def dashboard_data(request: Request):
             items = result.get("items", [])
             for item in items:
                 start_raw = item['start'].get('dateTime', item['start'].get('date'))
-                # Simpler formatting for JS frontend
                 calendar_events.append({
                     "summary": item.get("summary", "Untitled"),
                     "start_time": fmt_time(start_raw),
@@ -416,18 +409,26 @@ async def dashboard_data(request: Request):
     for m in recent:
         m['start_time'] = fmt_time(m['start_time'])
 
+    # Get profile for sidebar
+    profile = db.get_user_profile(email) or {}
+
     return {
+        "user": {
+            "name": profile.get("name", user["name"]),
+            "email": email,
+            "picture": profile.get("picture", user.get("picture", "https://api.dicebear.com/7.x/avataaars/svg?seed="+email))
+        },
         "stats": {
             "total_meetings": stats.get('total_meetings', 0),
             "total_hours": stats.get('total_duration_hours', 0),
-            "action_items_count": stats.get('total_words', 0), # Using total words as placeholder or action items
+            "action_items_count": stats.get('total_words', 0),
             "participant_count": stats.get('avg_participants', 0)
         },
         "recent_meetings": recent,
         "events": calendar_events,
         "integrations": {
             "google": True if db.get_user_token(email) else False,
-            "zoom": True if ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET else False 
+            "zoom": True if profile.get("zoom_token") else False 
         }
     }
 
@@ -436,18 +437,12 @@ async def dashboard_data(request: Request):
 # ============================================================
 
 @app.get("/reports", response_class=HTMLResponse)
-async def reports(request: Request):
-    user = require_user(request)
-    meetings = db.get_all_meetings(user_email=user['email'], limit=50)
-    return templates.TemplateResponse("reports.html", {
-        "request": request,
-        "user": user,
-        "meetings": meetings,
-        "active_page": "reports"
-    })
+async def reports_page_spa(request: Request):
+    require_user(request)
+    return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.get("/reports_data")
-async def reports_data(request: Request):
+async def reports_data_api(request: Request):
     user = get_current_user(request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -495,36 +490,18 @@ async def report_detail(request: Request, meeting_id: str):
 # ============================================================
 
 @app.get("/analytics", response_class=HTMLResponse)
-async def analytics(request: Request):
-    user = require_user(request)
-    stats = db.get_meeting_stats(user_email=user['email'])
-    # Parse speaker_distribution
-    speaker_dist = stats.get("speaker_distribution", {})
-    return templates.TemplateResponse("analytics.html", {
-        "request": request,
-        "user": user,
-        "stats": stats,
-        "speaker_json": json.dumps(speaker_dist),
-        "active_page": "analytics"
-    })
+async def analytics_page_spa(request: Request):
+    require_user(request)
+    return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 # ============================================================
 # AI SEARCH ASSISTANT (RAG)
 # ============================================================
 
 @app.get("/search", response_class=HTMLResponse)
-async def search_page(request: Request):
-    user = require_user(request)
-
-    # Get knowledge base stats for the UI
-    kb_stats = _get_kb_stats()
-
-    return templates.TemplateResponse("search.html", {
-        "request": request,
-        "user": user,
-        "active_page": "search",
-        "kb_stats": kb_stats
-    })
+async def search_page_spa(request: Request):
+    require_user(request)
+    return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 def _get_kb_stats():
     """Get knowledge base file and index stats."""
@@ -579,26 +556,18 @@ async def search_status(request: Request):
 # ============================================================
 
 @app.get("/integrations", response_class=HTMLResponse)
-async def integrations_page(request: Request):
-    user = require_user(request)
-    profile = db.get_user_profile(user["email"]) or {}
-    return templates.TemplateResponse("integrations.html", {
-        "request": request,
-        "user": user,
-        "profile": profile,
-        "active_page": "integrations"
-    })
+async def integrations_page_spa(request: Request):
+    require_user(request)
+    return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 # ============================================================
 # ADD LIVE MEETING
 # ============================================================
 
 @app.get("/live", response_class=HTMLResponse)
-async def live_page(request: Request):
-    user = require_user(request)
-    return templates.TemplateResponse("live.html", {
-        "request": request, "user": user, "active_page": "live"
-    })
+async def live_page_spa(request: Request):
+    require_user(request)
+    return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.post("/live/join", response_class=JSONResponse)
 async def live_join(request: Request, meeting_url: str = Form(...)):
@@ -627,12 +596,9 @@ async def live_status(request: Request):
 # ============================================================
 
 @app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
-    user = require_user(request)
-    profile = db.get_user_profile(user["email"]) or {}
-    return templates.TemplateResponse("settings.html", {
-        "request": request, "user": user, "profile": profile, "active_page": "settings"
-    })
+async def settings_page_spa(request: Request):
+    require_user(request)
+    return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.post("/settings/save")
 async def settings_save(request: Request, name: str = Form(""), bot_name: str = Form("")):
@@ -662,54 +628,7 @@ async def download_json(filename: str, request: Request):
     if not path.exists(): raise HTTPException(status_code=404)
     return FileResponse(path, media_type="application/json", filename=filename)
 
-# ============================================================
-# JSON API FOR STATIC FRONTEND (VERCEL)
-# ============================================================
-
-@app.get("/dashboard_data", response_class=JSONResponse)
-async def get_dashboard_data(user_email: str = "default@rena.ai"): # Fallback for dev
-    """Data for the static dashboard."""
-    stats = db.get_meeting_stats(user_email=user_email)
-    recent = db.get_all_meetings(user_email=user_email, limit=5)
-    
-    # Calendar
-    calendar_events = []
-    creds = get_user_credentials(user_email)
-    if creds:
-        try:
-            from googleapiclient.discovery import build
-            svc = build("calendar", "v3", credentials=creds)
-            now_iso = datetime.utcnow().isoformat() + "Z"
-            result = svc.events().list(
-                calendarId="primary", timeMin=now_iso,
-                maxResults=10, singleEvents=True, orderBy="startTime"
-            ).execute()
-            items = result.get("items", [])
-            for i in items:
-                calendar_events.append({
-                    "summary": i.get("summary", "Untitled"),
-                    "start_time": fmt_time(i.start.get('dateTime', i.start.get('date',''))),
-                    "link": i.get('hangoutLink') or i.get('location', '')
-                })
-        except: pass
-
-    # Profile for integrations
-    profile = db.get_user_profile(user_email) or {}
-    
-    return {
-        "stats": stats,
-        "recent_meetings": recent,
-        "events": calendar_events,
-        "integrations": {
-            "google": True if creds else False,
-            "zoom": True if profile.get("zoom_token") else False
-        }
-    }
-
-@app.get("/reports_data", response_class=JSONResponse)
-async def get_reports_data(user_email: str = "default@rena.ai"):
-    meetings = db.get_all_meetings(user_email=user_email, limit=50)
-    return {"meetings": meetings}
+# Duplicate routes at the end removed.
 
 # ============================================================
 # HEALTH CHECK (Railway uses this)

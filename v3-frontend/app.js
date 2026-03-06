@@ -31,20 +31,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
     navItems.forEach(item => {
         item.addEventListener('click', (e) => {
-            e.preventDefault();
             const targetPage = item.getAttribute('data-page');
-
-            // Update Active Nav
-            navItems.forEach(i => i.classList.remove('active'));
-            item.classList.add('active');
-
-            // Show Target Page
-            pages.forEach(p => p.classList.remove('active'));
-            document.getElementById(`${targetPage}-page`).classList.add('active');
-
-            // Trigger Data Load
-            loadPageData(targetPage);
+            window.location.hash = targetPage;
+            showPage(targetPage);
         });
+    });
+
+    function showPage(pageId) {
+        if (!pageId) pageId = 'dashboard';
+
+        // Update Active Nav
+        navItems.forEach(i => {
+            i.classList.toggle('active', i.getAttribute('data-page') === pageId);
+        });
+
+        // Show Target Page
+        const targetElement = document.getElementById(`${pageId}-page`);
+        if (targetElement) {
+            pages.forEach(p => p.classList.remove('active'));
+            targetElement.classList.add('active');
+            loadPageData(pageId);
+        }
+    }
+
+    // Handle initial load
+    const initialPage = window.location.hash.replace('#', '') || 'dashboard';
+    showPage(initialPage);
+
+    // Handle back/forward and manual hash changes
+    window.addEventListener('hashchange', () => {
+        const newPage = window.location.hash.replace('#', '') || 'dashboard';
+        showPage(newPage);
     });
 
     // --- DATA LOADING LOGIC ---
@@ -72,12 +89,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch("/dashboard_data");
             const data = await res.json();
 
+            // Update User Profile
+            if (data.user) {
+                const userNameEl = document.querySelector('.user-name');
+                const userAvatarEl = document.querySelector('.avatar');
+                if (userNameEl) userNameEl.textContent = data.user.name;
+                if (userAvatarEl && data.user.picture) userAvatarEl.src = data.user.picture;
+            }
+
             // Update Stats
             if (data.stats) {
                 document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = data.stats.total_meetings || 0;
                 document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = (data.stats.total_hours || 0).toFixed(1) + 'h';
                 document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = data.stats.action_items_count || 0;
-                document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = data.stats.participant_count || 0;
+                document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = (data.stats.participant_count || 0).toFixed(1);
             }
 
             // Update Recent List
@@ -221,7 +246,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial Load
     checkServerStatus();
-    loadDashboardData();
     setInterval(checkServerStatus, 10000); // Check every 10s
 
     // Modal Interaction
