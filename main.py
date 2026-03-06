@@ -218,16 +218,24 @@ def create_google_flow(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
+    # FORCE Production Domain to avoid session loss on Previews
+    host = request.headers.get("host", "")
+    if "vercel.app" in host and host != "renata-notes-ai.vercel.app" and not host.startswith("localhost"):
+        return RedirectResponse("https://renata-notes-ai.vercel.app/")
+
     print(">>> ACCESSING ROOT /")
     user = get_current_user(request)
     if user:
-        print(f">>> REDIRECTING USER {user.get('email')} TO DASHBOARD")
         return RedirectResponse("/dashboard")
-    print(">>> REDIRECTING ANONYMOUS TO LOGIN")
     return RedirectResponse("/login")
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
+    # FORCE Production Domain
+    host = request.headers.get("host", "")
+    if "vercel.app" in host and host != "renata-notes-ai.vercel.app" and not host.startswith("localhost"):
+        return RedirectResponse("https://renata-notes-ai.vercel.app/login")
+
     print(">>> ACCESSING LOGIN PAGE")
     user = get_current_user(request)
     if user:
