@@ -52,10 +52,37 @@ app.add_middleware(
 # Session middleware (secret key from env for production)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "renata-local-dev-secret-2024"))
 
+# Path Diagnostics
+print(f"DEBUG: BASE_DIR is {BASE_DIR}")
+print(f"DEBUG: templates exists: {(BASE_DIR / 'templates').exists()}")
+print(f"DEBUG: static exists: {(BASE_DIR / 'static').exists()}")
+
 # Static files & templates
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
-templates.env.filters["basename"] = lambda p: os.path.basename(p) if p else ""
+if (BASE_DIR / "static").exists():
+    app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+else:
+    print("WARNING: Static directory not found!")
+
+if (BASE_DIR / "templates").exists():
+    templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+else:
+    print("WARNING: Templates directory not found!")
+    # Fallback to avoid crash during startup
+    templates = None
+
+# Custom Exception Handler for 500s
+@app.middleware("http")
+async def db_session_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception as e:
+        import traceback
+        print(f"RUNTIME ERROR: {e}")
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal Server Error", "error": str(e), "traceback": traceback.format_exc()}
+        )
 
 # Init database on startup
 try:
@@ -94,9 +121,11 @@ def fmt_time(iso_str: str) -> str:
     except:
         return iso_str or "—"
 
-templates.env.globals["get_meeting_status"] = get_meeting_status
-templates.env.globals["fmt_time"] = fmt_time
-templates.env.globals["now_year"] = datetime.now().year
+if templates:
+    templates.env.filters["basename"] = lambda p: os.path.basename(p) if p else ""
+    templates.env.globals["get_meeting_status"] = get_meeting_status
+    templates.env.globals["fmt_time"] = fmt_time
+    templates.env.globals["now_year"] = datetime.now().year
 
 # --- Google OAuth Helper ---
 def get_user_credentials(user_email: str):
