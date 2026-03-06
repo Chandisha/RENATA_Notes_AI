@@ -1,49 +1,68 @@
 {
     "version": 2,
-    "rewrites": [
+    "builds": [
         {
-            "source": "/health",
-            "destination": "/api/index.py"
+            "src": "api/index.py",
+            "use": "@vercel/python"
         },
         {
-            "source": "/login",
-            "destination": "/api/index.py"
+            "src": "v3-frontend/**",
+            "use": "@vercel/static"
         },
         {
-            "source": "/logout",
-            "destination": "/api/index.py"
+            "src": "static/**",
+            "use": "@vercel/static"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/health",
+            "dest": "api/index.py"
         },
         {
-            "source": "/auth/(.*)",
-            "destination": "/api/index.py"
+            "src": "/login",
+            "dest": "api/index.py"
         },
         {
-            "source": "/dashboard_data",
-            "destination": "/api/index.py"
+            "src": "/logout",
+            "dest": "api/index.py"
         },
         {
-            "source": "/reports_data",
-            "destination": "/api/index.py"
+            "src": "/auth/(.*)",
+            "dest": "api/index.py"
         },
         {
-            "source": "/search/(.*)",
-            "destination": "/api/index.py"
+            "src": "/dashboard_data",
+            "dest": "api/index.py"
         },
         {
-            "source": "/live/(.*)",
-            "destination": "/api/index.py"
+            "src": "/reports_data",
+            "dest": "api/index.py"
         },
         {
-            "source": "/download/(.*)",
-            "destination": "/api/index.py"
+            "src": "/search/(.*)",
+            "dest": "api/index.py"
         },
         {
-            "source": "/static/(.*)",
-            "destination": "/static/$1"
+            "src": "/live/(.*)",
+            "dest": "api/index.py"
         },
         {
-            "source": "/(.*)",
-            "destination": "/v3-frontend/$1"
+            "src": "/download/(.*)",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/static/(.*)",
+            "dest": "/static/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/v3-frontend/$1",
+            "continue": true
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/v3-frontend/index.html"
         }
     ]
 }
