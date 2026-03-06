@@ -58,11 +58,16 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.filters["basename"] = lambda p: os.path.basename(p) if p else ""
 
 # Init database on startup
-db.init_database()
+try:
+    print("Initializing Database...")
+    db.init_database()
+    print("Database Initialized Successfully.")
+except Exception as e:
+    print(f"CRITICAL: Database Init Failed: {e}")
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "time": datetime.now().isoformat()}
+    return {"status": "ok", "time": datetime.now().isoformat(), "env": os.getenv("VERCEL_ENV", "local")}
 
 # --- Jinja2 Global Helpers ---
 def get_meeting_status(start_time: str, end_time: str = None):
@@ -175,9 +180,12 @@ def create_google_flow(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
+    print("Root URL accessed. Checking session...")
     user = get_current_user(request)
     if user:
+        print(f"Logged in user found: {user.get('email')}. Redirecting to dashboard...")
         return RedirectResponse("/dashboard")
+    print("No session found. Redirecting to login...")
     return RedirectResponse("/login")
 
 @app.get("/login", response_class=HTMLResponse)

@@ -68,9 +68,8 @@
             "dest": "api/index.py"
         },
         {
-            "src": "/(.*)",
-            "dest": "/v3-frontend/$1",
-            "continue": true
+            "src": "/v3-frontend/(.*)",
+            "dest": "/v3-frontend/$1"
         },
         {
             "src": "/(.*)",
