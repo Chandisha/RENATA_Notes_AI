@@ -250,10 +250,10 @@ async def trigger_google_auth(request: Request):
     if not flow:
         return RedirectResponse("/login?error=credentials_missing")
     
-    auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline', include_granted_scopes='true')
+    auth_url, state = flow.authorization_url(prompt='consent', access_type='offline', include_granted_scopes='true')
     
     # Store the state and code verifier in the session for the callback
-    request.session["oauth_state"] = flow.state
+    request.session["oauth_state"] = state
     if hasattr(flow, "code_verifier"):
         request.session["code_verifier"] = flow.code_verifier
         
