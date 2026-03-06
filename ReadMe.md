@@ -140,6 +140,30 @@ Update your Google OAuth Redirect URI to: `https://your-app.vercel.app/auth/call
 
 ---
 
+## 🚀 The Hybrid Setup: Cloud + Local Bot
+
+Renata uses a **Brain & Body** architecture. To avoid expensive cloud GPU costs and bypass Vercel's serverless timeouts, the dashboard lives in the cloud while the meeting bot runs on your local machine.
+
+### 🧠 Part 1: The Cloud "Brain" (Vercel)
+The web app handles your UI, AI Search (RAG), and data analytics. Access it via your Vercel URL.
+
+### 🤖 Part 2: The Local "Body" (Pilot)
+The bot pilot runs on your computer to handle live Chrome automation and high-quality audio recording.
+
+**To start the local bot listener:**
+1. Open terminal in the project folder.
+2. Activate your environment: `.\renata\Scripts\activate`
+3. Run in Autopilot mode:
+```powershell
+python renata_bot_pilot.py --autopilot --user YOUR_GMAIL@gmail.com
+```
+*Renata will now wait in the background and join any meeting you "Dispatch" from the web dashboard!*
+
+> [!TIP]
+> **Automate on Windows**: Create a `start_bot.bat` file on your Desktop with the commands above to launch Renata with a single click.
+
+---
+
 ## Usage
 
 ### 🚀 Running the Web App
