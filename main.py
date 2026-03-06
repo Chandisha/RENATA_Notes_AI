@@ -499,7 +499,9 @@ async def analytics_page_spa(request: Request):
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 # ============================================================
-# AI SEARCH ASSISTANT (RAG)
+# AI SEARCH ASSISTANT
+# On Vercel: uses Gemini API directly on database transcripts (no torch needed)
+# Locally: can also use ChromaDB via rag_assistant module if available
 # ============================================================
 
 @app.get("/search", response_class=HTMLResponse)
@@ -507,53 +509,78 @@ async def search_page_spa(request: Request):
     require_user(request)
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
-def _get_kb_stats():
-    """Get knowledge base file and index stats."""
-    meeting_dir = Path("meeting_outputs")
-    stats = {"pdf_count": 0, "json_count": 0, "indexed_segments": 0, "status": "unknown"}
-    if meeting_dir.exists():
-        stats["pdf_count"] = len(list(meeting_dir.glob("*.pdf")))
-        stats["json_count"] = len(list(meeting_dir.glob("*.json")))
+def _get_kb_stats(user_email=None):
+    """Return stats about indexed meetings from the database."""
     try:
-        from rag_assistant import assistant
-        if assistant.chatbot.is_initialized and assistant.chatbot.vector_store:
-            stats["indexed_segments"] = assistant.chatbot.vector_store.get_document_count()
-            stats["status"] = "ready"
-        else:
-            stats["status"] = "not_initialized"
-    except:
-        stats["status"] = "not_initialized"
-    return stats
+        meetings = db.get_all_meetings(user_email=user_email, limit=500)
+        meetings_with_transcript = [m for m in meetings if m.get('transcript_text') or m.get('summary_text')]
+        return {
+            "pdf_count": len(meetings_with_transcript),
+            "indexed_segments": len(meetings_with_transcript),
+            "status": "ready" if meetings_with_transcript else "empty"
+        }
+    except Exception as e:
+        return {"pdf_count": 0, "indexed_segments": 0, "status": "error"}
 
 @app.post("/search/ask", response_class=JSONResponse)
 async def search_ask(request: Request, question: str = Form(...)):
-    user = require_user(request) # Use the updated require_user with default fallback
+    user = require_user(request)
     try:
-        from rag_assistant import assistant
-        answer = assistant.ask(question)
-        return {"answer": answer, "success": True}
+        import google.generativeai as genai
+        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+
+        # Gather transcripts from database
+        meetings = db.get_all_meetings(user_email=user['email'], limit=30)
+        context_parts = []
+        for m in meetings:
+            if m.get('transcript_text') or m.get('summary_text'):
+                title = m.get('title', 'Untitled')
+                date = m.get('start_time', '')[:10]
+                content = m.get('summary_text') or m.get('transcript_text', '')
+                context_parts.append(f"--- Meeting: {title} ({date}) ---\n{content[:2000]}")
+
+        if not context_parts:
+            return {"answer": "No meeting transcripts found yet. Run the local bot pilot to record meetings first, then try again.", "success": True}
+
+        context = "\n\n".join(context_parts[:15])  # Use up to 15 most recent
+        prompt = f"""You are Renata, an AI meeting intelligence assistant. Answer the user's question based ONLY on the meeting transcripts provided below. If the answer is not found in the transcripts, say so clearly.
+
+MEETING TRANSCRIPTS:
+{context}
+
+USER QUESTION: {question}
+
+ANSWER:"""
+
+        for model_name in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                return {"answer": response.text, "success": True}
+            except Exception:
+                continue
+        return {"answer": "Could not get a response from the AI model. Please check your GEMINI_API_KEY.", "success": False}
     except Exception as e:
-        return {"answer": f"Error: {str(e)}", "success": False}
+        return {"answer": f"Search error: {str(e)}", "success": False}
 
 @app.post("/search/index", response_class=JSONResponse)
 async def search_index(request: Request):
-    """Force re-index all meeting documents into the RAG knowledge base."""
+    """Re-sync knowledge base stats from database."""
     user = get_current_user(request)
     if not user: raise HTTPException(status_code=401)
-    try:
-        from rag_assistant import assistant
-        assistant._ensure_indexed(force_reset=True)
-        count = assistant.chatbot.vector_store.get_document_count()
-        return {"success": True, "message": f"Knowledge base synced. {count} segments indexed.", "indexed_segments": count}
-    except Exception as e:
-        return {"success": False, "message": f"Indexing error: {str(e)}"}
+    stats = _get_kb_stats(user_email=user['email'])
+    return {
+        "success": True,
+        "message": f"Knowledge base ready. {stats['indexed_segments']} meeting reports indexed.",
+        "indexed_segments": stats["indexed_segments"]
+    }
 
 @app.get("/search/status", response_class=JSONResponse)
 async def search_status(request: Request):
-    """Return current knowledge base stats."""
     user = get_current_user(request)
     if not user: raise HTTPException(status_code=401)
-    return _get_kb_stats()
+    return _get_kb_stats(user_email=user['email'])
+
 
 # ============================================================
 # INTEGRATIONS

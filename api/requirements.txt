@@ -1,4 +1,10 @@
-# Essential Web & API Libraries for Vercel
+# ============================================================
+# Vercel API Requirements - KEEP THIS SLIM (500MB limit)
+# Heavy packages (torch, chromadb, sentence-transformers)
+# are LOCAL ONLY and must NOT be added here.
+# ============================================================
+
+# Web Framework
 fastapi
 uvicorn[standard]
 jinja2
@@ -9,7 +15,7 @@ requests
 python-dotenv
 loguru
 
-# Google & AI (The "Cloud Brain")
+# Google APIs & OAuth
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
@@ -19,15 +25,5 @@ google-generativeai
 psycopg2-binary
 sqlalchemy
 
-# AI Search & PDF
-pdfplumber
-chromadb
-sentence-transformers
-langchain
-langchain-core
-langchain-community
-pypdf
-torch
-numpy
+# PDF (lightweight)
 reportlab
-omegaconf
