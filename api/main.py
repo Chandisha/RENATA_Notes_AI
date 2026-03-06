@@ -19,7 +19,7 @@ except Exception as e:
     print(error_msg)
     
     # Very basic fallback app to SHOW the user the error on the website
-    from fastapi import FastAPI
+    from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
     app = FastAPI()
     @app.get("/{rest_of_path:path}")
