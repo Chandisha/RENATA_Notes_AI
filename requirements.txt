@@ -48,3 +48,4 @@ omegaconf
 requests
 ollama
 pyngrok
+psycopg2-binary

@@ -4,30 +4,107 @@ Stores meeting metadata and enables search/history features
 Replicates Read.ai's meeting archive and search functionality
 """
 import sqlite3
+import psycopg2
+import psycopg2.extras
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 
-DB_PATH = Path("meeting_outputs") / "meetings.db"
+# Database Configuration
+DATABASE_URL = os.getenv("DATABASE_URL") # For PostgreSQL (Vercel/Neon)
+DB_PATH = Path("meeting_outputs") / "meetings.db" # For SQLite (Local)
 
 def get_db_connection():
-    """Get a connection to the database."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Get a connection to the database (PostgreSQL if URL exists, else SQLite)."""
+    if DATABASE_URL:
+        # PostgreSQL Connection
+        conn = psycopg2.connect(DATABASE_URL)
+        # Fix for Row access in Psycopg2
+        return conn
+    else:
+        # SQLite Connection
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+def get_cursor(conn):
+    """Helper to get a dictionary-ready cursor."""
+    if DATABASE_URL:
+        return conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        return conn.cursor()
+
+def exec_commit(query, params=()):
+    """Execute a query and commit."""
+    conn = get_db_connection()
+    # Replace ? with %s if PostgreSQL
+    if DATABASE_URL:
+        query = query.replace("?", "%s")
+        # Handle specific dialect differences if needed
+        query = query.replace("ON CONFLICT(email) DO UPDATE SET", "ON CONFLICT (email) DO UPDATE SET") 
+    
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    conn.commit()
+    last_id = None
+    try:
+        if DATABASE_URL:
+            # PostgreSQL doesn't have lastrowid on the cursor in the same way
+            # We would need RETURNING id if we wanted it
+            pass
+        else:
+            last_id = cursor.lastrowid
+    except: pass
+    conn.close()
+    return True, last_id
+
+def fetch_one(query, params=()):
+    """Fetch a single result."""
+    conn = get_db_connection()
+    if DATABASE_URL:
+        query = query.replace("?", "%s")
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        cursor = conn.cursor()
+    
+    cursor.execute(query, params)
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def fetch_all(query, params=()):
+    """Fetch all results."""
+    conn = get_db_connection()
+    if DATABASE_URL:
+        query = query.replace("?", "%s")
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    else:
+        cursor = conn.cursor()
+    
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
 
 def init_database():
     """Initialize the database with required tables"""
-    # Ensure directory exists
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if not DATABASE_URL:
+        # Ensure directory exists for SQLite
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Use TEXT instead of INTEGER PRIMARY KEY AUTOINCREMENT for PG compatibility if needed
+    # Actually, serial is better for PG. We'll stick to basic DDL and let PG handle it or provide a separate schema.
+    
+    pk_def = "SERIAL PRIMARY KEY" if DATABASE_URL else "INTEGER PRIMARY KEY AUTOINCREMENT"
+    
     # Create meetings table
-    cursor.execute('''
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS meetings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {pk_def},
             meeting_id TEXT UNIQUE,
             title TEXT NOT NULL,
             start_time TEXT NOT NULL,
@@ -39,7 +116,7 @@ def init_database():
             participant_count INTEGER,
             participant_emails TEXT,
             workspace_id TEXT,
-            user_email TEXT, -- Added for multi-user isolation
+            user_email TEXT,
             status TEXT DEFAULT 'completed',
             recording_path TEXT,
             pdf_path TEXT,
@@ -52,90 +129,18 @@ def init_database():
             engagement_metrics TEXT,
             speaker_analytics TEXT,
             coaching_metrics TEXT,
-            is_skipped INTEGER DEFAULT 0, -- 1 if user cancelled bot for this meeting
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Migration: Add user_email if missing
-    try:
-        cursor.execute("SELECT user_email FROM meetings LIMIT 1")
-    except:
-        cursor.execute("ALTER TABLE meetings ADD COLUMN user_email TEXT")
-        conn.commit()
-
-    # Workspace Tables (Robust Re-creation to fix datatype mismatch)
-    try:
-        # Check if workspaces table has TEXT id
-        cursor.execute("PRAGMA table_info(workspaces)")
-        columns = cursor.fetchall()
-        if columns and columns[0][2].upper() != 'TEXT':
-            # Mismatch detected, recreate tables
-            cursor.execute("DROP TABLE IF EXISTS workspace_chats")
-            cursor.execute("DROP TABLE IF EXISTS workspace_members")
-            cursor.execute("DROP TABLE IF EXISTS workspaces")
-    except:
-        pass
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS workspaces (
-            id TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            description TEXT,
-            owner_email TEXT NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS workspace_members (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            workspace_id TEXT,
-            user_email TEXT NOT NULL,
-            role TEXT DEFAULT 'member',
-            joined_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (workspace_id) REFERENCES workspaces(id),
-            UNIQUE(workspace_id, user_email)
+            is_skipped INTEGER DEFAULT 0,
+            bot_status TEXT DEFAULT 'IDLE',
+            bot_joined_at TEXT,
+            bot_status_note TEXT,
+            is_summarized_paid INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
 
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS workspace_chats (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            workspace_id TEXT,
-            sender_email TEXT NOT NULL,
-            sender_name TEXT,
-            message TEXT,
-            attachment_path TEXT,
-            attachment_name TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS assistant_threads (
-            id TEXT PRIMARY KEY,
-            user_email TEXT NOT NULL,
-            title TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS assistant_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            thread_id TEXT,
-            role TEXT NOT NULL,
-            content TEXT NOT NULL,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (thread_id) REFERENCES assistant_threads(id)
-        )
-    ''')
-
-    # Create users table for profile settings
-    cursor.execute('''
+    # Users Table
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS users (
             email TEXT PRIMARY KEY,
             name TEXT,
@@ -149,167 +154,108 @@ def init_database():
             bot_recording_enabled INTEGER DEFAULT 1,
             bot_name TEXT DEFAULT 'Renata AI | Personal Meeting Assistant',
             summary_language TEXT DEFAULT 'English/Hindi',
-            google_token TEXT, -- Serialized Google OAuth token
-            zoom_token TEXT,   -- Serialized Zoom OAuth token
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-
-    # Migration: Add google_token if missing
-    try:
-        cursor.execute("SELECT google_token FROM users LIMIT 1")
-    except:
-        cursor.execute("ALTER TABLE users ADD COLUMN google_token TEXT")
-        conn.commit()
-
-    # Migration: Add zoom_token if missing
-    try:
-        cursor.execute("SELECT zoom_token FROM users LIMIT 1")
-    except:
-        cursor.execute("ALTER TABLE users ADD COLUMN zoom_token TEXT")
-        conn.commit()
-
-    # Gmail Intelligence Table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS gmail_intelligence (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_email TEXT,
-            message_id TEXT UNIQUE,
-            category TEXT, -- 'deadline', 'project', 'action_item'
-            subject TEXT,
-            snippet TEXT,
-            date_mentioned TEXT,
-            is_dismissed INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            google_token TEXT,
+            zoom_token TEXT,
+            notion_token TEXT,
+            notion_db TEXT,
+            hubspot_api_key TEXT,
+            salesforce_token TEXT,
+            subscription_plan TEXT DEFAULT 'Free',
+            credits INTEGER DEFAULT 3,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
     
-    # --- MIGRATIONS ---
-    def add_column_if_missing(table, column, type_def):
-        try:
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column} {type_def}")
-        except sqlite3.OperationalError:
-            pass # Column likely already exists
-
-    add_column_if_missing("meetings", "bot_status", "TEXT DEFAULT 'IDLE'")
-    add_column_if_missing("meetings", "bot_joined_at", "TEXT")
-    add_column_if_missing("meetings", "bot_status_note", "TEXT")
-
-    add_column_if_missing("meetings", "chapters", "TEXT")
-    add_column_if_missing("meetings", "sentiment_analysis", "TEXT")
-    add_column_if_missing("meetings", "engagement_metrics", "TEXT")
-    add_column_if_missing("meetings", "speaker_analytics", "TEXT")
-    add_column_if_missing("meetings", "coaching_metrics", "TEXT")
-    add_column_if_missing("meetings", "workspace_id", "INTEGER")
-    
-    # User migrations
-    add_column_if_missing("users", "theme_mode", "TEXT DEFAULT 'Light'")
-    add_column_if_missing("users", "subscription_plan", "TEXT DEFAULT 'Free'")
-    add_column_if_missing("users", "credits", "INTEGER DEFAULT 3")
-    add_column_if_missing("meetings", "is_summarized_paid", "INTEGER DEFAULT 0")
-    add_column_if_missing("meetings", "is_skipped", "INTEGER DEFAULT 0")
-    add_column_if_missing("users", "notifications_enabled", "INTEGER DEFAULT 1")
-    add_column_if_missing("users", "audio_output_device", "TEXT DEFAULT 'Default'")
-    add_column_if_missing("users", "bot_auto_join", "INTEGER DEFAULT 1")
-    add_column_if_missing("users", "bot_recording_enabled", "INTEGER DEFAULT 1")
-    add_column_if_missing("users", "bot_name", "TEXT DEFAULT 'Rena AI | Meeting Assistant'")
-    add_column_if_missing("users", "summary_language", "TEXT DEFAULT 'English/Hindi'")
-    add_column_if_missing("users", "notion_token", "TEXT")
-    add_column_if_missing("users", "notion_db", "TEXT")
-    add_column_if_missing("users", "hubspot_api_key", "TEXT")
-    add_column_if_missing("users", "salesforce_token", "TEXT")
-
-    # Create index for faster searches
+    # Workspace Tables
     cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_start_time ON meetings(start_time)
-    ''')
-    cursor.execute('''
-        CREATE INDEX IF NOT EXISTS idx_title ON meetings(title)
+        CREATE TABLE IF NOT EXISTS workspaces (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT,
+            owner_email TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
     ''')
     
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS workspace_members (
+            id {pk_def},
+            workspace_id TEXT REFERENCES workspaces(id),
+            user_email TEXT NOT NULL,
+            role TEXT DEFAULT 'member',
+            joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(workspace_id, user_email)
+        )
+    ''')
+
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS workspace_chats (
+            id {pk_def},
+            workspace_id TEXT REFERENCES workspaces(id),
+            sender_email TEXT NOT NULL,
+            sender_name TEXT,
+            message TEXT,
+            attachment_path TEXT,
+            attachment_name TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
 # --- USER PROFILE OPERATIONS ---
 def get_user_profile(email):
     """Retrieve user profile from database"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-    row = cursor.fetchone()
-    conn.close()
-    return dict(row) if row else None
+    return fetch_one("SELECT * FROM users WHERE email = ?", (email,))
 
 def update_user_profile(email, updates):
     """Update user profile fields"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
     set_clauses = []
     values = []
     for key, val in updates.items():
-        if key != 'email': # Email is immutable
+        if key != 'email':
             set_clauses.append(f"{key} = ?")
             values.append(val)
     
-    if not set_clauses:
-        conn.close()
-        return False
-        
-    set_clauses.append("updated_at = CURRENT_TIMESTAMP")
-    values.append(email)
+    if not set_clauses: return False
     
-    cursor.execute(f"UPDATE users SET {', '.join(set_clauses)} WHERE email = ?", values)
-    conn.commit()
-    conn.close()
+    values.append(email)
+    query = f"UPDATE users SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP WHERE email = ?"
+    exec_commit(query, tuple(values))
     return True
 
 def upsert_user(email, name=None, picture=None):
     """Create or update basic user info from login"""
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute('''
-        INSERT INTO users (email, name, picture)
-        VALUES (?, ?, ?)
-        ON CONFLICT(email) DO UPDATE SET
-            name = COALESCE(users.name, excluded.name),
-            picture = COALESCE(users.picture, excluded.picture)
-    ''', (email, name, picture))
-    conn.commit()
-    conn.close()
+    if DATABASE_URL:
+        query = '''
+            INSERT INTO users (email, name, picture)
+            VALUES (?, ?, ?)
+            ON CONFLICT (email) DO UPDATE SET
+                name = COALESCE(users.name, EXCLUDED.name),
+                picture = COALESCE(users.picture, EXCLUDED.picture)
+        '''
+    else:
+        query = '''
+            INSERT INTO users (email, name, picture)
+            VALUES (?, ?, ?)
+            ON CONFLICT(email) DO UPDATE SET
+                name = COALESCE(users.name, excluded.name),
+                picture = COALESCE(users.picture, excluded.picture)
+        '''
+    exec_commit(query, (email, name, picture))
 # --- MEETING OPERATIONS ---
 
 def add_meeting(
-    meeting_id,
-    title,
-    start_time,
-    end_time=None,
-    duration_minutes=None,
-    meet_url=None,
-    organizer_name=None,
-    organizer_email=None,
-    participant_count=0,
-    participant_emails=None,
-    recording_path=None,
-    pdf_path=None,
-    json_path=None,
-    transcript_text=None,
-    summary_text=None,
-    action_items=None,
-    chapters=None,
-    sentiment_analysis=None,
-    engagement_metrics=None,
-    speaker_analytics=None,
-    coaching_metrics=None,
-    user_email=None
+    meeting_id, title, start_time, end_time=None, duration_minutes=None,
+    meet_url=None, organizer_name=None, organizer_email=None, participant_count=0,
+    participant_emails=None, recording_path=None, pdf_path=None, json_path=None,
+    transcript_text=None, summary_text=None, action_items=None, chapters=None,
+    sentiment_analysis=None, engagement_metrics=None, speaker_analytics=None,
+    coaching_metrics=None, user_email=None
 ):
     """Add a new meeting to the database"""
-    init_database()
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
     # Convert lists/dicts to JSON strings
     participant_emails_json = json.dumps(participant_emails) if participant_emails else None
     action_items_json = json.dumps(action_items) if action_items else None
@@ -319,122 +265,67 @@ def add_meeting(
     speaker_json = json.dumps(speaker_analytics) if speaker_analytics else None
     coaching_json = json.dumps(coaching_metrics) if coaching_metrics else None
     
-    try:
-        cursor.execute('''
-            INSERT INTO meetings (
-                meeting_id, title, start_time, end_time, duration_minutes,
-                meet_url, organizer_name, organizer_email, participant_count,
-                participant_emails, user_email, recording_path, pdf_path, json_path,
-                transcript_text, summary_text, action_items, chapters,
-                sentiment_analysis, engagement_metrics, speaker_analytics, coaching_metrics
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (
+    query = '''
+        INSERT INTO meetings (
             meeting_id, title, start_time, end_time, duration_minutes,
             meet_url, organizer_name, organizer_email, participant_count,
-            participant_emails_json, user_email, recording_path, pdf_path, json_path,
-            transcript_text, summary_text, action_items_json, chapters_json,
-            sentiment_json, engagement_json, speaker_json, coaching_json
-        ))
-        
-        conn.commit()
-        meeting_db_id = cursor.lastrowid
-        conn.close()
-        return True, meeting_db_id
-        
-    except sqlite3.IntegrityError:
-        # Meeting already exists, update it instead
-        conn.close()
+            participant_emails, user_email, recording_path, pdf_path, json_path,
+            transcript_text, summary_text, action_items, chapters,
+            sentiment_analysis, engagement_metrics, speaker_analytics, coaching_metrics
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    '''
+    params = (
+        meeting_id, title, start_time, end_time, duration_minutes,
+        meet_url, organizer_name, organizer_email, participant_count,
+        participant_emails_json, user_email, recording_path, pdf_path, json_path,
+        transcript_text, summary_text, action_items_json, chapters_json,
+        sentiment_json, engagement_json, speaker_json, coaching_json
+    )
+    
+    try:
+        success, last_id = exec_commit(query, params)
+        return success, last_id
+    except:
+        # Fallback to update if exists
         return update_meeting(meeting_id, {
-            'title': title,
-            'start_time': start_time,
-            'end_time': end_time,
-            'duration_minutes': duration_minutes,
-            'meet_url': meet_url,
-            'organizer_name': organizer_name,
-            'organizer_email': organizer_email,
-            'participant_count': participant_count,
-            'participant_emails': participant_emails,
-            'recording_path': recording_path,
-            'pdf_path': pdf_path,
-            'json_path': json_path,
-            'transcript_text': transcript_text,
-            'summary_text': summary_text,
-            'action_items': action_items,
-            'chapters': chapters,
-            'sentiment_analysis': sentiment_analysis,
-            'engagement_metrics': engagement_metrics,
-            'speaker_analytics': speaker_analytics,
+            'title': title, 'start_time': start_time, 'end_time': end_time,
+            'duration_minutes': duration_minutes, 'meet_url': meet_url,
+            'organizer_name': organizer_name, 'organizer_email': organizer_email,
+            'participant_count': participant_count, 'participant_emails': participant_emails,
+            'recording_path': recording_path, 'pdf_path': pdf_path, 'json_path': json_path,
+            'transcript_text': transcript_text, 'summary_text': summary_text, 'action_items': action_items,
+            'chapters': chapters, 'sentiment_analysis': sentiment_analysis,
+            'engagement_metrics': engagement_metrics, 'speaker_analytics': speaker_analytics,
             'coaching_metrics': coaching_metrics
         })
 
 def update_meeting(meeting_id, updates):
     """Update an existing meeting"""
-    init_database()
-    
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    
-    # Build UPDATE query dynamically
     set_clauses = []
     values = []
-    
     for key, value in updates.items():
         if value is not None:
             set_clauses.append(f"{key} = ?")
-            # Convert lists to JSON
             if isinstance(value, (list, dict)):
                 value = json.dumps(value)
             values.append(value)
     
-    if not set_clauses:
-        conn.close()
-        return False, "No updates provided"
+    if not set_clauses: return False, "No updates"
     
-    # Add updated_at
-    set_clauses.append("updated_at = CURRENT_TIMESTAMP")
-    
-    query = f"UPDATE meetings SET {', '.join(set_clauses)} WHERE meeting_id = ?"
     values.append(meeting_id)
-    
-    cursor.execute(query, values)
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    
-    return rows_affected > 0, rows_affected
+    query = f"UPDATE meetings SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP WHERE meeting_id = ?"
+    success, _ = exec_commit(query, tuple(values))
+    return success, success
 
 def toggle_meeting_skip(meeting_id, skip_status: bool, title="Unknown Meeting", start_time=None):
-    """
-    Toggle whether the bot should skip this meeting.
-    Creates meeting record if it doesn't exist.
-    """
-    init_database()
     status = 1 if skip_status else 0
-    
-    # Try updating first
     success, _ = update_meeting(meeting_id, {'is_skipped': status})
-    
     if not success:
-        # Meeting doesn't exist in DB yet, create skeleton record
-        conn = sqlite3.connect(DB_PATH)
-        cursor = conn.cursor()
-        try:
-            cursor.execute('''
-                INSERT INTO meetings (meeting_id, title, start_time, is_skipped)
-                VALUES (?, ?, ?, ?)
-            ''', (meeting_id, title, start_time, status))
-            conn.commit()
-            success = True
-        except Exception as e:
-            print(f"Error upserting meeting skip: {e}")
-            success = False
-        finally:
-            conn.close()
-            
-    return success
+        exec_commit("INSERT INTO meetings (meeting_id, title, start_time, is_skipped) VALUES (?, ?, ?, ?)",
+                    (meeting_id, title, start_time, status))
+    return True
 
 def set_meeting_bot_status(meeting_id, status, user_email=None, joined_at=None, status_note=None, title="Upcoming Meeting", start_time=None):
-    """Update connection status or create skeleton record with status."""
     updates = {'bot_status': status}
     if joined_at: updates['bot_joined_at'] = joined_at
     if status_note: updates['bot_status_note'] = status_note
@@ -442,69 +333,29 @@ def set_meeting_bot_status(meeting_id, status, user_email=None, joined_at=None, 
     
     success, _ = update_meeting(meeting_id, updates)
     if not success:
-        # Create skeleton
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute('''
-                INSERT INTO meetings (meeting_id, title, start_time, bot_status, user_email)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (meeting_id, title, start_time or datetime.now().isoformat(), status, user_email))
-            conn.commit()
-            success = True
-        except: success = False
-        finally: conn.close()
-    return success
+        exec_commit("INSERT INTO meetings (meeting_id, title, start_time, bot_status, user_email) VALUES (?, ?, ?, ?, ?)",
+                    (meeting_id, title, start_time or datetime.now().isoformat(), status, user_email))
+    return True
 
 def update_meeting_bot_note(meeting_id, note):
-    """Update only the status note for the bot."""
-    success, _ = update_meeting(meeting_id, {'bot_status_note': note})
-    return success
+    update_meeting(meeting_id, {'bot_status_note': note})
+    return True
 
 def get_active_joining_meeting():
-    """Returns the first meeting that is currently JOINING or CONNECTED"""
-    with get_db_connection() as conn:
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM meetings WHERE bot_status IN ('JOINING', 'CONNECTED') LIMIT 1")
-        row = cursor.fetchone()
-        return dict(row) if row else None
+    return fetch_one("SELECT * FROM meetings WHERE bot_status IN ('JOINING', 'CONNECTED') LIMIT 1")
 
 def get_meeting(meeting_id):
     """Get a specific meeting by ID"""
-    init_database()
-    
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT * FROM meetings WHERE meeting_id = ?", (meeting_id,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if row:
-        return dict(row)
-    return None
+    return fetch_one("SELECT * FROM meetings WHERE meeting_id = ?", (meeting_id,))
 
 def get_all_meetings(user_email=None, limit=50, offset=0, order_by='start_time DESC'):
     """Get all meetings with pagination, scoped by user_email if provided."""
-    init_database()
-    
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    
     if user_email:
         query = f"SELECT * FROM meetings WHERE user_email = ? ORDER BY {order_by} LIMIT ? OFFSET ?"
-        cursor.execute(query, (user_email, limit, offset))
+        return fetch_all(query, (user_email, limit, offset))
     else:
         query = f"SELECT * FROM meetings ORDER BY {order_by} LIMIT ? OFFSET ?"
-        cursor.execute(query, (limit, offset))
-        
-    rows = cursor.fetchall()
-    conn.close()
-    
-    return [dict(row) for row in rows]
+        return fetch_all(query, (limit, offset))
 
 def search_meetings(query, user_email=None, limit=20):
     """

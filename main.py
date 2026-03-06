@@ -42,7 +42,7 @@ app = FastAPI(title="RENATA Meeting Intelligence", version="1.0.0")
 # CORS Setup - Essential for Vercel Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://renata-notes-ai.vercel.app", "http://localhost:3000"],
+    allow_origins=["*"], # Allow all for production flexible deployment
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -294,7 +294,7 @@ async def google_callback(request: Request):
         }
         
         # If the origin was Vercel, redirect back there
-        return RedirectResponse("https://renata-notes-ai.vercel.app/#dashboard")
+        return RedirectResponse("/#dashboard")
         
     except Exception as e:
         print(f"Auth Callback Error: {e}")

@@ -1,0 +1,59 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "api/index.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "v3-frontend/**",
+            "use": "@vercel/static"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/auth/(.*)",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/dashboard_data",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/reports_data",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/search/(.*)",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/live/(.*)",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/health",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/download/(.*)",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/v3-frontend/$1",
+            "continue": true
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/v3-frontend/index.html"
+        }
+    ],
+    "env": {
+        "PYTHONPATH": ".."
+    }
+}

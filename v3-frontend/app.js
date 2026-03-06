@@ -1,5 +1,5 @@
 // RENATA Frontend Logic
-const API_BASE = "https://inimitably-cytotropic-fatimah.ngrok-free.dev";
+const API_BASE = window.location.origin; // Dynamically use the same host on Vercel
 
 // Helper for Ngrok-skip-browser-warning
 async function apiFetch(endpoint, options = {}) {
