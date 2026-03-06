@@ -11,17 +11,8 @@ import sys
 import requests
 import base64
 from pathlib import Path
-from datetime import datetime, timezone
-from typing import Optional
-from dotenv import load_dotenv
-
-load_dotenv()
-
-from fastapi import FastAPI, Request, Form, HTTPException, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from contextlib import asynccontextmanager
 
 import meeting_database as db
 from google_auth_oauthlib.flow import Flow
@@ -36,9 +27,21 @@ ZOOM_TOKEN_URL = "https://zoom.us/oauth/token"
 
 from fastapi.middleware.cors import CORSMiddleware
 
+# --- Lifespan for Vercel & Production ---
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # This runs when the server starts
+    print(">>> SERVER STARTING: INITIALIZING DATABASE...")
+    try:
+        db.init_database()
+        print(">>> DATABASE INITIALIZED SUCCESSFULLY.")
+    except Exception as e:
+        print(f"CRITICAL: Database Init Failed: {e}")
+    yield
+
 # --- App Setup ---
 BASE_DIR = Path(__file__).resolve().parent
-app = FastAPI(title="RENATA Meeting Intelligence", version="1.0.0")
+app = FastAPI(title="RENATA Meeting Intelligence", version="1.0.0", lifespan=lifespan)
 
 # CORS Setup - Essential for Vercel Frontend
 app.add_middleware(
@@ -84,13 +87,6 @@ async def db_session_middleware(request: Request, call_next):
             content={"detail": "Internal Server Error", "error": str(e), "traceback": traceback.format_exc()}
         )
 
-# Init database on startup
-try:
-    print("Initializing Database...")
-    db.init_database()
-    print("Database Initialized Successfully.")
-except Exception as e:
-    print(f"CRITICAL: Database Init Failed: {e}")
 
 @app.get("/health")
 def health_check():
