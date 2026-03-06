@@ -248,12 +248,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch("/live/join", { method: 'POST', body: formData });
             const data = await res.json();
             if (data.success) {
-                showBotActive("JOIN_PENDING", "Waiting for local bot to pick up the job...");
+                showBotActive("JOIN_PENDING", data.message);
+                if (window.closeModal) window.closeModal();
             } else {
-                alert(data.message || "Failed to dispatch Renata.");
+                alert("Error: " + (data.message || data.detail || "Renata could not be dispatched."));
             }
         } catch (err) {
-            alert("Could not connect to server. Please try again.");
+            console.error(err);
+            alert("Could not connect to server. Ensure it's reachable.");
         }
     };
 
@@ -396,31 +398,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.closeModal = () => modal.classList.remove('active');
 
-    confirmJoin.addEventListener('click', async () => {
-        const url = document.getElementById('meeting-url').value;
-        if (!url) return alert("Please enter a meeting URL");
+    const manualJoin = document.getElementById('manual-join');
+    if (manualJoin) {
+        manualJoin.addEventListener('click', () => {
+            const url = document.getElementById('manual-url').value;
+            dispatchRenata(url);
+        });
+    }
 
-        try {
-            const formData = new FormData();
-            formData.append('meeting_url', url);
-
-            const response = await apiFetch("/live/join", {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-            if (data.success) {
-                alert("Renata is joining the meeting!");
-                closeModal();
-            } else {
-                alert("Error: " + data.message);
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Could not connect to local server. Ensure it's running.");
-        }
-    });
+    if (confirmJoin) {
+        confirmJoin.addEventListener('click', () => {
+            const url = document.getElementById('meeting-url').value;
+            dispatchRenata(url);
+        });
+    }
 
     // AI Chat Assistant
     const chatInput = document.getElementById('chat-input');
