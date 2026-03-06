@@ -1,0 +1,51 @@
+# Renata - Meeting Intelligence System Dependencies
+
+# === Web Framework (FastAPI Production Stack) ===
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+itsdangerous
+starlette
+
+# === Core Audio & Transcription ===
+faster-whisper
+librosa
+numpy
+soundfile
+
+# === AI & LLM Orchestration ===
+google-generativeai
+langchain
+langchain-community
+torch
+pandas
+
+# === Browser Automation (Pilot Bot) ===
+playwright
+playwright-stealth
+pyperclip
+
+# === PDF Generation & Reporting ===
+reportlab
+
+# === Google API Integrations (Calendar / Gmail / Drive) ===
+google-api-python-client
+google-auth-oauthlib
+google-auth-httplib2
+
+# === RAG / AI Search Pipeline ===
+sentence-transformers
+chromadb
+pdfplumber
+pypdf
+
+# === Utilities ===
+loguru
+scikit-learn
+python-dotenv
+omegaconf
+requests
+ollama
+pyngrok
+psycopg2-binary
