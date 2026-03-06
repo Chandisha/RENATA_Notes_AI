@@ -1,54 +1,79 @@
 {
     "version": 2,
-    "framework": "fastapi",
-    "rewrites": [
+    "builds": [
         {
-            "source": "/health",
-            "destination": "/api/main.py"
+            "src": "api/main.py",
+            "use": "@vercel/python"
         },
         {
-            "source": "/login",
-            "destination": "/api/main.py"
+            "src": "static/**",
+            "use": "@vercel/static"
         },
         {
-            "source": "/logout",
-            "destination": "/api/main.py"
+            "src": "v3-frontend/**",
+            "use": "@vercel/static"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/static/(.*)",
+            "dest": "/static/$1"
         },
         {
-            "source": "/auth/(.*)",
-            "destination": "/api/main.py"
+            "src": "/v3-frontend/(.*)",
+            "dest": "/v3-frontend/$1"
         },
         {
-            "source": "/dashboard_data",
-            "destination": "/api/main.py"
+            "src": "/auth/(.*)",
+            "dest": "api/main.py"
         },
         {
-            "source": "/reports_data",
-            "destination": "/api/main.py"
+            "src": "/login",
+            "dest": "api/main.py"
         },
         {
-            "source": "/search/(.*)",
-            "destination": "/api/main.py"
+            "src": "/logout",
+            "dest": "api/main.py"
         },
         {
-            "source": "/live/(.*)",
-            "destination": "/api/main.py"
+            "src": "/dashboard(.*)",
+            "dest": "api/main.py"
         },
         {
-            "source": "/download/(.*)",
-            "destination": "/api/main.py"
+            "src": "/dashboard_data",
+            "dest": "api/main.py"
         },
         {
-            "source": "/static/(.*)",
-            "destination": "/static/$1"
+            "src": "/reports(.*)",
+            "dest": "api/main.py"
         },
         {
-            "source": "/v3-frontend/(.*)",
-            "destination": "/v3-frontend/$1"
+            "src": "/reports_data",
+            "dest": "api/main.py"
         },
         {
-            "source": "/(.*)",
-            "destination": "/v3-frontend/index.html"
+            "src": "/health",
+            "dest": "api/main.py"
+        },
+        {
+            "src": "/live/(.*)",
+            "dest": "api/main.py"
+        },
+        {
+            "src": "/search/(.*)",
+            "dest": "api/main.py"
+        },
+        {
+            "src": "/download/(.*)",
+            "dest": "api/main.py"
+        },
+        {
+            "src": "/",
+            "dest": "api/main.py"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/v3-frontend/index.html"
         }
     ]
 }
