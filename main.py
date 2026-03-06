@@ -56,11 +56,10 @@ app = FastAPI(title="RENATA Meeting Intelligence", version="1.0.0", lifespan=lif
 # CORS Setup - Essential for Vercel Frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all for production flexible deployment
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Session middleware (secret key from env for production)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "renata-local-dev-secret-2024"))
@@ -187,7 +186,14 @@ def require_user(request: Request):
 def create_google_flow(request: Request):
     """Create a Flow object from credentials.json or GOOGLE_CREDENTIALS_JSON env var."""
     creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-    redirect_uri = f"{request.url.scheme}://{request.url.netloc}/auth/callback"
+    
+    # FORCE the production URL as the callback for stability on Vercel
+    if os.getenv("VERCEL_ENV"):
+        redirect_uri = "https://renata-notes-ai.vercel.app/auth/callback"
+    else:
+        redirect_uri = f"{request.url.scheme}://{request.url.netloc}/auth/callback"
+    
+    print(f">>> USING REDIRECT URI: {redirect_uri}")
     
     if creds_json:
         # Load from JSON string in environment variable
