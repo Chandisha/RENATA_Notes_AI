@@ -65,10 +65,7 @@ app.add_middleware(
 # Session middleware (secret key from env for production)
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "renata-local-dev-secret-2024"))
 
-# Path Diagnostics
-print(f"DEBUG: BASE_DIR is {BASE_DIR}")
-print(f"DEBUG: templates exists: {(BASE_DIR / 'templates').exists()}")
-print(f"DEBUG: static exists: {(BASE_DIR / 'static').exists()}")
+# Static files & templates
 
 # Static files & templates
 if (BASE_DIR / "static").exists():
