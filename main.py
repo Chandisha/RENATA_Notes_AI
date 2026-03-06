@@ -142,11 +142,8 @@ def get_user_credentials(user_email: str):
             from google.auth.transport.requests import Request as GoogleRequest
             creds.refresh(GoogleRequest())
             # Update DB with refreshed token
-            conn = db.get_db_connection()
-            conn.execute("UPDATE users SET google_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
-                         (creds.to_json(), user_email))
-            conn.commit()
-            conn.close()
+            db.exec_commit("UPDATE users SET google_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
+                          (creds.to_json(), user_email))
         except Exception as e:
             print(f"Token refresh error for {user_email}: {e}")
             return None
@@ -172,11 +169,7 @@ def require_user(request: Request):
     user = get_current_user(request)
     if not user:
         # If no session, try to find the "main" user in the DB (since this is a private server)
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT email, name, picture FROM users LIMIT 1")
-        row = cursor.fetchone()
-        conn.close()
+        row = db.fetch_one("SELECT email, name, picture FROM users LIMIT 1")
         if row:
             return {"email": row["email"], "name": row["name"], "picture": row["picture"]}
         return {"email": "default@rena.ai", "name": "Local User"}
@@ -294,11 +287,8 @@ async def zoom_callback(request: Request, code: str):
     token_data = response.json()
     
     # Save Zoom token to DB
-    conn = db.get_db_connection()
-    conn.execute("UPDATE users SET zoom_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
-                 (json.dumps(token_data), user['email']))
-    conn.commit()
-    conn.close()
+    db.exec_commit("UPDATE users SET zoom_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
+                  (json.dumps(token_data), user['email']))
     
     return RedirectResponse("/integrations?msg=Zoom+connected+successfully")
 
@@ -333,13 +323,10 @@ async def google_callback(request: Request):
         picture = user_info.get("picture")
 
         # Save/Update in Database
-        conn = db.get_db_connection()
-        cursor = conn.cursor()
-        
         # Check if user exists
-        cursor.execute("SELECT email FROM users WHERE email = ?", (email,))
-        if cursor.fetchone():
-            cursor.execute("""
+        existing_user = db.fetch_one("SELECT email FROM users WHERE email = ?", (email,))
+        if existing_user:
+            db.exec_commit("""
                 UPDATE users SET 
                     name = ?, 
                     picture = ?, 
@@ -348,14 +335,11 @@ async def google_callback(request: Request):
                 WHERE email = ?
             """, (name, picture, creds.to_json(), email))
         else:
-            cursor.execute("""
+            db.exec_commit("""
                 INSERT INTO users (email, name, picture, google_token) 
                 VALUES (?, ?, ?, ?)
             """, (email, name, picture, creds.to_json()))
         
-        conn.commit()
-        conn.close()
-
         # Set Session
         request.session["user"] = {
             "email": email,

@@ -19,11 +19,12 @@ def get_db_connection():
     """Get a connection to the database (PostgreSQL if URL exists, else SQLite)."""
     if DATABASE_URL:
         # PostgreSQL Connection
+        print(">>> DB: CONNECTING TO POSTGRESQL")
         conn = psycopg2.connect(DATABASE_URL)
-        # Fix for Row access in Psycopg2
         return conn
     else:
         # SQLite Connection
+        print(f">>> DB: CONNECTING TO SQLITE ({DB_PATH})")
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         return conn
