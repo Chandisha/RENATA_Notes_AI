@@ -8,15 +8,27 @@
         {
             "src": "v3-frontend/**",
             "use": "@vercel/static"
+        },
+        {
+            "src": "static/**",
+            "use": "@vercel/static"
         }
     ],
     "routes": [
         {
-            "src": "/api/(.*)",
+            "src": "/health",
             "dest": "api/index.py"
         },
         {
             "src": "/auth/(.*)",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/login",
+            "dest": "api/index.py"
+        },
+        {
+            "src": "/logout",
             "dest": "api/index.py"
         },
         {
@@ -36,12 +48,12 @@
             "dest": "api/index.py"
         },
         {
-            "src": "/health",
+            "src": "/download/(.*)",
             "dest": "api/index.py"
         },
         {
-            "src": "/download/(.*)",
-            "dest": "api/index.py"
+            "src": "/static/(.*)",
+            "dest": "/static/$1"
         },
         {
             "src": "/(.*)",
@@ -52,8 +64,5 @@
             "src": "/(.*)",
             "dest": "/v3-frontend/index.html"
         }
-    ],
-    "env": {
-        "PYTHONPATH": ".."
-    }
+    ]
 }

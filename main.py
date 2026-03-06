@@ -59,6 +59,10 @@ templates.env.filters["basename"] = lambda p: os.path.basename(p) if p else ""
 # Init database on startup
 db.init_database()
 
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "time": datetime.now().isoformat()}
+
 # --- Jinja2 Global Helpers ---
 def get_meeting_status(start_time: str, end_time: str = None):
     try:
@@ -316,38 +320,66 @@ async def logout(request: Request):
 async def dashboard(request: Request):
     user = require_user(request)
     email = user['email']
-
-    # Fetch Google Calendar events for the specific user
-    calendar_events = []
-    error_msg = None
-    try:
-        creds = get_user_credentials(email)
-        if creds:
-            from googleapiclient.discovery import build
-            svc = build("calendar", "v3", credentials=creds)
-            now_iso = datetime.utcnow().isoformat() + "Z"
-            result = svc.events().list(
-                calendarId="primary", timeMin=now_iso,
-                maxResults=15, singleEvents=True, orderBy="startTime"
-            ).execute()
-            calendar_events = result.get("items", [])
-        else:
-            error_msg = "Google Calendar not connected. Please login again."
-    except Exception as e:
-        error_msg = str(e)
-
     stats = db.get_meeting_stats(user_email=email)
     recent = db.get_all_meetings(user_email=email, limit=5)
-
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "user": user,
-        "events": calendar_events,
         "stats": stats,
         "recent_meetings": recent,
-        "error": error_msg,
         "active_page": "calendar"
     })
+
+@app.get("/dashboard_data")
+async def dashboard_data(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized", "redirect": "/login"}, status_code=401)
+    
+    email = user['email']
+    calendar_events = []
+    try:
+        creds = get_user_credentials(email)
+        if creds:
+            svc = googleapiclient.discovery.build("calendar", "v3", credentials=creds)
+            now_iso = datetime.utcnow().isoformat() + "Z"
+            result = svc.events().list(
+                calendarId="primary", timeMin=now_iso,
+                maxResults=10, singleEvents=True, orderBy="startTime"
+            ).execute()
+            items = result.get("items", [])
+            for item in items:
+                start_raw = item['start'].get('dateTime', item['start'].get('date'))
+                # Simpler formatting for JS frontend
+                calendar_events.append({
+                    "summary": item.get("summary", "Untitled"),
+                    "start_time": fmt_time(start_raw),
+                    "link": item.get("hangoutLink", item.get("location", ""))
+                })
+    except Exception as e:
+        print(f"Calendar error: {e}")
+
+    stats = db.get_meeting_stats(user_email=email)
+    recent = db.get_all_meetings(user_email=email, limit=5)
+    
+    # Process recent meetings to include formatted time
+    for m in recent:
+        m['start_time'] = fmt_time(m['start_time'])
+
+    return {
+        "stats": {
+            "total_meetings": stats.get('total_meetings', 0),
+            "total_hours": stats.get('total_duration_hours', 0),
+            "action_items_count": stats.get('total_words', 0), # Using total words as placeholder or action items
+            "participant_count": stats.get('avg_participants', 0)
+        },
+        "recent_meetings": recent,
+        "events": calendar_events,
+        "integrations": {
+            "google": True if db.get_user_token(email) else False,
+            "zoom": True if ZOOM_CLIENT_ID and ZOOM_CLIENT_SECRET else False 
+        }
+    }
 
 # ============================================================
 # REPORTS / HISTORY
@@ -363,6 +395,31 @@ async def reports(request: Request):
         "meetings": meetings,
         "active_page": "reports"
     })
+
+@app.get("/reports_data")
+async def reports_data(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    meetings = db.get_all_meetings(user_email=user['email'], limit=50)
+    for m in meetings:
+        m['start_time'] = fmt_time(m['start_time'])
+    return {"meetings": meetings}
+
+@app.get("/live/status")
+async def live_status(request: Request):
+    user = get_current_user(request)
+    if not user: return {"status": "IDLE"}
+    active = db.get_active_joining_meeting()
+    return {"status": active['bot_status'] if active else "IDLE", "meeting": active}
+
+@app.post("/live/join")
+async def live_join(request: Request, meeting_url: str = Form(...)):
+    user = require_user(request)
+    # Inject bot now (locally or via intent)
+    success, msg = db.inject_bot_now(meeting_url)
+    return {"success": success, "message": msg}
 
 @app.get("/reports/{meeting_id}", response_class=HTMLResponse)
 async def report_detail(request: Request, meeting_id: str):

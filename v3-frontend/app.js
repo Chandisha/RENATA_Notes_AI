@@ -1,17 +1,24 @@
 // RENATA Frontend Logic
 const API_BASE = window.location.origin; // Dynamically use the same host on Vercel
 
-// Helper for Ngrok-skip-browser-warning
+// Helper for API calls
 async function apiFetch(endpoint, options = {}) {
     const headers = {
         'ngrok-skip-browser-warning': 'true',
         ...options.headers
     };
-    return fetch(`${API_BASE}${endpoint}`, {
+    const response = await fetch(`${API_BASE}${endpoint}`, {
         ...options,
         headers,
         credentials: 'include'
     });
+
+    if (response.status === 401) {
+        window.location.href = "/login";
+        return;
+    }
+
+    return response;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
