@@ -614,18 +614,12 @@ def send_workspace_message(workspace_id, sender_email, sender_name, message, att
 
 def get_workspace_messages(workspace_id, limit=50):
     """Get recent messages from workspace chat"""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute('''
+    return fetch_all('''
         SELECT * FROM workspace_chats 
         WHERE workspace_id = ? 
         ORDER BY created_at ASC 
         LIMIT ?
     ''', (workspace_id, limit))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
 
 # --- LIVE MEETING INJECTOR ---
 def inject_bot_now(url):
@@ -711,44 +705,9 @@ def update_assistant_thread_title(thread_id, new_title):
         conn.close()
         return False
 
-def upsert_user(email, name=None, picture=None):
-    """Create or update a user profile."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    try:
-        cursor.execute("SELECT email FROM users WHERE email = ?", (email,))
-        if cursor.fetchone():
-            cursor.execute(
-                "UPDATE users SET name = COALESCE(?, name), picture = COALESCE(?, picture), updated_at = CURRENT_TIMESTAMP WHERE email = ?",
-                (name, picture, email)
-            )
-        else:
-            cursor.execute(
-                "INSERT INTO users (email, name, picture) VALUES (?, ?, ?)",
-                (email, name, picture)
-            )
-        conn.commit()
-    except Exception as e:
-        print(f"Error upserting user: {e}")
-    finally:
-        conn.close()
-
-def get_user_profile(email):
-    """Fetch user profile from the database."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-    row = cursor.fetchone()
-    conn.close()
-    return dict(row) if row else None
-
 def get_user_token(email):
     """Retrieve the serialized Google OAuth token for a user."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT google_token FROM users WHERE email = ?", (email,))
-    row = cursor.fetchone()
-    conn.close()
+    row = fetch_one("SELECT google_token FROM users WHERE email = ?", (email,))
     return row['google_token'] if row else None
 
 def get_all_folders():

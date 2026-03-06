@@ -114,6 +114,32 @@ To enable the **Sign in with Google** feature, you must have a `credentials.json
 
 ---
 
+## ☁️ Vercel Deployment
+
+RENATA is optimized for Vercel + PostgreSQL (e.g., Neon.tech).
+
+### 1. Database Setup
+Since Vercel has a temporary filesystem, use a PostgreSQL database:
+```powershell
+# Set your cloud database URL
+$env:DATABASE_URL="postgresql://user:pass@host/db"
+# Initialize tables
+python init_pg_db.py
+```
+
+### 2. Deployment
+* Connect your repo to Vercel.
+* Add these Environment Variables:
+  - `DATABASE_URL`
+  - `GEMINI_API_KEY`
+  - `GOOGLE_CREDENTIALS_JSON` (Copy contents of `credentials.json`)
+  - `SESSION_SECRET`
+
+### 3. Update Redirects
+Update your Google OAuth Redirect URI to: `https://your-app.vercel.app/auth/callback`
+
+---
+
 ## Usage
 
 ### 🚀 Running the Web App
