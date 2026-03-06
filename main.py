@@ -37,6 +37,7 @@ ZOOM_TOKEN_URL = "https://zoom.us/oauth/token"
 from fastapi.middleware.cors import CORSMiddleware
 
 # --- App Setup ---
+BASE_DIR = Path(__file__).resolve().parent
 app = FastAPI(title="RENATA Meeting Intelligence", version="1.0.0")
 
 # CORS Setup - Essential for Vercel Frontend
@@ -52,8 +53,8 @@ app.add_middleware(
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "renata-local-dev-secret-2024"))
 
 # Static files & templates
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.filters["basename"] = lambda p: os.path.basename(p) if p else ""
 
 # Init database on startup

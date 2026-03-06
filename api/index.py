@@ -1,17 +1,16 @@
 import os
 import sys
 
-# Add root directory to path so main.py and other modules can be imported
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Get the path to the project root (one level up from /api)
+root_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, root_path)
 
-from main import app
-
-# For Vercel, the app must be named 'app' in the entry point file
-# or we can use the handler pattern
-def handler(request):
-    """Vercel entry point"""
-    return app(request)
-
-# Actually, Vercel's @vercel/python detects FastAPI app named 'app' automatically
-# But we need it to be at the top level of the module it imports
-from main import app
+# Now we can import main from the root
+try:
+    from main import app
+except ImportError as e:
+    print(f"Import Error: {e}")
+    # Fallback/Debug info for Vercel logs
+    print(f"Python Path: {sys.path}")
+    print(f"Files in root: {os.listdir(root_path)}")
+    raise e
