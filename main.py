@@ -243,6 +243,12 @@ async def trigger_google_auth(request: Request):
         return RedirectResponse("/login?error=credentials_missing")
     
     auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline', include_granted_scopes='true')
+    
+    # Store the state and code verifier in the session for the callback
+    request.session["oauth_state"] = flow.state
+    if hasattr(flow, "code_verifier"):
+        request.session["code_verifier"] = flow.code_verifier
+        
     return RedirectResponse(auth_url)
 
 @app.get("/auth/zoom")
@@ -302,7 +308,11 @@ async def google_callback(request: Request):
         flow = create_google_flow(request)
         if not flow:
             return RedirectResponse("/login?error=credentials_missing")
-        flow.fetch_token(code=code)
+            
+        # Restore the code verifier from the session
+        code_verifier = request.session.get("code_verifier")
+        flow.fetch_token(code=code, code_verifier=code_verifier)
+        
         creds = flow.credentials
 
         # Get User Info from Google
