@@ -81,21 +81,26 @@ RENATA uses a split "Brain and Body" architecture to provide cloud-delivered fea
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend Framework | FastAPI |
-| Authentication | Google OAuth 2.0 |
-| LLM / AI | Google Gemini 3 Flash (primary), Gemini 2.5 Flash (fallback) |
-| Vector Database | ChromaDB |
-| Embeddings | sentence-transformers (all-MiniLM-L6-v2) |
-| Meeting Bot | Playwright with Chromium |
-| Cloud Database | PostgreSQL via Neon.tech |
-| Local Database | SQLite (for local-only development) |
-| PDF Generation | ReportLab |
-| Frontend | Vanilla HTML, CSS, JavaScript |
-| Deployment | Vercel (Serverless Python) |
-| Calendar / Gmail | Google Calendar API, Gmail API |
-| Zoom Integration | Zoom OAuth API |
+| Layer | Technology | Deployment |
+|---|---|---|
+| **Backend** | FastAPI | Vercel (Cloud) / Local |
+| **Auth** | Google OAuth 2.0 | Vercel (Cloud) / Local |
+| **Logic (Brain)** | Google Gemini 3 Flash | Vercel (Cloud) |
+| **Bot (Body)** | Playwright (Chromium) | **Local Device Only** |
+| **Database** | PostgreSQL (Neon) | Vercel (Cloud) & Local Pilot |
+| **AI Search** | Gemini direct (No-Torch) | Vercel (Cloud) |
+| **Local RAG** | ChromaDB (Vector Store) | Local Device Only |
+| **PDF Engine** | ReportLab | Vercel (Cloud) & Local |
+| **Frontend** | Vanilla JS / CSS | Vercel (Cloud) |
+
+---
+
+## 🚀 The Hybrid Setup: Brain (Cloud) & Body (Local)
+
+RENATA is designed as a **Hybrid AI Platform**. 
+
+1. **The Cloud Brain (Vercel)**: Hosts the dashboard, handles user logins, stores meeting metadata, and provides AI search capabilities. It is optimized to run on Vercel's lightweight serverless environment (keeping package size under 500MB by using Gemini API directly for search instead of heavy local models).
+2. **The Local Body (Your PC)**: Runs the heavy-duty browser automation. It joins meetings, records audio, generates transcripts/PDFs, and syncs them to the Cloud Brain. This avoids the high costs and technical limitations of running browser bots in the cloud.
 
 ---
 
@@ -289,36 +294,34 @@ Double-click this file each morning to start the bot in one step.
 
 ---
 
-## Project Structure
+## 📂 Project Structure & File Guide
 
-```
-RENATA_Notes_AI/
-|
-|-- main.py                     Main FastAPI application, all API routes and OAuth handlers
-|-- renata_bot_pilot.py         Local bot that joins meetings using Playwright
-|-- meeting_database.py         Database layer supporting both SQLite and PostgreSQL
-|-- meeting_notes_generator.py  Gemini AI pipeline for transcription and report generation
-|-- init_pg_db.py               One-time script to initialize PostgreSQL tables on Neon
-|-- refresh_token.py            One-time script to re-authenticate locally if token expires
-|
-|-- rag/
-|   |-- llm_manager.py          Manages Gemini model selection and fallback logic
-|   |-- rag_chatbot.py          ChromaDB vector store and retrieval logic
-|
-|-- v3-frontend/
-|   |-- index.html              Single Page Application shell
-|   |-- app.js                  All frontend JavaScript logic
-|   |-- styles.css              All CSS styles
-|
-|-- api/
-|   |-- requirements.txt        Python dependencies for Vercel deployment
-|
-|-- vercel.json                 Vercel build and routing configuration
-|-- requirements.txt            Python dependencies for local development
-|-- credentials.json            Google OAuth client secrets (not committed to Git)
-|-- .env                        Local environment variables (not committed to Git)
-|-- meeting_outputs/            Local folder where recordings and PDFs are saved
-```
+### Core Backend & Cloud (The Brain)
+- **`main.py`**: The heart of the platform. Serves the FastAPI server, handles Google/Zoom OAuth, manages the web dashboard, and provides the RAG search API.
+- **`api/requirements.txt`**: **CRITICAL for Vercel.** Lists only the slim dependencies needed for the cloud dashboard to stay under the 500MB Lambda limit.
+- **`vercel.json`**: Configuration for Vercel deployment, setting up the Python runtime and routing rules.
+- **`init_pg_db.py`**: Run this once to create the necessary tables in your Neon PostgreSQL database.
+
+### Local Bot Pilot (The Body)
+- **`renata_bot_pilot.py`**: The automation script that stays on your PC. It polls the database, launches Chromium via Playwright, and joins your meetings.
+- **`meeting_notes_generator.py`**: The AI processing script. After a meeting ends, the pilot uses this to transcribe audio (Faster-Whisper), generate summaries (Gemini), and create PDF reports.
+- **`meeting_database.py`**: Shared database layer. Automatically detects if it should use your local SQLite (`meetings.db`) or cloud PostgreSQL (Neon).
+- **`requirements.txt`**: **Local Only.** Contains all heavy dependencies (Torch, Playwright, Faster-Whisper) needed for the local pilot bot to function.
+
+### Frontend
+- **`v3-frontend/`**: Contains the single-page application (SPA) code.
+  - `index.html`: The shell for the dashboard.
+  - `app.js`: All frontend interactivity, API calls to the Brain, and real-time status polling.
+  - `styles.css`: Modern, glassmorphic design system.
+
+### AI Search & RAG
+- **`rag/`**: Contains advanced AI logic.
+- **`rag_assistant.py`**: Local helper for meeting indexing and vector search using ChromaDB.
+
+### Assets & Storage
+- **`meeting_outputs/`**: Where your local recordings, JSON transcripts, and PDF reports are stored before being synced.
+- **`credentials.json`**: Your Google Cloud OAuth client secrets (keep this private!).
+- **`.env`**: Your secret API keys and database URLs (keep this private!).
 
 ---
 
