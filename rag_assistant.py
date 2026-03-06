@@ -12,7 +12,7 @@ class MeetingRAGAssistant:
         self.is_indexed = False
         
     def _ensure_indexed(self, force_reset: bool = False, files: List[str] = None):
-        """Initialization and indexing of meeting documents (PDF and JSON)"""
+        """Initialization and indexing of meeting documents (PDF, JSON, or DB)"""
         db_exists = os.path.exists(self.config.CHROMA_DB_PATH)
         
         if not self.chatbot.is_initialized:
@@ -20,19 +20,33 @@ class MeetingRAGAssistant:
             self.chatbot.initialize(reset=should_reset)
             
         meeting_dir = os.path.join(os.getcwd(), "meeting_outputs")
-        if os.path.exists(meeting_dir):
+        if os.path.exists(meeting_dir) and len(os.listdir(meeting_dir)) > 0:
             if files:
-                # Granular indexing of specific files
-                print(f"Indexing specific files: {files}")
                 self.chatbot.index_documents(meeting_dir, files=files)
             elif force_reset or self.chatbot.vector_store.get_document_count() == 0:
-                print(f"Indexing ALL meeting records from {meeting_dir}...")
                 self.chatbot.index_documents(meeting_dir)
-            else:
-                if not self.is_indexed:
-                    print(f"RAG System ready with {self.chatbot.vector_store.get_document_count()} indexed segments.")
         else:
-            print(f"Warning: Meeting directory {meeting_dir} not found")
+            # DB FALLBACK: Index from the main 'meetings' table
+            if force_reset or self.chatbot.vector_store.get_document_count() == 0:
+                print("Meeting outputs not found. Syncing from Database...")
+                try:
+                    import meeting_database as mdb
+                    records = mdb.fetch_all("SELECT meeting_id, title, summary_text FROM meetings WHERE status = 'completed'")
+                    for r in records:
+                        text = f"MEETING: {r['title']}\nSUMMARY:\n{r['summary_text']}"
+                        metadata = {'source': f"{r['meeting_id']}.db", 'page': 0}
+                        # We need to manually add to vector store if we aren't using files
+                        from langchain_core.documents import Document
+                        doc = Document(page_content=text, metadata=metadata)
+                        chunks = self.chatbot.document_processor.text_splitter.split_documents([doc])
+                        
+                        texts = [c.page_content for c in chunks]
+                        metadatas = [c.metadata for c in chunks]
+                        embeddings = self.chatbot.embedding_manager.generate_embeddings(texts)
+                        self.chatbot.vector_store.add_documents(embeddings=embeddings, texts=texts, metadatas=metadatas)
+                    print(f"Indexed {len(records)} previous meetings from DB.")
+                except Exception as e:
+                    print(f"DB Indexing Error: {e}")
         self.is_indexed = True
 
     def _get_filter_files(self, question: str) -> List[str]:

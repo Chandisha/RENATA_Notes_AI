@@ -93,8 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.user) {
                 const userNameEl = document.querySelector('.user-name');
                 const userAvatarEl = document.querySelector('.avatar');
+                const prefUserName = document.getElementById('pref-user-name');
+                const prefUserEmail = document.getElementById('pref-user-email');
+
                 if (userNameEl) userNameEl.textContent = data.user.name;
                 if (userAvatarEl && data.user.picture) userAvatarEl.src = data.user.picture;
+                if (prefUserName) prefUserName.value = data.user.name;
+                if (prefUserEmail) prefUserEmail.value = data.user.email;
             }
 
             // Update Stats
@@ -167,6 +172,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // Update Preferences
+            if (data.preferences) {
+                const botNameInput = document.getElementById('pref-bot-name');
+                const autoJoinCheck = document.getElementById('pref-auto-join');
+                const recordingCheck = document.getElementById('pref-recording');
+                if (botNameInput) botNameInput.value = data.preferences.bot_name || '';
+                if (autoJoinCheck) autoJoinCheck.checked = data.preferences.auto_join;
+                if (recordingCheck) recordingCheck.checked = data.preferences.recording;
+            }
+
             feather.replace();
         } catch (err) {
             console.error("Dashboard load failed", err);
@@ -201,21 +216,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadSearchStats() {
-        try {
-            const res = await apiFetch("/search/status");
-            const data = await res.json();
-            console.log("KB Stats:", data);
-        } catch (err) { console.error(err); }
-    }
-
-    async function loadLiveStatus() {
-        try {
-            const res = await apiFetch("/live/status");
-            const data = await res.json();
-            console.log("Live Status:", data);
-        } catch (err) { console.error(err); }
-    }
 
     // Server Status Checker
     async function checkServerStatus() {
@@ -238,15 +238,154 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.dispatchRenata = async (url) => {
+        if (!url) {
+            alert("Please enter a meeting link.");
+            return;
+        }
         const formData = new FormData();
         formData.append('meeting_url', url);
-        await fetch(`${API_BASE}/live/join`, { method: 'POST', body: formData });
-        alert("Renata Dispatched!");
+        try {
+            const res = await apiFetch("/live/join", { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.success) {
+                showBotActive("JOIN_PENDING", "Waiting for local bot to pick up the job...");
+            } else {
+                alert(data.message || "Failed to dispatch Renata.");
+            }
+        } catch (err) {
+            alert("Could not connect to server. Please try again.");
+        }
     };
 
-    // Initial Load
+    function showBotActive(status, note) {
+        const idleMsg = document.getElementById('bot-idle-msg');
+        const steps = document.getElementById('bot-steps');
+        const pulse = document.getElementById('bot-pulse');
+        if (idleMsg) idleMsg.style.display = 'none';
+        if (steps) steps.style.display = 'grid';
+        if (pulse) { pulse.style.background = 'var(--accent-green)'; pulse.style.animation = 'pulse 1.5s infinite'; }
+        updateBotVisuals(status, note);
+    }
+
+    function showBotIdle() {
+        const idleMsg = document.getElementById('bot-idle-msg');
+        const steps = document.getElementById('bot-steps');
+        const pulse = document.getElementById('bot-pulse');
+        if (idleMsg) idleMsg.style.display = 'block';
+        if (steps) steps.style.display = 'none';
+        if (pulse) { pulse.style.background = '#64748b'; pulse.style.animation = 'none'; }
+        const noteEl = document.getElementById('bot-note'); if (noteEl) noteEl.textContent = '';
+    }
+
+    function updateBotVisuals(status, note) {
+        // Reset steps
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        const noteEl = document.getElementById('bot-note');
+        if (noteEl) noteEl.textContent = note || '';
+
+        if (status === "JOIN_PENDING" || status === "JOINING") {
+            document.getElementById("step-dispatching").classList.add("active");
+        } else if (status === "FETCHING") {
+            document.getElementById("step-fetching").classList.add("active");
+        } else if (status === "CONNECTING" || status === "IN_LOBBY") {
+            document.getElementById("step-connecting").classList.add("active");
+        } else if (status === "CONNECTED" || status === "LIVE") {
+            document.getElementById("step-live").classList.add("active");
+        }
+    }
+
+    async function loadLiveStatus() {
+        if (window.location.hash !== '#live') return;
+        try {
+            const res = await apiFetch("/live/status");
+            const data = await res.json();
+            if (data.active) {
+                showBotActive(data.status, data.note);
+            } else {
+                showBotIdle();
+            }
+        } catch (err) { }
+    }
+
+    async function loadSearchStats() {
+        try {
+            const res = await apiFetch("/search/status");
+            const data = await res.json();
+            const pdfCount = document.getElementById("pdf-count");
+            const segCount = document.getElementById("seg-count");
+            if (pdfCount) pdfCount.textContent = data.pdf_count || 0;
+            if (segCount) segCount.textContent = data.indexed_segments || 0;
+        } catch (err) { }
+    }
+
+    const syncBtn = document.getElementById("sync-kb-btn");
+    if (syncBtn) {
+        syncBtn.addEventListener("click", async () => {
+            syncBtn.disabled = true;
+            syncBtn.innerHTML = '<i data-feather="loader"></i> Syncing...';
+            feather.replace();
+
+            try {
+                const res = await apiFetch("/search/index", { method: 'POST' });
+                const data = await res.json();
+                alert(data.message);
+                loadSearchStats();
+            } catch (err) {
+                alert("Failed to sync knowledge base.");
+            } finally {
+                syncBtn.disabled = false;
+                syncBtn.innerHTML = '<i data-feather="refresh-cw"></i> Sync Knowledge Base';
+                feather.replace();
+            }
+        });
+    }
+
+    // Save Profile (Name Change)
+    const profileForm = document.getElementById('profile-form');
+    if (profileForm) {
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const name = document.getElementById('pref-user-name').value;
+            try {
+                const res = await apiFetch("/settings/api/save", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (res.ok) {
+                    alert("Profile updated successfully!");
+                    document.querySelectorAll('.user-name').forEach(el => el.textContent = name);
+                }
+            } catch (err) { alert("Failed to save profile."); }
+        });
+    }
+
+    // Save Bot Preferences
+    const preferencesForm = document.getElementById('settings-preferences-form');
+    if (preferencesForm) {
+        preferencesForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const bot_name = document.getElementById('pref-bot-name').value;
+            const auto_join = document.getElementById('pref-auto-join').checked;
+            const recording = document.getElementById('pref-recording').checked;
+
+            try {
+                const res = await apiFetch("/settings/api/save", {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bot_name, auto_join, recording })
+                });
+                if (res.ok) {
+                    alert("Preferences saved successfully!");
+                }
+            } catch (err) { alert("Failed to save preferences."); }
+        });
+    }
+
+    // Initial Load & Polling
     checkServerStatus();
-    setInterval(checkServerStatus, 10000); // Check every 10s
+    setInterval(checkServerStatus, 15000);
+    setInterval(loadLiveStatus, 3000); // Polling for bot status updates
 
     // Modal Interaction
     const joinBtn = document.getElementById('join-btn');
@@ -321,7 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             const errorMsg = document.createElement('div');
             errorMsg.className = 'message assistant';
-            errorMsg.innerHTML = `<p>Error connecting to Renata's local intelligence.</p>`;
+            errorMsg.innerHTML = `<p>Error connecting to Renata's intelligence.</p>`;
             chatBox.appendChild(errorMsg);
         }
     }

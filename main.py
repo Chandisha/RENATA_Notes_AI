@@ -222,6 +222,11 @@ async def root(request: Request):
         return RedirectResponse("/dashboard")
     return RedirectResponse("/login")
 
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/login")
+
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
     # FORCE Production Domain
@@ -429,6 +434,11 @@ async def dashboard_data(request: Request):
         "integrations": {
             "google": True if db.get_user_token(email) else False,
             "zoom": True if profile.get("zoom_token") else False 
+        },
+        "preferences": {
+            "bot_name": profile.get("bot_name", "Renata AI | Assistant"),
+            "auto_join": bool(profile.get("bot_auto_join", 1)),
+            "recording": bool(profile.get("bot_recording_enabled", 1))
         }
     }
 
@@ -459,12 +469,6 @@ async def live_status(request: Request):
     active = db.get_active_joining_meeting()
     return {"status": active['bot_status'] if active else "IDLE", "meeting": active}
 
-@app.post("/live/join")
-async def live_join(request: Request, meeting_url: str = Form(...)):
-    user = require_user(request)
-    # Inject bot now (locally or via intent)
-    success, msg = db.inject_bot_now(meeting_url)
-    return {"success": success, "message": msg}
 
 @app.get("/reports/{meeting_id}", response_class=HTMLResponse)
 async def report_detail(request: Request, meeting_id: str):
@@ -572,12 +576,35 @@ async def live_page_spa(request: Request):
 @app.post("/live/join", response_class=JSONResponse)
 async def live_join(request: Request, meeting_url: str = Form(...)):
     user = require_user(request)
-    try:
-        # Pass the user email to the bot subprocess
-        subprocess.Popen([sys.executable, "renata_bot_pilot.py", meeting_url, "--user", user['email']])
-        return {"success": True, "message": f"Renata is preparing to join {meeting_url}..."}
-    except Exception as e:
-        return {"success": False, "message": str(e)}
+    # On Vercel, we can't launch subprocesses. 
+    # We create a 'JOIN_PENDING' meeting entry that the local pilot will pick up.
+    m_id = f"join_{int(time.time())}"
+    db.exec_commit('''
+        INSERT INTO meetings (meeting_id, title, start_time, meet_url, user_email, bot_status, bot_status_note)
+        VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, 'JOIN_PENDING', 'Waiting for local bot pilot...')
+    ''', (m_id, "Live Meeting", meeting_url, user['email']))
+    
+    return {"success": True, "message": "Renata has been alerted. Make sure your local pilot script is running!"}
+
+@app.post("/settings/api/save")
+async def settings_api_save(request: Request):
+    user = require_user(request)
+    data = await request.json()
+    
+    settings = {}
+    if "name" in data: settings["name"] = data["name"]
+    if "bot_name" in data: settings["bot_name"] = data["bot_name"]
+    if "auto_join" in data: settings["bot_auto_join"] = 1 if data["auto_join"] else 0
+    if "recording" in data: settings["bot_recording_enabled"] = 1 if data["recording"] else 0
+    
+    if settings:
+        db.update_user_profile(user["email"], settings)
+        
+    # Update local session for UI consistency if name changed
+    if "name" in data and "user" in request.session:
+        request.session["user"]["name"] = data["name"]
+        
+    return {"success": True}
 
 @app.get("/live/status", response_class=JSONResponse)
 async def live_status(request: Request):
@@ -604,9 +631,24 @@ async def settings_page_spa(request: Request):
 async def settings_save(request: Request, name: str = Form(""), bot_name: str = Form("")):
     user = require_user(request)
     db.update_user_profile(user["email"], {"name": name, "bot_name": bot_name})
-    # Update session name
     request.session["user"]["name"] = name
     return RedirectResponse("/settings?msg=Saved+successfully", status_code=303)
+
+@app.post("/account/delete")
+async def delete_account(request: Request):
+    """Permanently delete the user's account and all their data."""
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=303)
+    db.delete_user_account(user["email"])
+    request.session.clear()
+    return RedirectResponse("/login?msg=Account+deleted", status_code=303)
+
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/login", status_code=303)
+
 
 # ============================================================
 # FILE DOWNLOADS

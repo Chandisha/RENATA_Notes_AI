@@ -25,35 +25,33 @@
                 </div>
             </div>
             <nav class="sidebar-nav">
-                <a href="#dashboard" class="nav-item active" data-page="dashboard">
-                    <i data-feather="grid"></i>
-                    <span>Dashboard</span>
-                </a>
-                <a href="#reports" class="nav-item" data-page="reports">
-                    <i data-feather="file-text"></i>
-                    <span>Reports</span>
-                </a>
-                <a href="#search" class="nav-item" data-page="search">
-                    <i data-feather="search"></i>
-                    <span>AI Search</span>
-                </a>
-                <a href="#live" class="nav-item" data-page="live">
-                    <i data-feather="video"></i>
-                    <span>Live Meeting</span>
-                </a>
-                <a href="#analytics" class="nav-item" data-page="analytics">
-                    <i data-feather="pie-chart"></i>
-                    <span>Analytics</span>
-                </a>
-                <div class="nav-spacer"></div>
-                <a href="#settings" class="nav-item" data-page="settings">
-                    <i data-feather="settings"></i>
-                    <span>Settings</span>
-                </a>
+                <div class="nav-item active" data-page="dashboard">
+                    <i data-feather="grid"></i> <span>Dashboard</span>
+                </div>
+                <div class="nav-item" data-page="reports">
+                    <i data-feather="file-text"></i> <span>Reports</span>
+                </div>
+                <div class="nav-item" data-page="search">
+                    <i data-feather="search"></i> <span>AI Search</span>
+                </div>
+                <div class="nav-item" data-page="live">
+                    <i data-feather="video"></i> <span>Live Meeting</span>
+                </div>
+                <div class="nav-item" data-page="analytics">
+                    <i data-feather="pie-chart"></i> <span>Analytics</span>
+                </div>
             </nav>
+
             <div class="sidebar-footer">
-                <div class="user-profile">
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user" alt="User" class="avatar">
+                <div class="nav-item" data-page="settings">
+                    <i data-feather="settings"></i> <span>Settings</span>
+                </div>
+                <a href="/logout" class="sidebar-logout"
+                    style="display: flex; align-items: center; gap: 12px; padding: 12px; color: #ef4444; text-decoration: none; font-size: 0.9rem; font-weight: 600; margin-top: 8px;">
+                    <i data-feather="log-out" style="width: 18px; height: 18px;"></i> <span>Logout</span>
+                </a>
+                <div class="user-profile" style="margin-top: 16px;">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Renata" class="avatar" alt="User">
                     <div class="user-info">
                         <span class="user-name">User</span>
                         <span class="user-status">Online</span>
@@ -175,8 +173,19 @@
 
                 <section id="search-page" class="page">
                     <div class="page-header">
-                        <h1>AI Assistant</h1>
-                        <p>Search across all your meetings with natural language.</p>
+                        <div class="header-main">
+                            <h1>AI Assistant</h1>
+                            <p>Search across all your meetings with natural language.</p>
+                        </div>
+                        <div class="search-stats-container">
+                            <div class="kb-stats" id="kb-stats-area">
+                                <span class="badge"><b id="pdf-count">0</b> Reports</span>
+                                <span class="badge"><b id="seg-count">0</b> Segments</span>
+                            </div>
+                            <button id="sync-kb-btn" class="secondary-btn">
+                                <i data-feather="refresh-cw"></i> Sync Knowledge Base
+                            </button>
+                        </div>
                     </div>
                     <div class="chat-container">
                         <div class="chat-messages" id="chat-box">
@@ -206,13 +215,72 @@
                             <button class="primary-btn" id="manual-join">Dispatch Renata</button>
                         </div>
                     </div>
+
+                    <div id="bot-live-status" class="card status-card" style="margin-top: 24px;">
+                        <div class="status-header">
+                            <h3>Bot Status</h3>
+                            <span class="pulse-indicator" id="bot-pulse" style="background: #64748b;"></span>
+                        </div>
+                        <div id="bot-idle-msg" style="color: var(--text-secondary); font-size: 0.9rem;">Awaiting
+                            dispatch. Enter a meeting link above and click Dispatch Renata.</div>
+                        <div class="status-steps" id="bot-steps" style="display: none;">
+                            <div class="step" id="step-dispatching">
+                                <div class="step-icon"><i data-feather="send"></i></div>
+                                <span>Dispatching</span>
+                            </div>
+                            <div class="step" id="step-fetching">
+                                <div class="step-icon"><i data-feather="download"></i></div>
+                                <span>Fetching</span>
+                            </div>
+                            <div class="step" id="step-connecting">
+                                <div class="step-icon"><i data-feather="link"></i></div>
+                                <span>Connecting</span>
+                            </div>
+                            <div class="step" id="step-live">
+                                <div class="step-icon"><i data-feather="activity"></i></div>
+                                <span>Live In Call</span>
+                            </div>
+                        </div>
+                        <p id="bot-note" class="muted" style="margin-top: 12px; font-size: 0.85rem;"></p>
+                    </div>
                 </section>
 
                 <section id="settings-page" class="page">
-                    <div class="page-header">
-                        <h1>Integrations & Settings</h1>
-                        <p>Manage your linked accounts and bot preferences.</p>
+                    <div class="page-header"
+                        style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <h1>Integrations & Settings</h1>
+                            <p>Manage your linked accounts and bot preferences.</p>
+                        </div>
+                        <a href="/logout" class="primary-btn" style="background: #ef4444;">
+                            <i data-feather="log-out"></i> Logout
+                        </a>
                     </div>
+
+                    <div class="settings-container">
+                        <div class="card info-card"
+                            style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 100%);">
+                            <div class="card-header">
+                                <h2>Your Profile</h2>
+                            </div>
+                            <form id="profile-form" class="settings-form">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    <div class="form-group">
+                                        <label>Full Name</label>
+                                        <input type="text" id="pref-user-name" placeholder="Name">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Email Address</label>
+                                        <input type="email" id="pref-user-email" disabled
+                                            style="opacity: 0.6; cursor: not-allowed;">
+                                    </div>
+                                </div>
+                                <button type="submit" class="primary-btn" style="margin-top: 16px;">Update Profile
+                                    Name</button>
+                            </form>
+                        </div>
+                    </div>
+
                     <div class="integrations-grid">
                         <div class="card integration-card" id="int-google">
                             <div class="int-header">
@@ -231,6 +299,59 @@
                             <span class="status-text" id="zoom-status">Disconnected</span>
                             <button onclick="window.location.href=API_BASE+'/auth/zoom'" class="secondary-btn">Link
                                 ZOOM</button>
+                        </div>
+                    </div>
+
+                    <div class="settings-container" style="margin-top: 32px;">
+                        <div class="card info-card">
+                            <div class="card-header">
+                                <h2>Bot Preferences</h2>
+                            </div>
+                            <form id="settings-preferences-form" class="settings-form">
+                                <div class="form-group">
+                                    <label>Bot Display Name</label>
+                                    <input type="text" id="pref-bot-name" placeholder="Renata AI | Assistant">
+                                </div>
+                                <div class="form-group toggle-group">
+                                    <div class="toggle-info">
+                                        <label>Auto-Join Calendar Meetings</label>
+                                        <p class="muted">Renata will automatically join your scheduled Google/Zoom
+                                            calls.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="pref-auto-join">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="form-group toggle-group">
+                                    <div class="toggle-info">
+                                        <label>Recording & Transcription</label>
+                                        <p class="muted">Enable audio capture and AI summary generation.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="pref-recording" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <button type="submit" class="primary-btn">Save Preferences</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="settings-container" style="margin-top: 24px;">
+                        <div class="card"
+                            style="border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.05);">
+                            <div class="card-header">
+                                <h2 style="color: #ef4444;">Danger Zone</h2>
+                            </div>
+                            <p class="muted" style="margin-bottom: 16px;">Permanently delete your account and all
+                                associated meeting data. This action cannot be undone.</p>
+                            <form method="POST" action="/account/delete"
+                                onsubmit="return confirm('Are you sure? This will permanently delete your account and ALL your meeting data. This cannot be undone.')">
+                                <button type="submit"
+                                    style="background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; cursor: pointer;">Delete
+                                    My Account</button>
+                            </form>
                         </div>
                     </div>
                 </section>

@@ -10,10 +10,14 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+from dotenv import load_dotenv
+
+# CRITICAL: Load .env before reading env vars - must happen before any os.getenv() calls
+load_dotenv()
 
 # Database Configuration
-DATABASE_URL = os.getenv("DATABASE_URL") # For PostgreSQL (Vercel/Neon)
-DB_PATH = Path("meeting_outputs") / "meetings.db" # For SQLite (Local)
+DATABASE_URL = os.getenv("DATABASE_URL")  # For PostgreSQL (Vercel/Neon)
+DB_PATH = Path("meeting_outputs") / "meetings.db"  # For SQLite (Local)
 
 def get_db_connection():
     """Get a connection to the database (PostgreSQL if URL exists, else SQLite)."""
@@ -343,7 +347,30 @@ def update_meeting_bot_note(meeting_id, note):
     return True
 
 def get_active_joining_meeting():
-    return fetch_one("SELECT * FROM meetings WHERE bot_status IN ('JOINING', 'CONNECTED') LIMIT 1")
+    return fetch_one("""
+        SELECT meeting_id, bot_status, bot_status_note 
+        FROM meetings 
+        WHERE bot_status IN ('JOIN_PENDING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'LIVE', 'CONNECTED')
+        ORDER BY created_at DESC LIMIT 1
+    """)
+
+def delete_user_account(email):
+    """Delete all user data - meetings, tokens, profile."""
+    exec_commit("DELETE FROM meetings WHERE user_email = ?", (email,))
+    exec_commit("DELETE FROM workspace_members WHERE user_email = ?", (email,))
+    exec_commit("DELETE FROM users WHERE email = ?", (email,))
+    return True
+
+def get_user_profile(email):
+    """Get user profile data."""
+    return fetch_one("SELECT * FROM users WHERE email = ?", (email,))
+
+def update_user_profile(email, settings):
+    """Update user profile fields dynamically."""
+    if not settings: return
+    set_parts = ", ".join([f"{k} = ?" for k in settings.keys()])
+    values = list(settings.values()) + [email]
+    exec_commit(f"UPDATE users SET {set_parts}, updated_at = CURRENT_TIMESTAMP WHERE email = ?", tuple(values))
 
 def get_meeting(meeting_id):
     """Get a specific meeting by ID"""
@@ -594,6 +621,39 @@ def inject_bot_now(url):
         return True, "Bot is joining the live meeting..."
     except Exception as e:
         return False, str(e)
+
+# --- LIVE MEETING BOT STATUS ---
+
+def get_active_joining_meeting():
+    """Fetch the most recent meeting that is currently in a joining/active bot state."""
+    return fetch_one('''
+        SELECT meeting_id, bot_status, bot_status_note 
+        FROM meetings 
+        WHERE bot_status NOT IN ('COMPLETED', 'FAILED', 'IDLE')
+        ORDER BY start_time DESC LIMIT 1
+    ''')
+
+def set_meeting_bot_status(meeting_id, status, note="", user_email=None, title=None, start_time=None):
+    """
+    Sets or updates a meeting's bot status. 
+    If the meeting doesn't exist (e.g. auto-pilot from calendar), it creates it.
+    """
+    existing = fetch_one("SELECT meeting_id FROM meetings WHERE meeting_id = ?", (meeting_id,))
+    if not existing:
+        exec_commit('''
+            INSERT INTO meetings (meeting_id, title, start_time, user_email, bot_status, bot_status_note)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (meeting_id, title or "Syncing...", start_time or datetime.now().isoformat(), user_email, status, note))
+    else:
+        exec_commit('''
+            UPDATE meetings 
+            SET bot_status = ?, bot_status_note = ? 
+            WHERE meeting_id = ?
+        ''', (status, note, meeting_id))
+
+def update_bot_status(meeting_id, status, note=""):
+    """Update the real-time status of the bot for a specific meeting."""
+    set_meeting_bot_status(meeting_id, status, note=note)
 
 # --- ASSISTANT CHAT HISTORY OPERATIONS ---
 

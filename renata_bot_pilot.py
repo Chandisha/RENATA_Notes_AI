@@ -47,38 +47,32 @@ def get_service(user_email=None):
         'https://www.googleapis.com/auth/drive.metadata.readonly'
     ]
     
-    # For now, default to first user if not specified (for cron/tasks)
     if not user_email:
-        conn = db.get_db_connection()
-        user = conn.execute("SELECT email FROM users LIMIT 1").fetchone()
-        conn.close()
-        if user: user_email = user['email']
-        else: return None
+        user_email = "default@rena.ai"
 
     serialized_token = db.get_user_token(user_email)
-    if not serialized_token: return None
+    if not serialized_token: 
+        print(f"No token found for {user_email}")
+        return None
 
     try:
         creds_data = json.loads(serialized_token)
         creds = Credentials.from_authorized_user_info(creds_data, SCOPES)
 
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            # Save refreshed token back to DB
-            conn = db.get_db_connection()
-            conn.execute("UPDATE users SET google_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?", 
+            from google.auth.transport.requests import Request as GoogleRequest
+            creds.refresh(GoogleRequest())
+            db.exec_commit("UPDATE users SET google_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?", 
                          (creds.to_json(), user_email))
-            conn.commit()
-            conn.close()
 
         return build('calendar', 'v3', credentials=creds)
     except Exception as e:
         print(f"Auth/API Error for {user_email}: {e}")
         return None
 
-def get_upcoming_events(max_results=5):
+def get_upcoming_events(user_email=None, max_results=5):
     """Fetches meetings using a clean API call."""
-    service = get_service()
+    service = get_service(user_email)
     if not service: return []
     try:
         # Look back 180 minutes (3 hours) to catch ongoing meetings
@@ -272,6 +266,7 @@ class RenaMeetingBot:
                 Stealth().apply_stealth_sync(page)
                 
                 print(f"Navigating to Zoom Web Client: {wc_url}")
+                if db and meeting_id: db.update_bot_status(meeting_id, "FETCHING", "Navigating to Zoom Meeting...")
                 page.goto(wc_url)
                 
                 # Wait for name input
@@ -284,6 +279,7 @@ class RenaMeetingBot:
                     print("Name input not found, maybe already joined or cached.")
 
                 # Handle Zoom specifics (Mute/Uncam)
+                if db and meeting_id: db.update_bot_status(meeting_id, "CONNECTING", "Entering credentials...")
                 time.sleep(10) # Wait for join to complete
                 
                 # Look for "Join Audio by Computer" if it pops up
@@ -296,10 +292,10 @@ class RenaMeetingBot:
 
                 # Mute & Stop Video
                 try:
-                    page.keyboard.press("Alt+a") # Mute
-                    page.keyboard.press("Alt+v") # Stop Video
                     print("Muted and Camera OFF (Zoom Shortcuts)")
                 except: pass
+
+                if db and meeting_id: db.update_bot_status(meeting_id, "LIVE", "Renata is now in the Zoom call.")
 
                 if record:
                     # Start recording the local audio output
@@ -372,6 +368,7 @@ class RenaMeetingBot:
                 # Fallback: If still on login page, use the system-managed bot account
                 if "accounts.google.com" in page.url:
                     print(f"DEBUG: Guest join not available. Using system bot account {PERMANENT_BOT_EMAIL}...")
+                    if db and meeting_id: db.update_bot_status(meeting_id, "CONNECTING", "Logging in with bot account...")
                     login_success = self.automate_google_login(page)
                     if login_success:
                         print("DEBUG: Login handled. Returning to Meet...")
@@ -440,6 +437,8 @@ class RenaMeetingBot:
                         'div[role="button"]:has-text("Ask to join")'
                     ]
                     
+                    if db and meeting_id: db.update_bot_status(meeting_id, "CONNECTING", "Ready to join...")
+                    
                     clicked = False
                     # Loop a few times as the button might appear after a delay
                     for attempt in range(5):
@@ -450,6 +449,10 @@ class RenaMeetingBot:
                                 if btn.is_visible(timeout=1000):
                                     btn.click(force=True)
                                     print(f"Clicked join button: {selector}")
+                                    if "Ask to join" in selector:
+                                        if db and meeting_id: db.update_bot_status(meeting_id, "IN_LOBBY", "Waiting for host to admit Renata...")
+                                    else:
+                                        if db and meeting_id: db.update_bot_status(meeting_id, "LIVE", "Renata is now in the meeting.")
                                     clicked = True
                                     break
                             except: continue
@@ -650,10 +653,26 @@ def run_auto_pilot(user_email):
             print("Scanning Gmail...")
             gmail_scanner.scan_inbox(user_email)
 
-            # 2. CHECK CALENDAR
+            # 2. CHECK FOR LIVE JOIN INTENTS (New)
+            print("Checking for live join intents...")
+            pending_joins = db.fetch_all("SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' AND user_email = ?", (user_email,))
+            for pending in pending_joins:
+                m_id = pending['meeting_id']
+                meet_url = pending['meet_url']
+                if meet_url:
+                    print(f"Executing LIVE JOIN for {meet_url}")
+                    rec_enabled = profile.get('bot_recording_enabled', 1)
+                    # Update status immediately to prevent double-join
+                    db.set_meeting_bot_status(m_id, "JOINING", user_email=user_email)
+                    if is_meet_url(meet_url):
+                        bot.join_google_meet(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
+                    elif is_zoom_url(meet_url):
+                        bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
+
+            # 3. CHECK CALENDAR
             if profile.get('bot_auto_join', 1):
                 print("Checking Calendar...")
-                upcoming = get_upcoming_events(max_results=5)
+                upcoming = get_upcoming_events(user_email=user_email, max_results=5)
                 now = datetime.now(timezone.utc)
 
                 for event in upcoming:
@@ -767,9 +786,8 @@ def main():
     user_email = args.user
     if not user_email:
         # Fallback to first user in DB if not specified
-        conn = db.get_db_connection()
-        user = conn.execute("SELECT email FROM users LIMIT 1").fetchone()
-        conn.close()
+        # Use fetch_one helper to be compatible with both SQLite and PostgreSQL
+        user = db.fetch_one("SELECT email FROM users LIMIT 1")
         user_email = user['email'] if user else "default@rena.ai"
 
     profile = db.get_user_profile(user_email) or {}
@@ -789,28 +807,30 @@ def main():
 
     command = args.command or (unknown[0] if unknown else None)
 
-    if command:
-        bot = RenaMeetingBot(bot_name=m_bot_name, audio_device=ffmpeg_src)
-        
-        if command == "--manual":
-            print(f"Starting Manual Desktop Capture (Device: {m_audio_dev}) for {user_email}")
-            bot.record_manual_audio()
-        elif command == "--autopilot":
-            print(f"Starting Auto-Pilot for {user_email}")
-            run_auto_pilot(user_email)
-        else:
-            url = command
-            print(f"Joining Meeting: {url} for {user_email}")
-            
-            if is_meet_url(url):
-                bot.join_google_meet(url, record=m_rec_enabled, db=db, user_email=user_email)
-            elif is_zoom_url(url):
-                bot.join_zoom_meeting(url, record=m_rec_enabled, db=db, user_email=user_email)
-            else:
-                # Default to Google Meet if unknown but provided as URL
-                bot.join_google_meet(url, record=m_rec_enabled, db=db, user_email=user_email)
+    # AUTO-START LOGIC: If no command is given, default to autopilot
+    if not command:
+        command = "--autopilot"
+        print(f"No command provided. AUTO-STARTING in Autopilot mode for: {user_email}")
+
+    bot = RenaMeetingBot(bot_name=m_bot_name, audio_device=ffmpeg_src)
+    
+    if command == "--manual":
+        print(f"Starting Manual Desktop Capture (Device: {m_audio_dev}) for {user_email}")
+        bot.record_manual_audio()
+    elif command == "--autopilot":
+        print(f"Starting Auto-Pilot Mode... Listening for meetings for {user_email}")
+        run_auto_pilot(user_email)
     else:
-        print("Usage: python renata_bot_pilot.py [URL/--manual/--autopilot] --user <email>")
+        url = command
+        print(f"Joining Meeting: {url} for {user_email}")
+        
+        if is_meet_url(url):
+            bot.join_google_meet(url, record=m_rec_enabled, db=db, user_email=user_email)
+        elif is_zoom_url(url):
+            bot.join_zoom_meeting(url, record=m_rec_enabled, db=db, user_email=user_email)
+        else:
+            # Default to Google Meet if unknown but provided as URL
+            bot.join_google_meet(url, record=m_rec_enabled, db=db, user_email=user_email)
 
 if __name__ == "__main__":
     main()

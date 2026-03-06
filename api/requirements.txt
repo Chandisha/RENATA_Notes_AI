@@ -18,3 +18,16 @@ google-generativeai
 # Database
 psycopg2-binary
 sqlalchemy
+
+# AI Search & PDF
+pdfplumber
+chromadb
+sentence-transformers
+langchain
+langchain-core
+langchain-community
+pypdf
+torch --index-url https://download.pytorch.org/whl/cpu
+numpy
+reportlab
+omegaconf

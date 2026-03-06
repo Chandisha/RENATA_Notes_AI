@@ -24,11 +24,11 @@ class LLMManager:
         
         genai.configure(api_key=api_key)
         
-        # Try models in priority order
+        # Priority: 3.0 Flash -> 2.5 Flash -> 2.0 Flash (Final Safety)
         model_names = [
+            "gemini-3.0-flash",
             "gemini-2.5-flash",
             "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
         ]
         
         for model_name in model_names:
