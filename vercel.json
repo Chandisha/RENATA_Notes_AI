@@ -6,17 +6,21 @@
             "use": "@vercel/python"
         },
         {
-            "src": "v3-frontend/**",
+            "src": "static/**",
             "use": "@vercel/static"
         },
         {
-            "src": "static/**",
+            "src": "v3-frontend/**",
             "use": "@vercel/static"
         }
     ],
     "routes": [
         {
-            "src": "/health",
+            "src": "/static/(.*)",
+            "dest": "/static/$1"
+        },
+        {
+            "src": "/auth/(.*)",
             "dest": "api/index.py"
         },
         {
@@ -28,7 +32,7 @@
             "dest": "api/index.py"
         },
         {
-            "src": "/auth/(.*)",
+            "src": "/dashboard",
             "dest": "api/index.py"
         },
         {
@@ -36,11 +40,15 @@
             "dest": "api/index.py"
         },
         {
+            "src": "/reports",
+            "dest": "api/index.py"
+        },
+        {
             "src": "/reports_data",
             "dest": "api/index.py"
         },
         {
-            "src": "/search/(.*)",
+            "src": "/health",
             "dest": "api/index.py"
         },
         {
@@ -48,12 +56,16 @@
             "dest": "api/index.py"
         },
         {
+            "src": "/search/(.*)",
+            "dest": "api/index.py"
+        },
+        {
             "src": "/download/(.*)",
             "dest": "api/index.py"
         },
         {
-            "src": "/static/(.*)",
-            "dest": "/static/$1"
+            "src": "/",
+            "dest": "api/index.py"
         },
         {
             "src": "/(.*)",
