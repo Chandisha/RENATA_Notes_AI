@@ -499,13 +499,12 @@ class RenaMeetingBot:
                         if page.locator('button[aria-label*="Leave call" i], button[aria-label*="Leave meeting" i]').count() > 0:
                             print("Admitted to Google Meet!")
                             if db and meeting_id: 
-                                db.set_meeting_bot_status(meeting_id, "CONNECTED", user_email=user_email)
-                                db.update_meeting_bot_note(meeting_id, "Recording active")
+                                db.update_bot_status(meeting_id, "CONNECTED", note="Recording active")
                             break
                         
                         # Check for "Someone will let you in soon"
                         if page.locator('span:has-text("Someone will let you in soon"), div:has-text("You\'re waiting to be admitted")').count() > 0:
-                            if db and meeting_id: db.update_meeting_bot_note(meeting_id, "In Lobby - Waiting for host")
+                            if db and meeting_id: db.update_bot_status(meeting_id, "IN_LOBBY", note="In Lobby - Waiting for host")
                         
                         time.sleep(5)
                 except Exception as e:
@@ -579,7 +578,7 @@ class RenaMeetingBot:
                 print("=" * 60)
                 print("POST-MEETING PIPELINE ACTIVATED")
                 print("=" * 60)
-                db.set_meeting_bot_status(meeting_id, "PROCESSING", user_email=user_email, status_note="Meeting ended - Generating PDF...")
+                db.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Generating PDF...")
                 
                 try:
                     # Import and run the generator directly for better logging
@@ -612,17 +611,19 @@ class RenaMeetingBot:
                     print("=" * 60)
                     
                     # Update database with results
-                    db.set_meeting_bot_status(meeting_id, "COMPLETED", user_email=user_email, status_note="Report ready")
+                    db.update_bot_status(meeting_id, "COMPLETED", note="Report ready")
                     
                 except Exception as e:
                     print(f"Pipeline Failed: {e}")
                     import traceback
                     traceback.print_exc()
-                    db.set_meeting_bot_status(meeting_id, "FAILED", user_email=user_email, status_note="Processing failed - Check logs")
+                    db.update_bot_status(meeting_id, "FAILED", note="Processing failed - Check logs")
         except Exception as e:
             print(f"FATAL ERROR in join_google_meet: {e}")
             import traceback
             traceback.print_exc()
+            if db and meeting_id:
+                db.update_bot_status(meeting_id, "FAILED", note=f"Join failed: {str(e)}")
 
     def record_manual_audio(self):
         # Create folder with unique ID
@@ -653,8 +654,8 @@ def run_auto_pilot(user_email):
     from dateutil import parser
     
     print(f"Renata Auto-Pilot Active for {user_email}")
-    bot = RenaMeetingBot()
-    joined_meetings = set() # Track IDs joined in this session
+    bot = RenaMeetingBot(user_email=user_email)
+    session_handled_ids = set() # Track IDs handled in this session
 
     while True:
         try:
@@ -681,18 +682,25 @@ def run_auto_pilot(user_email):
                 # Mark all others for this user as SUPERSEDED so they don't get picked up later
                 if len(pending_joins) > 1:
                     for old in pending_joins[1:]:
-                        db.exec_commit("UPDATE meetings SET bot_status = 'SUPERSEDED', bot_status_note = 'Newer join request took priority' WHERE meeting_id = ?", (old['meeting_id'],))
+                        db.update_bot_status(old['meeting_id'], "SUPERSEDED", note="Newer join request took priority")
                         print(f"DEBUG: Marked old join request {old['meeting_id']} as SUPERSEDED.")
 
-                if meet_url:
+                if meet_url and m_id not in session_handled_ids:
                     print(f"Executing LIVE JOIN for {meet_url}")
+                    session_handled_ids.add(m_id) # Mark this specific meeting ID as handled
                     rec_enabled = profile.get('bot_recording_enabled', 1)
-                    # Update status immediately to prevent double-join
-                    db.set_meeting_bot_status(m_id, "JOINING", user_email=user_email)
+                    
+                    # Update status immediately to prevent re-join
+                    db.update_bot_status(m_id, "JOINING", note=f"Joining meeting: {meet_url}")
+                    
                     if is_meet_url(meet_url):
                         bot.join_google_meet(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
                     elif is_zoom_url(meet_url):
                         bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
+                else:
+                    if m_id in session_handled_ids:
+                        # Already handled, should not be JOIN_PENDING anymore, but just in case
+                        db.update_bot_status(m_id, "COMPLETED", note="Already joined previously.")
 
             # 3. CHECK CALENDAR
             if profile.get('bot_auto_join', 1):

@@ -346,6 +346,10 @@ def update_meeting_bot_note(meeting_id, note):
     update_meeting(meeting_id, {'bot_status_note': note})
     return True
 
+def update_bot_status(meeting_id, status, note=""):
+    """Thin wrapper for Pilot compatibility"""
+    return set_meeting_bot_status(meeting_id, status, status_note=note)
+
 def get_active_joining_meeting(user_email=None):
     if user_email:
         return fetch_one("""
@@ -613,54 +617,6 @@ def get_workspace_messages(workspace_id, limit=50):
         ORDER BY created_at ASC 
         LIMIT ?
     ''', (workspace_id, limit))
-
-# --- LIVE MEETING INJECTOR ---
-def inject_bot_now(url):
-    """
-    Directly spawns a bot to a URL. 
-    Replicates 'Add to live meeting' (Screenshot 5).
-    """
-    import subprocess
-    import sys
-    try:
-        # Launch using the existing pilot script
-        subprocess.Popen([sys.executable, "renata_bot_pilot.py", url])
-        return True, "Bot is joining the live meeting..."
-    except Exception as e:
-        return False, str(e)
-
-# --- LIVE MEETING BOT STATUS ---
-
-def get_active_joining_meeting():
-    """Fetch the most recent meeting that is currently in a joining/active bot state."""
-    return fetch_one('''
-        SELECT meeting_id, bot_status, bot_status_note 
-        FROM meetings 
-        WHERE bot_status NOT IN ('COMPLETED', 'FAILED', 'IDLE')
-        ORDER BY start_time DESC LIMIT 1
-    ''')
-
-def set_meeting_bot_status(meeting_id, status, note="", user_email=None, title=None, start_time=None):
-    """
-    Sets or updates a meeting's bot status. 
-    If the meeting doesn't exist (e.g. auto-pilot from calendar), it creates it.
-    """
-    existing = fetch_one("SELECT meeting_id FROM meetings WHERE meeting_id = ?", (meeting_id,))
-    if not existing:
-        exec_commit('''
-            INSERT INTO meetings (meeting_id, title, start_time, user_email, bot_status, bot_status_note)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (meeting_id, title or "Syncing...", start_time or datetime.now().isoformat(), user_email, status, note))
-    else:
-        exec_commit('''
-            UPDATE meetings 
-            SET bot_status = ?, bot_status_note = ? 
-            WHERE meeting_id = ?
-        ''', (status, note, meeting_id))
-
-def update_bot_status(meeting_id, status, note=""):
-    """Update the real-time status of the bot for a specific meeting."""
-    set_meeting_bot_status(meeting_id, status, note=note)
 
 # --- ASSISTANT CHAT HISTORY OPERATIONS ---
 
