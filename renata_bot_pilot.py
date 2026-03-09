@@ -331,17 +331,19 @@ class RenaMeetingBot:
         try:
             with sync_playwright() as p:
                 # ... (existing setup) ...
-                print("DEBUG: Launching Browser Context (Headless)...")
+                print("DEBUG: Launching Browser Context (Visible mode for reliability)...")
                 context = p.chromium.launch_persistent_context(
                     self.session_dir,
-                    headless=True,
+                    headless=False,
                     args=[
                         "--use-fake-ui-for-media-stream",
                         "--use-fake-device-for-media-stream",
                         "--autoplay-policy=no-user-gesture-required",
                         "--disable-blink-features=AutomationControlled",
                         "--start-maximized",
-                        "--disable-notifications"
+                        "--disable-notifications",
+                        "--no-sandbox",
+                        "--disable-setuid-sandbox"
                     ]
                 )
                 page = context.pages[0]
@@ -361,7 +363,16 @@ class RenaMeetingBot:
                         print(f"DEBUG: Guest mode detected. Joining as '{bot_display_name}'...")
                         name_input.fill(bot_display_name)
                         time.sleep(1)
+                        # Try Enter first, then look for any button that says Join
                         page.keyboard.press("Enter")
+                        time.sleep(2)
+                        
+                        # Aggressive click on any Join button that appeared after Enter or before
+                        page.evaluate('''() => {
+                            const btns = Array.from(document.querySelectorAll('button, div[role="button"], span'));
+                            const b = btns.find(x => x.innerText.includes('Join') || x.innerText.includes('Ask'));
+                            if (b) b.click();
+                        }''')
                         time.sleep(2)
                 except: pass
 
@@ -429,12 +440,18 @@ class RenaMeetingBot:
                     join_selectors = [
                         '//span[contains(text(), "Join now")]',
                         '//span[contains(text(), "Ask to join")]',
+                        '//span[contains(text(), "Join meeting")]',
                         'button:has-text("Join now")',
                         'button:has-text("Ask to join")',
+                        'button:has-text("Join meeting")',
                         '[aria-label="Join now"]',
                         '[aria-label="Ask to join"]',
+                        '[aria-label="Join meeting"]',
                         'div[role="button"]:has-text("Join now")',
-                        'div[role="button"]:has-text("Ask to join")'
+                        'div[role="button"]:has-text("Ask to join")',
+                        'div[role="button"]:has-text("Join meeting")',
+                        '//div[contains(text(), "Join now")]',
+                        '//div[contains(text(), "Ask to join")]'
                     ]
                     
                     if db and meeting_id: db.update_bot_status(meeting_id, "CONNECTING", "Ready to join...")
@@ -444,19 +461,16 @@ class RenaMeetingBot:
                     for attempt in range(5):
                         for selector in join_selectors:
                             try:
-                                # Use JS click for bypass if normal click fails
                                 btn = page.locator(selector).first
-                                if btn.is_visible(timeout=1000):
+                                if btn.count() > 0 and btn.is_visible(timeout=2000):
+                                    print(f"DEBUG: Found button with selector: {selector}")
                                     btn.click(force=True)
-                                    print(f"Clicked join button: {selector}")
-                                    if "Ask to join" in selector:
-                                        if db and meeting_id: db.update_bot_status(meeting_id, "IN_LOBBY", "Waiting for host to admit Renata...")
-                                    else:
-                                        if db and meeting_id: db.update_bot_status(meeting_id, "LIVE", "Renata is now in the meeting.")
+                                    print(f"SUCCESS: Clicked join button: {selector}")
                                     clicked = True
                                     break
                             except: continue
                         if clicked: break
+                        print(f"DEBUG: Join button not found yet (attempt {attempt+1}/5)...")
                         time.sleep(2)
                     
                     if not clicked:
