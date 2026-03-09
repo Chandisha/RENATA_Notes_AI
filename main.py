@@ -567,7 +567,10 @@ USER QUESTION: {question}
 DETAILED ANSWER:"""
 
         last_err = "No models responded."
-        for model_name in ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash"]:
+        # Use ONLY the models requested by the user: 3.0 Flash and 2.5 Flash
+        requested_models = ["gemini-3.0-flash", "gemini-2.5-flash"]
+        
+        for model_name in requested_models:
             try:
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
@@ -578,7 +581,8 @@ DETAILED ANSWER:"""
                 print(f"Model {model_name} failed: {model_err}")
                 continue
                 
-        return {"answer": f"[v2] Gemini Error: {last_err}. (Check if your API Key supports these models or if the context is too large.)", "success": False}
+        # If the requested models fail, we provide a detailed error but respect the "don't use others" rule
+        return {"answer": f"[v2] Gemini Error: {last_err}. (Note: As requested, I am ONLY using 3.0-flash and 2.5-flash. Please ensure your API key has access to these specific versions.)", "success": False}
     except Exception as e:
         return {"answer": f"[v2] Intelligence Engine Error: {str(e)}", "success": False}
 
