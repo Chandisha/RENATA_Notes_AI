@@ -326,13 +326,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const eMeetings = document.getElementById('ana-total-meetings');
             const eTime = document.getElementById('ana-total-time');
-            const ePart = document.getElementById('ana-avg-participation');
-            const eStore = document.getElementById('ana-storage');
+            const ePDFs = document.getElementById('ana-total-pdfs');
 
             if (eMeetings) eMeetings.textContent = stats.total_meetings || 0;
             if (eTime) eTime.textContent = (stats.total_duration_hours || 0) + 'h';
-            if (ePart) ePart.textContent = stats.avg_participants || 0;
-            if (eStore) eStore.textContent = stats.storage_used || '0 MB';
+            if (ePDFs) ePDFs.textContent = stats.total_pdfs || 0;
 
             // Optional: Draw a chart if we have data
             const anaChart = document.getElementById('analyticsChart');

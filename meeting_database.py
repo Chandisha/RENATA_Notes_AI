@@ -447,8 +447,8 @@ def get_meeting_stats(user_email=None):
     where_clause = "WHERE user_email = ?" if user_email else "WHERE 1=1"
     params = (user_email,) if user_email else ()
     
-    # Total meetings
-    row = fetch_one(f"SELECT COUNT(*) as count FROM meetings {where_clause}", params)
+    # Total meetings (only joined/attended ones)
+    row = fetch_one(f"SELECT COUNT(*) as count FROM meetings {where_clause} AND is_skipped = 0", params)
     stats['total_meetings'] = row['count'] if row else 0
     
     # Total duration
@@ -459,6 +459,10 @@ def get_meeting_stats(user_email=None):
     # Average participants
     row = fetch_one(f"SELECT AVG(participant_count) as avg FROM meetings {where_clause} AND participant_count > 0", params)
     stats['avg_participants'] = round((row['avg'] if row else 0) or 0, 1)
+
+    # Total PDFs Generated
+    row = fetch_one(f"SELECT COUNT(*) as count FROM meetings {where_clause} AND (pdf_path IS NOT NULL OR pdf_blob IS NOT NULL)", params)
+    stats['total_pdfs'] = row['count'] if row else 0
     
     # Meetings this week
     if DATABASE_URL:
