@@ -40,6 +40,9 @@
                 <div class="nav-item" data-page="analytics">
                     <i data-feather="pie-chart"></i> <span>Analytics</span>
                 </div>
+                <div class="nav-item" data-page="integrations">
+                    <i data-feather="link"></i> <span>Integrations</span>
+                </div>
             </nav>
 
             <div class="sidebar-footer">
@@ -300,12 +303,40 @@
                     </div>
                 </section>
 
+                <section id="integrations-page" class="page">
+                    <div class="page-header">
+                        <h1>Integrations</h1>
+                        <p class="subtitle">Connect your workspace tools to Renata.</p>
+                    </div>
+
+                    <div class="integrations-grid">
+                        <div class="card integration-card" id="int-google">
+                            <div class="int-header">
+                                <div class="int-icon google">G</div>
+                                <span class="int-name">Google Workspace</span>
+                            </div>
+                            <span class="status-text" id="google-status">Disconnected</span>
+                            <button onclick="window.location.href=API_BASE+'/auth/google'" class="secondary-btn">Link
+                                Account</button>
+                        </div>
+                        <div class="card integration-card" id="int-zoom">
+                            <div class="int-header">
+                                <div class="int-icon zoom">Z</div>
+                                <span class="int-name">Zoom API</span>
+                            </div>
+                            <span class="status-text" id="zoom-status">Disconnected</span>
+                            <button onclick="window.location.href=API_BASE+'/auth/zoom'" class="secondary-btn">Link
+                                ZOOM</button>
+                        </div>
+                    </div>
+                </section>
+
                 <section id="settings-page" class="page">
                     <div class="page-header"
                         style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
-                            <h1>Integrations & Settings</h1>
-                            <p>Manage your linked accounts and bot preferences.</p>
+                            <h1>Account Settings</h1>
+                            <p>Manage your bot preferences and profile.</p>
                         </div>
                         <a href="/logout" class="primary-btn" style="background: #ef4444;">
                             <i data-feather="log-out"></i> Logout
@@ -333,27 +364,6 @@
                                 <button type="submit" class="primary-btn" style="margin-top: 16px;">Update Profile
                                     Name</button>
                             </form>
-                        </div>
-                    </div>
-
-                    <div class="integrations-grid">
-                        <div class="card integration-card" id="int-google">
-                            <div class="int-header">
-                                <div class="int-icon google">G</div>
-                                <span class="int-name">Google Workspace</span>
-                            </div>
-                            <span class="status-text" id="google-status">Disconnected</span>
-                            <button onclick="window.location.href=API_BASE+'/auth/google'" class="secondary-btn">Link
-                                Account</button>
-                        </div>
-                        <div class="card integration-card" id="int-zoom">
-                            <div class="int-header">
-                                <div class="int-icon zoom">Z</div>
-                                <span class="int-name">Zoom API</span>
-                            </div>
-                            <span class="status-text" id="zoom-status">Disconnected</span>
-                            <button onclick="window.location.href=API_BASE+'/auth/zoom'" class="secondary-btn">Link
-                                ZOOM</button>
                         </div>
                     </div>
 

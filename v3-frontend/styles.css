@@ -819,3 +819,66 @@ input:checked+.slider:before {
     font-size: 0.75rem;
     font-weight: 500;
 }
+
+/* Integrations Page */
+.integrations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+}
+
+.integration-card {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+    text-align: center;
+    padding: 32px;
+}
+
+.int-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.int-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 800;
+}
+
+.int-icon.google {
+    background: #ea43351a;
+    color: #ea4335;
+}
+
+.int-icon.zoom {
+    background: #2d8cff1a;
+    color: #2d8cff;
+}
+
+.int-name {
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+
+.status-text {
+    font-size: 0.85rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+}
+
+.status-text.connected {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-green);
+    font-weight: 600;
+}

@@ -83,6 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'analytics':
                 await loadAnalyticsData();
                 break;
+            case 'integrations':
+                await loadIntegrationsData();
+                break;
         }
     }
 
@@ -107,22 +110,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update Stats
             if (data.stats) {
-                const vals = document.querySelectorAll('.stat-value');
+                const vals = document.querySelectorAll('#dashboard-page .stat-value');
                 // dashboard order: meetings, hours, actions, participants
                 if (vals.length >= 4) {
                     vals[0].textContent = data.stats.total_meetings || 0;
-                    vals[1].textContent = (data.stats.total_hours || 0) + 'h';
-                    vals[2].textContent = data.stats.action_items_count || 0; // words
-                    vals[3].textContent = data.stats.participant_count || 0;
+                    vals[1].textContent = (data.stats.total_hours || 0).toFixed(1) + 'h';
+                    vals[2].textContent = data.stats.action_items_count || 0;
+                    vals[3].textContent = (data.stats.participant_count || 0).toFixed(1);
                 }
-            }
-
-            // Update Stats
-            if (data.stats) {
-                document.querySelector('.stat-card:nth-child(1) .stat-value').textContent = data.stats.total_meetings || 0;
-                document.querySelector('.stat-card:nth-child(2) .stat-value').textContent = (data.stats.total_hours || 0).toFixed(1) + 'h';
-                document.querySelector('.stat-card:nth-child(3) .stat-value').textContent = data.stats.action_items_count || 0;
-                document.querySelector('.stat-card:nth-child(4) .stat-value').textContent = (data.stats.participant_count || 0).toFixed(1);
             }
 
             // Update Recent List
@@ -447,6 +442,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial Load & Polling
     checkServerStatus();
     setInterval(checkServerStatus, 15000);
+    async function loadIntegrationsData() {
+        try {
+            const res = await apiFetch("/dashboard_data");
+            const data = await res.json();
+
+            if (data.integrations) {
+                const gStatus = document.getElementById('google-status');
+                const zStatus = document.getElementById('zoom-status');
+                const gBtn = document.querySelector('#int-google button');
+                const zBtn = document.querySelector('#int-zoom button');
+
+                if (data.integrations.google) {
+                    if (gStatus) { gStatus.textContent = 'Connected'; gStatus.className = 'status-text connected'; }
+                    if (gBtn) { gBtn.textContent = 'Reconnect'; gBtn.className = 'secondary-btn'; }
+                } else {
+                    if (gStatus) { gStatus.textContent = 'Disconnected'; gStatus.className = 'status-text'; }
+                    if (gBtn) { gBtn.textContent = 'Link Account'; gBtn.className = 'secondary-btn'; }
+                }
+
+                if (data.integrations.zoom) {
+                    if (zStatus) { zStatus.textContent = 'Connected'; zStatus.className = 'status-text connected'; }
+                    if (zBtn) { zBtn.textContent = 'Reconnect'; zBtn.className = 'secondary-btn'; }
+                } else {
+                    if (zStatus) { zStatus.textContent = 'Disconnected'; zStatus.className = 'status-text'; }
+                    if (zBtn) { zBtn.textContent = 'Link ZOOM'; zBtn.className = 'secondary-btn'; }
+                }
+            }
+        } catch (err) { console.error("Failed to load integrations", err); }
+    }
+
     setInterval(loadLiveStatus, 3000); // Polling for bot status updates
 
     // Modal Interaction
