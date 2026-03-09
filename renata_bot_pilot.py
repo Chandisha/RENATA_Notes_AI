@@ -711,7 +711,7 @@ def run_auto_pilot(user_email):
                 for event in upcoming:
                     print(f"DEBUG: Found '{event.get('summary')}' | Status: {event.get('status')} | Conf: {event.get('conferenceData') is not None}")
                     m_id = event.get('id')
-                    if m_id in joined_meetings: continue
+                    if m_id in session_handled_ids: continue
 
                     # Parse Time
                     start_info = event.get('start', {})
