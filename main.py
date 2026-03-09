@@ -534,36 +534,31 @@ def _get_kb_stats(user_email=None):
 async def search_ask(request: Request, question: str = Form(...)):
     user = require_user(request)
     api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return {"answer": "GEMINI_API_KEY is missing in your environment variables. Please add it to your .env file (Locally) or Vercel Settings (Production) to enable AI Research.", "success": False}
+    
+    # Debug: Check if key is actually set (masked for safety)
+    if not api_key or len(api_key) < 5:
+        return {"answer": "GEMINI_API_KEY is missing or too short. Please add your Google AI Studio key to your .env file or Vercel environment variables.", "success": False}
 
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
 
         # Gather transcripts from database - Multi-meeting context
-        meetings = db.get_all_meetings(user_email=user['email'], limit=50) # Increased to 50
+        meetings = db.get_all_meetings(user_email=user['email'], limit=50)
         context_parts = []
         for m in meetings:
-            # We treat the transcript as the 'PDF index' since it's the source of the PDF
             if m.get('transcript_text') or m.get('summary_text'):
                 title = m.get('title', 'Untitled')
                 date = m.get('start_time', '')[:10]
                 content = m.get('transcript_text') or m.get('summary_text', '')
-                # Increase chunk size per meeting to 30,000 chars (Gemini handles this well)
-                context_parts.append(f"--- DOCUMENT: {title} | DATE: {date} ---\n{content[:30000]}")
+                context_parts.append(f"--- DOCUMENT: {title} | DATE: {date} ---\n{content[:20000]}")
 
         if not context_parts:
-            return {"answer": "No meeting intelligence or PDFs found yet. Please ensure your Renata bot has successfully completed at least one meeting.", "success": True}
+            return {"answer": "No meeting intelligence or PDFs found in the knowledge base yet.", "success": True}
 
         context = "\n\n".join(context_parts)
-        prompt = f"""You are Renata Intelligence Assistant. Your goal is to answer the User's question using the provided MEETING TRANSCRIPTS and PDF DATA.
+        prompt = f"""You are Renata Intelligence Assistant. Answer using the provided context.
         
-Guidelines:
-1. Use only the provided context. If the answer isn't there, say you don't know based on the current knowledge base.
-2. Be specific. Mention the meeting title or date when citing facts.
-3. Format your response cleanly with bullet points if helpful.
-
 KNOWLEDGE BASE:
 {context}
 
@@ -571,18 +566,19 @@ USER QUESTION: {question}
 
 DETAILED ANSWER:"""
 
-        # Try multiple models for reliability
-        for model_name in ["gemini-1.5-pro", "gemini-2.0-flash", "gemini-1.5-flash"]:
+        last_err = "No models responded."
+        for model_name in ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash"]:
             try:
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
                 if response and response.text:
                     return {"answer": response.text, "success": True}
             except Exception as model_err:
+                last_err = str(model_err)
                 print(f"Model {model_name} failed: {model_err}")
                 continue
                 
-        return {"answer": "The AI research engine is currently busy or experiencing high latency. Please try again in a moment.", "success": False}
+        return {"answer": f"Gemini Error: {last_err}. (Check if your API Key supports these models or if the context is too large.)", "success": False}
     except Exception as e:
         return {"answer": f"Intelligence Engine Error: {str(e)}", "success": False}
 
