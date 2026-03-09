@@ -669,10 +669,21 @@ def run_auto_pilot(user_email):
 
             # 2. CHECK FOR LIVE JOIN INTENTS (New)
             print("Checking for live join intents...")
-            pending_joins = db.fetch_all("SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' AND user_email = ?", (user_email,))
-            for pending in pending_joins:
+            # Pick only the LATEST join intent to join immediately
+            pending_joins = db.fetch_all("SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' AND user_email = ? ORDER BY created_at DESC", (user_email,))
+            
+            if pending_joins:
+                # Take the most recent one
+                pending = pending_joins[0]
                 m_id = pending['meeting_id']
                 meet_url = pending['meet_url']
+                
+                # Mark all others for this user as SUPERSEDED so they don't get picked up later
+                if len(pending_joins) > 1:
+                    for old in pending_joins[1:]:
+                        db.exec_commit("UPDATE meetings SET bot_status = 'SUPERSEDED', bot_status_note = 'Newer join request took priority' WHERE meeting_id = ?", (old['meeting_id'],))
+                        print(f"DEBUG: Marked old join request {old['meeting_id']} as SUPERSEDED.")
+
                 if meet_url:
                     print(f"Executing LIVE JOIN for {meet_url}")
                     rec_enabled = profile.get('bot_recording_enabled', 1)
