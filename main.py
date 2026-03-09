@@ -467,7 +467,7 @@ async def reports_data_api(request: Request):
 async def live_status(request: Request):
     user = get_current_user(request)
     if not user: return {"status": "IDLE"}
-    active = db.get_active_joining_meeting()
+    active = db.get_active_joining_meeting(user['email'])
     return {"status": active['bot_status'] if active else "IDLE", "meeting": active}
 
 

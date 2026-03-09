@@ -346,7 +346,14 @@ def update_meeting_bot_note(meeting_id, note):
     update_meeting(meeting_id, {'bot_status_note': note})
     return True
 
-def get_active_joining_meeting():
+def get_active_joining_meeting(user_email=None):
+    if user_email:
+        return fetch_one("""
+            SELECT meeting_id, bot_status, bot_status_note 
+            FROM meetings 
+            WHERE user_email = ? AND bot_status IN ('JOIN_PENDING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'LIVE', 'CONNECTED')
+            ORDER BY created_at DESC LIMIT 1
+        """, (user_email,))
     return fetch_one("""
         SELECT meeting_id, bot_status, bot_status_note 
         FROM meetings 
