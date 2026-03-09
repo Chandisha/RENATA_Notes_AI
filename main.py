@@ -745,4 +745,4 @@ async def download_json(filename: str, request: Request):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "RENATA Meeting Intelligence"}
+    return {"status": "ok", "service": "RENATA Meeting Intelligence", "version": "1.0.5"}
