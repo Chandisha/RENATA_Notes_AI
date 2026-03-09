@@ -578,9 +578,9 @@ DETAILED ANSWER:"""
                 print(f"Model {model_name} failed: {model_err}")
                 continue
                 
-        return {"answer": f"Gemini Error: {last_err}. (Check if your API Key supports these models or if the context is too large.)", "success": False}
+        return {"answer": f"[v2] Gemini Error: {last_err}. (Check if your API Key supports these models or if the context is too large.)", "success": False}
     except Exception as e:
-        return {"answer": f"Intelligence Engine Error: {str(e)}", "success": False}
+        return {"answer": f"[v2] Intelligence Engine Error: {str(e)}", "success": False}
 
 @app.post("/search/index", response_class=JSONResponse)
 async def search_index(request: Request):
