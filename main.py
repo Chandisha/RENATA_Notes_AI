@@ -11,6 +11,7 @@ import sys
 import requests
 import base64
 import time
+import io
 from pathlib import Path
 from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
@@ -21,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Request, Form, HTTPException, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -686,9 +687,30 @@ async def logout(request: Request):
 async def download_pdf(filename: str, request: Request):
     user = get_current_user(request)
     if not user: raise HTTPException(status_code=401)
+    
+    # 1. Check Local Disk (for local dev)
     path = Path("meeting_outputs") / filename
-    if not path.exists(): raise HTTPException(status_code=404)
-    return FileResponse(path, media_type="application/pdf", filename=filename)
+    if path.exists():
+        return FileResponse(path, media_type="application/pdf", filename=filename)
+        
+    # 2. Check Database Blob (for Cloud/Vercel)
+    # Search for a meeting using this filename in the pdf_path
+    meeting = db.fetch_one("SELECT pdf_blob FROM meetings WHERE pdf_path LIKE ? AND user_email = ?", 
+                           (f"%{filename}%", user['email']))
+    
+    if meeting and meeting.get('pdf_blob'):
+        try:
+            pdf_bytes = base64.b64decode(meeting['pdf_blob'])
+            return StreamingResponse(
+                io.BytesIO(pdf_bytes),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"inline; filename={filename}"}
+            )
+        except Exception as e:
+            print(f"Error serving PDF from DB: {e}")
+            raise HTTPException(status_code=500, detail="Error retrieving PDF from cloud storage.")
+            
+    raise HTTPException(status_code=404, detail="PDF Not Found. If you just finished the meeting, wait 10 seconds for the cloud sync.")
 
 @app.get("/download/json/{filename}")
 async def download_json(filename: str, request: Request):

@@ -4,6 +4,7 @@ import time
 import subprocess
 import signal
 import re
+import base64
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from playwright.sync_api import sync_playwright
@@ -594,6 +595,16 @@ class RenaMeetingBot:
                     generator.process_meeting(str(self.recording_path))
                     
                     # NEW: Save all intelligence back to the database for Analytics/Dashboard
+                    # Special: Read PDF and convert to base64 for Cloud Sync (Vercel)
+                    p_blob = None
+                    if generator.last_pdf_path and os.path.exists(generator.last_pdf_path):
+                        try:
+                            with open(generator.last_pdf_path, "rb") as f:
+                                p_blob = base64.b64encode(f.read()).decode('utf-8')
+                            print("PDF Encoded for Cloud sync (Dashboard Support).")
+                        except Exception as e:
+                            print(f"PDF Encoding for cloud failed: {e}")
+
                     print("Saving results to database...")
                     db.save_meeting_results(
                         meeting_id=meeting_id,
@@ -603,7 +614,8 @@ class RenaMeetingBot:
                         speaker_stats=generator.intel.get('speaker_analytics', {}),
                         engagement=generator.intel.get('engagement_metrics', {}),
                         pdf_path=generator.last_pdf_path,
-                        json_path=generator.last_json_path
+                        json_path=generator.last_json_path,
+                        pdf_blob=p_blob
                     )
                     
                     print("=" * 60)

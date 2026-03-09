@@ -138,11 +138,17 @@ def init_database():
             bot_status TEXT DEFAULT 'IDLE',
             bot_joined_at TEXT,
             bot_status_note TEXT,
+            pdf_blob TEXT,
             is_summarized_paid INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # Check for pdf_blob column (migration)
+    try:
+        cursor.execute("ALTER TABLE meetings ADD COLUMN IF NOT EXISTS pdf_blob TEXT")
+    except: pass
 
     # Users Table
     cursor.execute(f'''
@@ -528,8 +534,8 @@ def get_meeting_stats(user_email=None):
     
     return stats
 
-def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_stats, engagement, pdf_path=None, json_path=None):
-    """Save final AI intelligence and analytics to the DB"""
+def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_stats, engagement, pdf_path=None, json_path=None, pdf_blob=None):
+    """Save final AI intelligence and analytics to the DB (Includes Cloud Sync for PDF)"""
     updates = {
         'transcript_text': transcript,
         'summary_text': summary,
@@ -538,6 +544,7 @@ def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_
         'engagement_metrics': engagement,
         'pdf_path': pdf_path,
         'json_path': json_path,
+        'pdf_blob': pdf_blob,
         'status': 'completed'
     }
     return update_meeting(meeting_id, updates)
