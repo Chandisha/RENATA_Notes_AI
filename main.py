@@ -500,6 +500,12 @@ async def analytics_page_spa(request: Request):
     require_user(request)
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
+@app.get("/analytics/data", response_class=JSONResponse)
+async def analytics_data(request: Request):
+    user = require_user(request)
+    stats = db.get_meeting_stats(user_email=user['email'])
+    return stats
+
 # ============================================================
 # AI SEARCH ASSISTANT
 # On Vercel: uses Gemini API directly on database transcripts (no torch needed)
@@ -527,43 +533,58 @@ def _get_kb_stats(user_email=None):
 @app.post("/search/ask", response_class=JSONResponse)
 async def search_ask(request: Request, question: str = Form(...)):
     user = require_user(request)
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return {"answer": "GEMINI_API_KEY is missing in your environment variables. Please add it to your .env file (Locally) or Vercel Settings (Production) to enable AI Research.", "success": False}
+
     try:
         import google.generativeai as genai
-        genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+        genai.configure(api_key=api_key)
 
-        # Gather transcripts from database
-        meetings = db.get_all_meetings(user_email=user['email'], limit=30)
+        # Gather transcripts from database - Multi-meeting context
+        meetings = db.get_all_meetings(user_email=user['email'], limit=50) # Increased to 50
         context_parts = []
         for m in meetings:
+            # We treat the transcript as the 'PDF index' since it's the source of the PDF
             if m.get('transcript_text') or m.get('summary_text'):
                 title = m.get('title', 'Untitled')
                 date = m.get('start_time', '')[:10]
-                content = m.get('summary_text') or m.get('transcript_text', '')
-                context_parts.append(f"--- Meeting: {title} ({date}) ---\n{content[:2000]}")
+                content = m.get('transcript_text') or m.get('summary_text', '')
+                # Increase chunk size per meeting to 30,000 chars (Gemini handles this well)
+                context_parts.append(f"--- DOCUMENT: {title} | DATE: {date} ---\n{content[:30000]}")
 
         if not context_parts:
-            return {"answer": "No meeting transcripts found yet. Run the local bot pilot to record meetings first, then try again.", "success": True}
+            return {"answer": "No meeting intelligence or PDFs found yet. Please ensure your Renata bot has successfully completed at least one meeting.", "success": True}
 
-        context = "\n\n".join(context_parts[:15])  # Use up to 15 most recent
-        prompt = f"""You are Renata, an AI meeting intelligence assistant. Answer the user's question based ONLY on the meeting transcripts provided below. If the answer is not found in the transcripts, say so clearly.
+        context = "\n\n".join(context_parts)
+        prompt = f"""You are Renata Intelligence Assistant. Your goal is to answer the User's question using the provided MEETING TRANSCRIPTS and PDF DATA.
+        
+Guidelines:
+1. Use only the provided context. If the answer isn't there, say you don't know based on the current knowledge base.
+2. Be specific. Mention the meeting title or date when citing facts.
+3. Format your response cleanly with bullet points if helpful.
 
-MEETING TRANSCRIPTS:
+KNOWLEDGE BASE:
 {context}
 
 USER QUESTION: {question}
 
-ANSWER:"""
+DETAILED ANSWER:"""
 
-        for model_name in ["gemini-2.0-flash", "gemini-1.5-flash"]:
+        # Try multiple models for reliability
+        for model_name in ["gemini-1.5-pro", "gemini-2.0-flash", "gemini-1.5-flash"]:
             try:
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
-                return {"answer": response.text, "success": True}
-            except Exception:
+                if response and response.text:
+                    return {"answer": response.text, "success": True}
+            except Exception as model_err:
+                print(f"Model {model_name} failed: {model_err}")
                 continue
-        return {"answer": "Could not get a response from the AI model. Please check your GEMINI_API_KEY.", "success": False}
+                
+        return {"answer": "The AI research engine is currently busy or experiencing high latency. Please try again in a moment.", "success": False}
     except Exception as e:
-        return {"answer": f"Search error: {str(e)}", "success": False}
+        return {"answer": f"Intelligence Engine Error: {str(e)}", "success": False}
 
 @app.post("/search/index", response_class=JSONResponse)
 async def search_index(request: Request):

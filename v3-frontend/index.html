@@ -161,6 +161,61 @@
                     </div>
                 </section>
 
+                <section id="analytics-page" class="page">
+                    <div class="page-header">
+                        <h1>Account Analytics</h1>
+                        <p class="subtitle">Comprehensive performance overview for your account.</p>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon purple">
+                                <i data-feather="video"></i>
+                            </div>
+                            <div class="stat-data">
+                                <span class="stat-value" id="ana-total-meetings">...</span>
+                                <span class="stat-label">Total Meetings Joined</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon blue">
+                                <i data-feather="clock"></i>
+                            </div>
+                            <div class="stat-data">
+                                <span class="stat-value" id="ana-total-time">...</span>
+                                <span class="stat-label">Meeting Time Captured</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green">
+                                <i data-feather="users"></i>
+                            </div>
+                            <div class="stat-data">
+                                <span class="stat-value" id="ana-avg-participation">...</span>
+                                <span class="stat-label">Avg. Participants</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon cyan">
+                                <i data-feather="database"></i>
+                            </div>
+                            <div class="stat-data">
+                                <span class="stat-value" id="ana-storage">0 MB</span>
+                                <span class="stat-label">Cloud Storage Used</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 24px;">
+                        <div class="card-header">
+                            <h2>Engagement Trends</h2>
+                        </div>
+                        <div class="chart-container" style="height: 350px;">
+                            <canvas id="analyticsChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Other pages are hidden by default and managed by JS -->
                 <section id="reports-page" class="page">
                     <div class="page-header">
@@ -183,7 +238,7 @@
                                 <span class="badge"><b id="seg-count">0</b> Segments</span>
                             </div>
                             <button id="sync-kb-btn" class="secondary-btn">
-                                <i data-feather="refresh-cw"></i> Sync Knowledge Base
+                                <i data-feather="refresh-cw"></i> Sync Index & Meeting PDFs
                             </button>
                         </div>
                     </div>
