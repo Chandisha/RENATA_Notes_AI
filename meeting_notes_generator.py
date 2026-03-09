@@ -369,7 +369,7 @@ class AdaptiveMeetingNotesGenerator:
 
             elements = []
             elements.append(Paragraph(self.bot_name.upper(), title_style))
-            elements.append(Paragraph(f"Gemini-Powered Intelligence Report • {datetime.now().strftime('%B %d, %Y')}", styles['Normal']))
+            elements.append(Paragraph(f"Intelligence Report • {datetime.now().strftime('%B %d, %Y')}", styles['Normal']))
             elements.append(Spacer(1, 12))
 
             if self.intel.get("summary_en"):
