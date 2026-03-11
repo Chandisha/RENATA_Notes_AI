@@ -472,12 +472,19 @@ async def reports_data_api(request: Request):
         m['start_time'] = fmt_time(m['start_time'])
     return {"meetings": meetings}
 
-@app.get("/live/status")
+@app.get("/live/status", response_class=JSONResponse)
 async def live_status(request: Request):
     user = get_current_user(request)
-    if not user: return {"status": "IDLE"}
-    active = db.get_active_joining_meeting(user['email'])
-    return {"status": active['bot_status'] if active else "IDLE", "meeting": active}
+    if not user: return {"active": False, "status": "IDLE"}
+    meeting = db.get_active_joining_meeting(user['email'])
+    if meeting:
+        return {
+            "active": True,
+            "status": meeting.get("bot_status", "UNKNOWN"),
+            "note": meeting.get("bot_status_note", ""),
+            "meeting_id": meeting.get("meeting_id")
+        }
+    return {"active": False, "status": "IDLE"}
 
 
 @app.get("/reports/{meeting_id}", response_class=HTMLResponse)
@@ -678,22 +685,6 @@ async def settings_api_save(request: Request):
         request.session["user"]["name"] = data["name"]
         
     return {"success": True}
-
-@app.get("/live/status", response_class=JSONResponse)
-async def live_status(request: Request):
-    user = require_user(request)
-    meeting = db.get_active_joining_meeting()
-    if meeting:
-        return {
-            "active": True,
-            "status": meeting.get("bot_status", "UNKNOWN"),
-            "note": meeting.get("bot_status_note", "")
-        }
-    return {"active": False}
-
-# ============================================================
-# SETTINGS / PROFILE
-# ============================================================
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page_spa(request: Request):

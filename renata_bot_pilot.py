@@ -244,14 +244,13 @@ class RenaMeetingBot:
                     pass
                 
                 if db_module and meeting_id: 
-                    db_module.update_bot_status(meeting_id, "LIVE", "Renata active in Zoom.")
+                    db_module.update_bot_status(meeting_id, "LIVE", "Renata active in Zoom. Waiting for admission...")
                 
                 if record: 
                     self.start_audio_recording(f"Zoom_Meeting_{int(time.time())}")
                     
                 if db_module and meeting_id:
-                    db_module.set_meeting_bot_status(meeting_id, "CONNECTED", user_email=user_email)
-                    db_module.update_meeting_bot_note(meeting_id, "Zoom Recording Active")
+                    db_module.set_meeting_bot_status(meeting_id, "CONNECTED", user_email=user_email, bot_status_note="Bot joined! Capturing meeting intelligence...")
                 
                 while True:
                     try:
@@ -292,8 +291,14 @@ class RenaMeetingBot:
                 page = context.pages[0]
                 Stealth().apply_stealth_sync(page)
                 
+                if db_module and meeting_id: 
+                    db_module.update_bot_status(meeting_id, "FETCHING", "Navigating to Google Meet...", user_email=user_email)
+                
                 page.goto(meet_url)
                 time.sleep(5)
+                
+                if db_module and meeting_id: 
+                    db_module.update_bot_status(meeting_id, "CONNECTING", "Entering lobby...", user_email=user_email)
                 
                 # Handling Guest Join
                 try:
@@ -338,7 +343,7 @@ class RenaMeetingBot:
                 while True:
                     if page.locator('button[aria-label*="Leave call" i]').count() > 0:
                         if db_module and meeting_id: 
-                            db_module.update_bot_status(meeting_id, "CONNECTED", note="Recording active")
+                            db_module.update_bot_status(meeting_id, "CONNECTED", note="Bot joined! Initializing meeting intelligence...", user_email=user_email)
                         break
                     time.sleep(5)
                 

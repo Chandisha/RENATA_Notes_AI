@@ -820,6 +820,59 @@ input:checked+.slider:before {
     font-weight: 500;
 }
 
+/* Real-time Progress Bar */
+.progress-container {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    margin-bottom: 30px;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
+    border-radius: 10px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.step.complete {
+    opacity: 1;
+    color: var(--accent-green);
+}
+
+.step.complete .step-icon {
+    background: rgba(16, 185, 129, 0.15) !important;
+    color: var(--accent-green) !important;
+    border: 1px solid var(--accent-green) !important;
+}
+
 /* Integrations Page */
 .integrations-grid {
     display: grid;

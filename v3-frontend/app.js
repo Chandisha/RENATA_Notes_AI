@@ -342,26 +342,80 @@ document.addEventListener('DOMContentLoaded', () => {
         const idle = document.getElementById('bot-idle-msg');
         const steps = document.getElementById('bot-steps');
         const pulse = document.getElementById('bot-pulse');
+        const progressArea = document.getElementById('bot-progress-area');
+        const progressBar = document.getElementById('live-progress-bar');
+        
         if (idle) idle.style.display = 'none';
         if (steps) steps.style.display = 'grid';
+        if (progressArea) progressArea.style.display = 'block';
         if (pulse) { pulse.style.background = '#10b981'; pulse.style.animation = 'pulse 1.5s infinite'; }
         
-        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-        const nt = document.getElementById('bot-note');
-        if (nt) nt.textContent = note || '';
+        document.querySelectorAll('.step').forEach(s => {
+            s.classList.remove('active');
+            s.classList.remove('complete');
+        });
 
-        if (status.includes("PENDING") || status.includes("JOINING")) document.getElementById("step-dispatching")?.classList.add("active");
-        else if (status.includes("FETCHING")) document.getElementById("step-fetching")?.classList.add("active");
-        else if (status.includes("CONNECTING") || status.includes("LOBBY")) document.getElementById("step-connecting")?.classList.add("active");
-        else if (status.includes("CONNECTED") || status.includes("LIVE")) document.getElementById("step-live")?.classList.add("active");
+        const nt = document.getElementById('bot-note');
+        if (nt) {
+            if (status.includes("LIVE") || status.includes("CONNECTED")) {
+                nt.innerHTML = `<b style="color:var(--accent-green)">Bot joined!</b> Initializing meeting intelligence...`;
+            } else {
+                nt.textContent = note || '';
+            }
+        }
+
+        let progress = 0;
+        const stepsElements = {
+            dispatching: document.getElementById("step-dispatching"),
+            fetching: document.getElementById("step-fetching"),
+            connecting: document.getElementById("step-connecting"),
+            live: document.getElementById("step-live")
+        };
+
+        if (status === "DISPATCHING") {
+            progress = 15;
+            stepsElements.dispatching?.classList.add("active");
+        } 
+        else if (status === "JOIN_PENDING" || status === "JOINING") {
+            progress = 35;
+            stepsElements.dispatching?.classList.add("complete");
+            stepsElements.fetching?.classList.add("active");
+        }
+        else if (status === "FETCHING") {
+            progress = 55;
+            stepsElements.dispatching?.classList.add("complete");
+            stepsElements.fetching?.classList.add("complete");
+            stepsElements.connecting?.classList.add("active");
+        }
+        else if (status.includes("CONNECTING") || status.includes("LOBBY")) {
+            progress = 80;
+            stepsElements.dispatching?.classList.add("complete");
+            stepsElements.fetching?.classList.add("complete");
+            stepsElements.connecting?.classList.add("complete");
+            stepsElements.live?.classList.add("active");
+        }
+        else if (status.includes("CONNECTED") || status.includes("LIVE")) {
+            progress = 100;
+            stepsElements.dispatching?.classList.add("complete");
+            stepsElements.fetching?.classList.add("complete");
+            stepsElements.connecting?.classList.add("complete");
+            stepsElements.live?.classList.add("complete");
+            // Stop pulsing once fully joined
+            if (pulse) pulse.style.animation = 'none';
+        }
+
+        if (progressBar) progressBar.style.width = `${progress}%`;
     }
 
     function showBotIdle() {
         const idle = document.getElementById('bot-idle-msg');
         const steps = document.getElementById('bot-steps');
         const pulse = document.getElementById('bot-pulse');
+        const progressArea = document.getElementById('bot-progress-area');
+        
         if (idle) idle.style.display = 'block';
         if (steps) steps.style.display = 'none';
+        if (progressArea) progressArea.style.display = 'none';
         if (pulse) { pulse.style.background = '#64748b'; pulse.style.animation = 'none'; }
     }
 
@@ -421,10 +475,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sBtn) sBtn.addEventListener('click', askAI);
     if (cin) cin.addEventListener('keypress', (e) => { if (e.key === 'Enter') askAI(); });
 
-    // AUTO-REFRESH DATA (Every 10 seconds)
+    // AUTO-REFRESH DATA (Every 3 seconds for Live, 15 for others)
     setInterval(() => {
         const currentHash = window.location.hash.replace('#', '');
         if (currentHash === 'analytics') loadAnalyticsData();
-        if (currentHash === 'live') loadLiveStatus();
-    }, 10000);
+        if (currentHash === 'live' || currentHash === 'dashboard') loadLiveStatus();
+    }, 3000);
 });
