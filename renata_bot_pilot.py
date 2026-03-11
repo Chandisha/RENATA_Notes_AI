@@ -445,7 +445,9 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
         _active_urls[norm_url] = meeting_id
         
     try:
-        print(f"\n[Slot {slot}] STARTING: {meet_url} (Device: {audio_dev}) for {user_email}")
+        # 1. Update status to JOINING
+        db_module.update_bot_status(meeting_id, "JOINING", note="Bot browser is starting...", user_email=user_email)
+        print(f"\n[Slot {slot}] JOINING: {meet_url} for {user_email}")
         
         thread_bot = RenaMeetingBot(user_email=user_email, session_dir=session_dir, audio_device=audio_dev)
         
@@ -483,9 +485,35 @@ def run_auto_pilot(operator_email):
                 if (m_id, u_email) in session_handled_ids or (m_id, u_email) in _active_jobs or meet_url in _active_urls: 
                     continue
                 
+                # RECENT CHECK: Only join if the meeting request was created in the last 15 minutes
+                try:
+                    # In SQLite, CURRENT_TIMESTAMP is UTC. 
+                    # If pending['created_at'] exists, compare age.
+                    created_at_str = pending.get('created_at')
+                    if created_at_str:
+                        # Handle both 'YYYY-MM-DD HH:MM:SS' and ISO formats
+                        if 'T' in created_at_str:
+                            c_dt = dt_parser.isoparse(created_at_str)
+                        else:
+                            c_dt = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                        
+                        age_mins = (datetime.now(timezone.utc) - c_dt).total_seconds() / 60
+                        if age_mins > 20: # Skip if more than 20 mins old
+                            print(f"Skipping stale Live Join: {m_id} (Age: {int(age_mins)}m)")
+                            session_handled_ids.add((m_id, u_email))
+                            db.update_bot_status(m_id, "FAILED", note="Skipped: Manual join request expired (stale).", user_email=u_email)
+                            continue
+                except: pass
+
                 slot = _acquire_slot()
                 if slot is not None:
-                    u_email = pending.get('user_email', operator_email)
+                    # MARK ACTIVE IMMEDIATELY to prevent race conditions
+                    _active_jobs[(m_id, u_email)] = True # Placeholder
+                    _active_urls[meet_url] = m_id
+                    session_handled_ids.add((m_id, u_email))
+                    
+                    db.update_bot_status(m_id, "DISPATCHING", note=f"Assigned to Slot {slot}. Initializing isolated session...", user_email=u_email)
+                    
                     rec = pending.get('recording_enabled', 1)
                     t = threading.Thread(
                         target=_run_meeting_in_thread, 
@@ -494,7 +522,6 @@ def run_auto_pilot(operator_email):
                     )
                     _active_jobs[(m_id, u_email)] = t
                     t.start()
-                    session_handled_ids.add((m_id, u_email))
 
             # 2. CALENDAR SCAN (ALL USERS WITH TOKENS)
             all_users = db.fetch_all("SELECT email FROM users WHERE google_token IS NOT NULL AND google_token != ''")
@@ -537,7 +564,8 @@ def run_auto_pilot(operator_email):
                             
                         diff = (now - parsed_dt).total_seconds() / 60
                         
-                        if -5 <= diff <= 60:
+                        # Real-time window: started up to 10 mins ago, or starting in next 2 mins
+                        if -2 <= diff <= 10:
                             url = event.get('hangoutLink')
                             if not url and 'location' in event: 
                                 loc = event['location']
@@ -550,7 +578,13 @@ def run_auto_pilot(operator_email):
                                     
                                 slot = _acquire_slot()
                                 if slot is not None:
-                                    db.set_meeting_bot_status(m_id, "JOINING", user_email=cal_email, title=event.get('summary'), start_time=start_str)
+                                    # MARK ACTIVE IMMEDIATELY
+                                    _active_jobs[(m_id, cal_email)] = True
+                                    _active_urls[url] = m_id
+                                    session_handled_ids.add((m_id, cal_email))
+                                    
+                                    db.set_meeting_bot_status(m_id, "DISPATCHING", user_email=cal_email, title=event.get('summary'), start_time=start_str, bot_status_note=f"Scheduled event detected. Assigning Slot {slot}...")
+                                    
                                     t = threading.Thread(
                                         target=_run_meeting_in_thread, 
                                         args=(url, m_id, cal_email, 1, slot), 
@@ -558,7 +592,6 @@ def run_auto_pilot(operator_email):
                                     )
                                     _active_jobs[(m_id, cal_email)] = t
                                     t.start()
-                                    session_handled_ids.add((m_id, cal_email))
                 except Exception: 
                     pass
             
