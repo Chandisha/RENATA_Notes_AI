@@ -1,5 +1,5 @@
 // RENATA Frontend Logic
-const API_BASE = window.location.origin; // Dynamically use the same host on Vercel
+const API_BASE = window.location.origin;
 
 // Helper for API calls
 async function apiFetch(endpoint, options = {}) {
@@ -22,7 +22,6 @@ async function apiFetch(endpoint, options = {}) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Feather icons
     feather.replace();
 
     // Navigation Logic
@@ -30,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pages = document.querySelectorAll('.page');
 
     navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
+        item.addEventListener('click', () => {
             const targetPage = item.getAttribute('data-page');
             window.location.hash = targetPage;
             showPage(targetPage);
@@ -40,12 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function showPage(pageId) {
         if (!pageId) pageId = 'dashboard';
 
-        // Update Active Nav
         navItems.forEach(i => {
             i.classList.toggle('active', i.getAttribute('data-page') === pageId);
         });
 
-        // Show Target Page
         const targetElement = document.getElementById(`${pageId}-page`);
         if (targetElement) {
             pages.forEach(p => p.classList.remove('active'));
@@ -54,11 +51,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Handle initial load
     const initialPage = window.location.hash.replace('#', '') || 'dashboard';
     showPage(initialPage);
 
-    // Handle back/forward and manual hash changes
     window.addEventListener('hashchange', () => {
         const newPage = window.location.hash.replace('#', '') || 'dashboard';
         showPage(newPage);
@@ -74,95 +69,90 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'reports':
                 await loadReportsData();
                 break;
+            case 'analytics':
+                await loadAnalyticsData();
+                break;
             case 'search':
                 await loadSearchStats();
                 break;
             case 'live':
                 await loadLiveStatus();
                 break;
-            case 'analytics':
-                await loadAnalyticsData();
-                break;
-            case 'integrations':
             case 'settings':
+            case 'integrations':
                 await loadIntegrationsData();
-                await loadDashboardData(); // Also loads preferences and user info
+                await loadDashboardData();
                 break;
         }
     }
 
     async function loadDashboardData() {
         try {
-            // Stats & Recent
             const res = await apiFetch("/dashboard_data");
             const data = await res.json();
 
-            // Update User Profile
+            // Profile
             if (data.user) {
                 const userNameEl = document.querySelector('.user-name');
                 const userAvatarEl = document.querySelector('.avatar');
-                const prefUserName = document.getElementById('pref-user-name');
-                const prefUserEmail = document.getElementById('pref-user-email');
-
                 if (userNameEl) userNameEl.textContent = data.user.name;
                 if (userAvatarEl && data.user.picture) userAvatarEl.src = data.user.picture;
-                if (prefUserName) prefUserName.value = data.user.name;
-                if (prefUserEmail) prefUserEmail.value = data.user.email;
+                
+                const pName = document.getElementById('pref-user-name');
+                const pEmail = document.getElementById('pref-user-email');
+                if (pName) pName.value = data.user.name;
+                if (pEmail) pEmail.value = data.user.email;
             }
 
-            // Update Stats
-            if (data.stats) {
-                const vals = document.querySelectorAll('#dashboard-page .stat-value');
-                // dashboard order: meetings, hours, actions, participants
-                if (vals.length >= 4) {
-                    vals[0].textContent = data.stats.total_meetings || 0;
-                    vals[1].textContent = (data.stats.total_hours || 0).toFixed(1) + 'h';
-                    vals[2].textContent = data.stats.action_items_count || 0;
-                    vals[3].textContent = (data.stats.participant_count || 0).toFixed(1);
-                }
+            // Dashboard Stats
+            const statsArr = document.querySelectorAll('#dashboard-page .stat-value');
+            if (data.stats && statsArr.length >= 4) {
+                statsArr[0].textContent = data.stats.total_meetings || 0;
+                statsArr[1].textContent = (data.stats.total_duration_hours || 0).toFixed(1) + 'h';
+                statsArr[2].textContent = data.stats.action_items_count || 0;
+                statsArr[3].textContent = (data.stats.participant_count || 0).toFixed(1);
             }
 
-            // Update Recent List
+            // Recent Reports List
             const recentList = document.getElementById('recent-list');
-            recentList.innerHTML = '';
-            (data.recent_meetings || []).forEach(m => {
-                const item = document.createElement('div');
-                item.className = 'list-item';
-                item.innerHTML = `
-                    <div class="item-icon"><i data-feather="file"></i></div>
-                    <div class="item-details">
-                        <span class="item-title">${m.title || 'Untitled'}</span>
-                        <span class="item-meta">${m.start_time}</span>
-                    </div>
-                    <div class="item-actions">
-                        <span class="badge blue">${m.status}</span>
-                        <button class="icon-btn" onclick="window.location.hash='#reports'"><i data-feather="chevron-right"></i></button>
-                    </div>
-                `;
-                recentList.appendChild(item);
-            });
+            if (recentList) {
+                recentList.innerHTML = '';
+                (data.recent_meetings || []).forEach(m => {
+                    const item = document.createElement('div');
+                    item.className = 'list-item';
+                    item.innerHTML = `
+                        <div class="item-icon"><i data-feather="file-text"></i></div>
+                        <div class="item-details">
+                            <span class="item-title">${m.title || 'Untitled'}</span>
+                            <span class="item-meta">${m.start_time}</span>
+                        </div>
+                        <div class="item-actions">
+                            <span class="badge ${m.status}">${m.status.toUpperCase()}</span>
+                            <button class="icon-btn" onclick="window.location.hash='#reports'"><i data-feather="chevron-right"></i></button>
+                        </div>
+                    `;
+                    recentList.appendChild(item);
+                });
+            }
 
-            // Update Calendar
+            // Calendar
             const calendarGrid = document.getElementById('calendar-grid');
             if (calendarGrid) {
                 calendarGrid.innerHTML = '';
                 if ((data.events || []).length === 0) {
-                    calendarGrid.innerHTML = `
-                        <p class="muted">No upcoming meetings found.</p>
-                        <button onclick="window.location.href=API_BASE+'/auth/google'" class="btn-sm secondary-btn">Sync Google Calendar</button>
-                    `;
+                    calendarGrid.innerHTML = '<p class="muted" style="padding:20px;">No upcoming meetings found in your calendar.</p>';
                 } else {
-                    (data.events || []).forEach(event => {
+                    data.events.forEach(ev => {
                         const card = document.createElement('div');
                         card.className = 'meeting-card';
                         card.innerHTML = `
                             <div class="meeting-card-top">
-                                <span class="status-badge">Upcoming</span>
-                                <span class="meeting-time">${event.start_time}</span>
+                                <span class="status-badge">Calendar</span>
+                                <span class="meeting-time">${ev.start_time}</span>
                             </div>
-                            <div class="meeting-title">${event.summary}</div>
+                            <div class="meeting-title">${ev.summary}</div>
                             <div class="meeting-actions">
-                                <button class="btn-sm primary-btn" onclick="dispatchRenata('${event.link}')">Send Renata</button>
+                                <button class="btn-sm primary-btn" onclick="dispatchRenata('${ev.link}')">Dispatch Renata</button>
                             </div>
                         `;
                         calendarGrid.appendChild(card);
@@ -170,34 +160,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Update Integrations
-            if (data.integrations) {
-                const gStatus = document.getElementById('google-status');
-                const zStatus = document.getElementById('zoom-status');
-                if (gStatus) {
-                    gStatus.textContent = data.integrations.google ? 'Connected' : 'Disconnected';
-                    gStatus.style.color = data.integrations.google ? 'var(--accent-green)' : 'var(--text-secondary)';
-                }
-                if (zStatus) {
-                    zStatus.textContent = data.integrations.zoom ? 'Connected' : 'Disconnected';
-                    zStatus.style.color = data.integrations.zoom ? 'var(--accent-green)' : 'var(--text-secondary)';
-                }
-            }
-
-            // Update Preferences
+            // Preferences
             if (data.preferences) {
-                const botNameInput = document.getElementById('pref-bot-name');
-                const autoJoinCheck = document.getElementById('pref-auto-join');
-                const recordingCheck = document.getElementById('pref-recording');
-                if (botNameInput) botNameInput.value = data.preferences.bot_name || '';
-                if (autoJoinCheck) autoJoinCheck.checked = data.preferences.auto_join;
-                if (recordingCheck) recordingCheck.checked = data.preferences.recording;
+                const bName = document.getElementById('pref-bot-name');
+                const aj = document.getElementById('pref-auto-join');
+                const rec = document.getElementById('pref-recording');
+                if (bName) bName.value = data.preferences.bot_name;
+                if (aj) aj.checked = data.preferences.auto_join;
+                if (rec) rec.checked = data.preferences.recording;
             }
 
             feather.replace();
-        } catch (err) {
-            console.error("Dashboard load failed", err);
-        }
+        } catch (err) { console.error(err); }
     }
 
     async function loadReportsData() {
@@ -205,127 +179,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch("/reports_data");
             const data = await res.json();
             const grid = document.getElementById('reports-grid');
+            if (!grid) return;
             grid.innerHTML = '';
+
+            if (data.meetings.length === 0) {
+                grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No reports generated yet. Renata will start populating this as you join meetings.</p></div>';
+            }
 
             data.meetings.forEach(m => {
                 const pdfName = m.pdf_path ? m.pdf_path.split(/[\\/]/).pop() : null;
                 const pdfLink = pdfName ? `${API_BASE}/download/pdf/${pdfName}` : '#';
-                const pdfBtnClass = pdfName ? 'btn-sm primary-btn' : 'btn-sm secondary-btn disabled';
-
+                
                 const card = document.createElement('div');
                 card.className = 'report-card';
                 card.innerHTML = `
                     <div class="report-header">
-                        <span class="report-date">${m.start_time || 'No Date'}</span>
-                        <span class="badge ${m.status || 'scheduled'}">${(m.status || 'scheduled').toUpperCase()}</span>
+                        <span class="report-date">${m.start_time}</span>
+                        <span class="badge ${m.status}">${m.status.toUpperCase()}</span>
                     </div>
                     <h3 class="report-title">${m.title || 'Untitled Meeting'}</h3>
-                    <div class="report-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
-                        <div class="engagement-mini" style="font-size: 0.85rem; color: var(--text-secondary);">
-                            <i data-feather="activity" style="width: 14px; height: 14px; padding-bottom: 2px;"></i> 
-                            Score: ${m.engagement_score || 0}%
-                        </div>
-                        ${pdfName ? `<a href="${pdfLink}" target="_blank" class="${pdfBtnClass}" style="text-decoration:none;">Download PDF</a>` : `<span class="muted" style="font-size: 0.85rem; opacity: 0.6;">Processing AI...</span>`}
+                    <div class="report-footer" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="muted" style="font-size:0.8rem;">${m.participant_count || 0} participants</span>
+                        ${pdfName ? `<a href="${pdfLink}" target="_blank" class="btn-sm primary-btn" style="text-decoration:none;">Open PDF</a>` : `<span class="muted" style="font-size:0.85rem;">Processing...</span>`}
                     </div>
                 `;
                 grid.appendChild(card);
             });
-            if (window.feather) feather.replace();
-        } catch (err) {
-            console.error("Reports load failed", err);
-        }
-    }
-
-
-    // Server Status Checker
-    async function checkServerStatus() {
-        const dot = document.querySelector('.status-dot');
-        const text = document.querySelector('.status-text');
-        try {
-            const res = await apiFetch("/health");
-            if (res.ok) {
-                dot.style.background = 'var(--accent-green)';
-                text.textContent = 'Server: Connected';
-                dot.classList.add('pulse');
-            } else {
-                throw new Error();
-            }
-        } catch (err) {
-            dot.style.background = '#ef4444';
-            text.textContent = 'Server: Offline';
-            dot.classList.remove('pulse');
-        }
-    }
-
-    window.dispatchRenata = async (url) => {
-        if (!url) {
-            alert("Please enter a meeting link.");
-            return;
-        }
-        const formData = new FormData();
-        formData.append('meeting_url', url);
-        try {
-            const res = await apiFetch("/live/join", { method: 'POST', body: formData });
-            const data = await res.json();
-            if (data.success) {
-                showBotActive("JOIN_PENDING", data.message);
-                if (window.closeModal) window.closeModal();
-            } else {
-                alert("Error: " + (data.message || data.detail || "Renata could not be dispatched."));
-            }
-        } catch (err) {
-            console.error(err);
-            alert("Could not connect to server. Ensure it's reachable.");
-        }
-    };
-
-    function showBotActive(status, note) {
-        const idleMsg = document.getElementById('bot-idle-msg');
-        const steps = document.getElementById('bot-steps');
-        const pulse = document.getElementById('bot-pulse');
-        if (idleMsg) idleMsg.style.display = 'none';
-        if (steps) steps.style.display = 'grid';
-        if (pulse) { pulse.style.background = 'var(--accent-green)'; pulse.style.animation = 'pulse 1.5s infinite'; }
-        updateBotVisuals(status, note);
-    }
-
-    function showBotIdle() {
-        const idleMsg = document.getElementById('bot-idle-msg');
-        const steps = document.getElementById('bot-steps');
-        const pulse = document.getElementById('bot-pulse');
-        if (idleMsg) idleMsg.style.display = 'block';
-        if (steps) steps.style.display = 'none';
-        if (pulse) { pulse.style.background = '#64748b'; pulse.style.animation = 'none'; }
-        const noteEl = document.getElementById('bot-note'); if (noteEl) noteEl.textContent = '';
-    }
-
-    function updateBotVisuals(status, note) {
-        // Reset steps
-        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
-        const noteEl = document.getElementById('bot-note');
-        if (noteEl) noteEl.textContent = note || '';
-
-        if (status === "JOIN_PENDING" || status === "JOINING") {
-            document.getElementById("step-dispatching").classList.add("active");
-        } else if (status === "FETCHING") {
-            document.getElementById("step-fetching").classList.add("active");
-        } else if (status === "CONNECTING" || status === "IN_LOBBY") {
-            document.getElementById("step-connecting").classList.add("active");
-        } else if (status === "CONNECTED" || status === "LIVE") {
-            document.getElementById("step-live").classList.add("active");
-        }
-    }
-
-    async function loadLiveStatus() {
-        if (window.location.hash !== '#live') return;
-        try {
-            const res = await apiFetch("/live/status");
-            const data = await res.json();
-            if (data.active) {
-                showBotActive(data.status, data.note);
-            } else {
-                showBotIdle();
-            }
+            feather.replace();
         } catch (err) { }
     }
 
@@ -334,26 +214,27 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch("/analytics/data");
             const stats = await res.json();
 
-            const eMeetings = document.getElementById('ana-total-meetings');
-            const eTime = document.getElementById('ana-total-time');
-            const ePDFs = document.getElementById('ana-total-pdfs');
+            const mVal = document.getElementById('ana-total-meetings');
+            const tVal = document.getElementById('ana-total-time');
+            const eVal = document.getElementById('ana-total-engagement');
+            const aVal = document.getElementById('ana-app-time');
 
-            if (eMeetings) eMeetings.textContent = stats.total_meetings || 0;
-            if (eTime) eTime.textContent = (stats.total_duration_hours || 0) + 'h';
-            if (ePDFs) ePDFs.textContent = stats.total_pdfs || 0;
+            if (mVal) mVal.textContent = stats.total_meetings || 0;
+            if (tVal) tVal.textContent = (stats.total_duration_hours || 0).toFixed(1) + 'h';
+            if (eVal) eVal.textContent = (stats.engagement_score || 0) + '%';
+            if (aVal) aVal.textContent = (stats.app_engagement_minutes || 0) + 'm';
 
-            // Optional: Draw a chart if we have data
-            const anaChart = document.getElementById('analyticsChart');
-            if (anaChart) {
-                if (window.engagementChartInstance) window.engagementChartInstance.destroy();
-                const ctx = anaChart.getContext('2d');
-                window.engagementChartInstance = new Chart(ctx, {
+            // Analytics Trends Chart
+            const ctx = document.getElementById('analyticsChart')?.getContext('2d');
+            if (ctx) {
+                if (window.anaChartInstance) window.anaChartInstance.destroy();
+                window.anaChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                        labels: ['Session 1', 'Session 2', 'Session 3', 'Session 4', 'Session 5'],
                         datasets: [{
-                            label: 'Average Engagement (%)',
-                            data: [65, 72, 78, 75, 82, 90],
+                            label: 'Productivity Trend',
+                            data: [60, 75, 70, 85, 95],
                             borderColor: '#8b5cf6',
                             tension: 0.4,
                             fill: true,
@@ -368,234 +249,115 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
-
-        } catch (err) { console.error("Analytics load failed", err); }
+        } catch (err) { }
     }
 
     async function loadSearchStats() {
         try {
             const res = await apiFetch("/search/status");
             const data = await res.json();
-            const pdfCount = document.getElementById("pdf-count");
-            const segCount = document.getElementById("seg-count");
-            if (pdfCount) pdfCount.textContent = data.pdf_count || 0;
-            if (segCount) segCount.textContent = data.indexed_segments || 0;
+            const pc = document.getElementById("pdf-count");
+            const sc = document.getElementById("seg-count");
+            if (pc) pc.textContent = data.pdf_count || 0;
+            if (sc) sc.textContent = data.indexed_segments || 0;
         } catch (err) { }
     }
 
-    const syncBtn = document.getElementById("sync-kb-btn");
-    if (syncBtn) {
-        syncBtn.addEventListener("click", async () => {
-            syncBtn.disabled = true;
-            syncBtn.innerHTML = '<i data-feather="loader"></i> Syncing...';
-            feather.replace();
-
-            try {
-                const res = await apiFetch("/search/index", { method: 'POST' });
-                const data = await res.json();
-                alert(data.message);
-                loadSearchStats();
-            } catch (err) {
-                alert("Failed to sync knowledge base.");
-            } finally {
-                syncBtn.disabled = false;
-                syncBtn.innerHTML = '<i data-feather="refresh-cw"></i> Sync Index & Meeting PDFs';
-                feather.replace();
+    async function loadLiveStatus() {
+        if (window.location.hash !== '#live') return;
+        try {
+            const res = await apiFetch("/live/status");
+            const data = await res.json();
+            if (data.meeting) {
+                showBotActive(data.status, data.meeting.bot_status_note);
+            } else {
+                showBotIdle();
             }
-        });
+        } catch (err) { }
     }
 
-    // Save Profile (Name Change)
-    const profileForm = document.getElementById('profile-form');
-    if (profileForm) {
-        profileForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = document.getElementById('pref-user-name').value;
-            console.log(">>> Submitting Profile Name Update:", name);
-            try {
-                const res = await apiFetch("/settings/api/save", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name })
-                });
-                if (res.ok) {
-                    alert("Profile updated successfully!");
-                    document.querySelectorAll('.user-name').forEach(el => el.textContent = name);
-                } else {
-                    const errData = await res.json();
-                    alert("Update failed: " + (errData.error || "Unknown error"));
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Failed to save profile. See console for details.");
-            }
-        });
+    function showBotActive(status, note) {
+        const idle = document.getElementById('bot-idle-msg');
+        const steps = document.getElementById('bot-steps');
+        const pulse = document.getElementById('bot-pulse');
+        if (idle) idle.style.display = 'none';
+        if (steps) steps.style.display = 'grid';
+        if (pulse) { pulse.style.background = '#10b981'; pulse.style.animation = 'pulse 1.5s infinite'; }
+        
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        const nt = document.getElementById('bot-note');
+        if (nt) nt.textContent = note || '';
+
+        if (status.includes("PENDING") || status.includes("JOINING")) document.getElementById("step-dispatching")?.classList.add("active");
+        else if (status.includes("FETCHING")) document.getElementById("step-fetching")?.classList.add("active");
+        else if (status.includes("CONNECTING") || status.includes("LOBBY")) document.getElementById("step-connecting")?.classList.add("active");
+        else if (status.includes("CONNECTED") || status.includes("LIVE")) document.getElementById("step-live")?.classList.add("active");
     }
 
-    // Save Bot Preferences
-    const preferencesForm = document.getElementById('settings-preferences-form');
-    if (preferencesForm) {
-        preferencesForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const bot_name = document.getElementById('pref-bot-name').value;
-            const auto_join = document.getElementById('pref-auto-join').checked;
-            const recording = document.getElementById('pref-recording').checked;
-
-            console.log(">>> Submitting Bot Preferences:", { bot_name, auto_join, recording });
-            try {
-                const res = await apiFetch("/settings/api/save", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bot_name, auto_join, recording })
-                });
-                if (res.ok) {
-                    alert("Preferences saved successfully!");
-                } else {
-                    const errData = await res.json();
-                    alert("Save failed: " + (errData.error || "Unknown error"));
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Failed to save preferences. See console for details.");
-            }
-        });
+    function showBotIdle() {
+        const idle = document.getElementById('bot-idle-msg');
+        const steps = document.getElementById('bot-steps');
+        const pulse = document.getElementById('bot-pulse');
+        if (idle) idle.style.display = 'block';
+        if (steps) steps.style.display = 'none';
+        if (pulse) { pulse.style.background = '#64748b'; pulse.style.animation = 'none'; }
     }
 
-    // Initial Load & Polling
-    checkServerStatus();
-    setInterval(checkServerStatus, 15000);
+    window.dispatchRenata = async (url) => {
+        if (!url) return alert("Please enter a meeting link.");
+        const fd = new FormData();
+        fd.append('meeting_url', url);
+        try {
+            const res = await apiFetch("/live/join", { method: 'POST', body: fd });
+            const data = await res.json();
+            if (data.success) {
+                showBotActive("JOIN_PENDING", data.message);
+                if (window.closeModal) window.closeModal();
+            } else alert("Error: " + (data.message || "Failed to dispatch."));
+        } catch (err) { alert("Server error."); }
+    };
+
+    // Integrations Data
     async function loadIntegrationsData() {
         try {
             const res = await apiFetch("/dashboard_data");
             const data = await res.json();
-
             if (data.integrations) {
-                const gStatus = document.getElementById('google-status');
-                const zStatus = document.getElementById('zoom-status');
-                const gBtn = document.querySelector('#int-google button');
-                const zBtn = document.querySelector('#int-zoom button');
-
-                if (data.integrations.google) {
-                    if (gStatus) { gStatus.textContent = 'Connected'; gStatus.className = 'status-text connected'; }
-                    if (gBtn) { gBtn.textContent = 'Reconnect'; gBtn.className = 'secondary-btn'; }
-                } else {
-                    if (gStatus) { gStatus.textContent = 'Disconnected'; gStatus.className = 'status-text'; }
-                    if (gBtn) { gBtn.textContent = 'Link Account'; gBtn.className = 'secondary-btn'; }
-                }
-
-                if (data.integrations.zoom) {
-                    if (zStatus) { zStatus.textContent = 'Connected'; zStatus.className = 'status-text connected'; }
-                    if (zBtn) { zBtn.textContent = 'Reconnect'; zBtn.className = 'secondary-btn'; }
-                } else {
-                    if (zStatus) { zStatus.textContent = 'Disconnected'; zStatus.className = 'status-text'; }
-                    if (zBtn) { zBtn.textContent = 'Link ZOOM'; zBtn.className = 'secondary-btn'; }
-                }
+                const gs = document.getElementById('google-status');
+                const zs = document.getElementById('zoom-status');
+                if (gs) gs.textContent = data.integrations.google ? 'Connected' : 'Disconnected';
+                if (zs) zs.textContent = data.integrations.zoom ? 'Connected' : 'Disconnected';
             }
-        } catch (err) { console.error("Failed to load integrations", err); }
+        } catch (err) { }
     }
 
-    setInterval(loadLiveStatus, 3000); // Polling for bot status updates
-
-    // Modal Interaction
-    const joinBtn = document.getElementById('join-btn');
+    // Modal
+    const jBtn = document.getElementById('join-btn');
     const modal = document.getElementById('join-modal');
-    const confirmJoin = document.getElementById('confirm-join');
-
-    joinBtn.addEventListener('click', () => modal.classList.add('active'));
-
+    if (jBtn) jBtn.addEventListener('click', () => modal.classList.add('active'));
     window.closeModal = () => modal.classList.remove('active');
 
-    const manualJoin = document.getElementById('manual-join');
-    if (manualJoin) {
-        manualJoin.addEventListener('click', () => {
-            const url = document.getElementById('manual-url').value;
-            dispatchRenata(url);
-        });
-    }
+    const mJoin = document.getElementById('manual-join');
+    if (mJoin) mJoin.addEventListener('click', () => dispatchRenata(document.getElementById('manual-url')?.value));
 
-    if (confirmJoin) {
-        confirmJoin.addEventListener('click', () => {
-            const url = document.getElementById('meeting-url').value;
-            dispatchRenata(url);
-        });
-    }
-
-    // AI Chat Assistant
-    const chatInput = document.getElementById('chat-input');
-    const sendChat = document.getElementById('send-chat');
-    const chatBox = document.getElementById('chat-box');
-
-    async function handleChat() {
-        const question = chatInput.value;
-        if (!question) return;
-
-        // Add user message
-        const userMsg = document.createElement('div');
-        userMsg.className = 'message user';
-        userMsg.innerHTML = `<p>${question}</p>`;
-        chatBox.appendChild(userMsg);
-        chatInput.value = '';
-        chatBox.scrollTop = chatBox.scrollHeight;
-
+    // Chat
+    const cin = document.getElementById('chat-input');
+    const sBtn = document.getElementById('send-chat');
+    async function askAI() {
+        const q = cin.value; if (!q) return;
+        const box = document.getElementById('chat-box');
+        const uM = document.createElement('div'); uM.className = 'message user'; uM.innerHTML = `<p>${q}</p>`;
+        box.appendChild(uM); cin.value = ''; box.scrollTop = box.scrollHeight;
         try {
-            const formData = new FormData();
-            formData.append('question', question);
-
-            const response = await apiFetch("/search/ask", {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-            const answer = data.answer || "Renata could not generate an answer at this time.";
-
-            // Add assistant message
-            const assistantMsg = document.createElement('div');
-            assistantMsg.className = 'message assistant';
-            assistantMsg.innerHTML = `<p>${answer}</p>`;
-            chatBox.appendChild(assistantMsg);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        } catch (err) {
-            const errorMsg = document.createElement('div');
-            errorMsg.className = 'message assistant';
-            errorMsg.innerHTML = `<p>Error connecting to Renata's intelligence.</p>`;
-            chatBox.appendChild(errorMsg);
-        }
+            const fd = new FormData(); fd.append('question', q);
+            const r = await apiFetch("/search/ask", { method: 'POST', body: fd });
+            const d = await r.json();
+            const aM = document.createElement('div'); aM.className = 'message assistant'; aM.innerHTML = `<p>${d.answer}</p>`;
+            box.appendChild(aM); box.scrollTop = box.scrollHeight;
+        } catch (err) { }
     }
+    if (sBtn) sBtn.addEventListener('click', askAI);
+    if (cin) cin.addEventListener('keypress', (e) => { if (e.key === 'Enter') askAI(); });
 
-    sendChat.addEventListener('click', handleChat);
-    chatInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleChat();
-    });
-
-    // Initialize Engagement Chart
-    const chartEl = document.getElementById('engagementChart');
-    if (chartEl && typeof Chart !== 'undefined') {
-        const ctx = chartEl.getContext('2d');
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                datasets: [{
-                    label: 'Meeting Productivity',
-                    data: [65, 78, 82, 75, 90, 85, 92],
-                    borderColor: '#8b5cf6',
-                    tension: 0.4,
-                    fill: true,
-                    backgroundColor: 'rgba(139, 92, 246, 0.1)'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: { display: false },
-                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
-                }
-            }
-        });
-    } else {
-        console.warn("Engagement chart could not be initialized. Chart.js might be blocked or missing.");
-    }
+    setInterval(loadLiveStatus, 5000);
 });
