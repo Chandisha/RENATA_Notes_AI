@@ -433,7 +433,7 @@ async def dashboard_data(request: Request):
         "stats": {
             "total_meetings": stats.get('total_meetings', 0),
             "total_hours": stats.get('total_duration_hours', 0),
-            "action_items_count": stats.get('total_words', 0),
+            "action_items_count": stats.get('total_reports', 0),
             "participant_count": stats.get('avg_participants', 0)
         },
         "recent_meetings": recent,

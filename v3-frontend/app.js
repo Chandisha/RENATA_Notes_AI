@@ -258,7 +258,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mVal) mVal.textContent = stats.total_meetings || 0;
             if (tVal) tVal.textContent = (stats.total_duration_hours || 0).toFixed(1) + 'h';
             if (eVal) eVal.textContent = (stats.engagement_score || 0) + '%';
-            if (aVal) aVal.textContent = (stats.app_engagement_minutes || 0) + 'm';
+            
+            // Show Total Reports instead of "App time" for better clarity
+            if (aVal) {
+                const label = aVal.parentElement.querySelector('.stat-label');
+                if (label) label.textContent = 'Total Reports Generated';
+                aVal.textContent = stats.total_reports || 0;
+            }
 
             // Analytics Trends Chart (Dynamic)
             const ctx = document.getElementById('analyticsChart')?.getContext('2d');
@@ -415,5 +421,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sBtn) sBtn.addEventListener('click', askAI);
     if (cin) cin.addEventListener('keypress', (e) => { if (e.key === 'Enter') askAI(); });
 
-    setInterval(loadLiveStatus, 5000);
+    // AUTO-REFRESH DATA (Every 10 seconds)
+    setInterval(() => {
+        const currentHash = window.location.hash.replace('#', '');
+        if (currentHash === 'analytics') loadAnalyticsData();
+        if (currentHash === 'live') loadLiveStatus();
+    }, 10000);
 });
