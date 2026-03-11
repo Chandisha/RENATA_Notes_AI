@@ -393,6 +393,25 @@ def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_
     updates.update(kwargs)
     return update_meeting(meeting_id, updates, user_email=user_email)
 
+def delete_meeting(meeting_id, user_email):
+    """Permanently delete a meeting and its associated files."""
+    # 1. Fetch meeting info to get file paths
+    meeting = get_meeting(meeting_id, user_email)
+    if not meeting:
+        return False
+    
+    # 2. Delete files from disk if they exist
+    for field in ['pdf_path', 'json_path', 'recording_path']:
+        if meeting.get(field):
+            try:
+                p = Path(meeting[field])
+                if p.exists(): p.unlink()
+            except: pass
+
+    # 3. Delete from database
+    exec_commit("DELETE FROM meetings WHERE meeting_id = ? AND user_email = ?", (meeting_id, user_email))
+    return True
+
 def get_user_token(email):
     row = fetch_one("SELECT google_token FROM users WHERE email = ?", (email,))
     return row['google_token'] if row else None

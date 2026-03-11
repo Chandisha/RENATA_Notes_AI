@@ -200,6 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadReportsData() {
+        const refreshIcon = document.querySelector('#refresh-reports-btn i');
+        if (refreshIcon) refreshIcon.classList.add('spin');
+
         try {
             const res = await apiFetch("/reports_data");
             const data = await res.json();
@@ -212,6 +215,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (pdfMeetings.length === 0) {
                 grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No reports generated yet. Reports will appear here once meeting processing is complete.</p></div>';
+                if (refreshIcon) refreshIcon.classList.remove('spin');
                 return;
             }
 
@@ -235,17 +239,47 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="muted" style="font-size:0.85rem;">Generated ${generatedTime}</span>
                         </div>
                     </div>
-                    <a href="${pdfLink}" target="_blank" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
-                        <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> View PDF
-                    </a>
+                    <div style="display:flex; gap:12px; align-items:center;">
+                        <a href="${pdfLink}" target="_blank" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
+                            <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> View PDF
+                        </a>
+                        <button class="delete-btn" onclick="deleteReport('${m.meeting_id}')" title="Delete Permanentely">
+                            <i data-feather="trash-2" style="width:16px;"></i>
+                        </button>
+                    </div>
                 `;
                 grid.appendChild(card);
             });
             feather.replace();
-        } catch (err) { console.error(err); }
+        } catch (err) { 
+            console.error(err); 
+        } finally {
+            if (refreshIcon) {
+                // Keep spinning for at least 500ms for visual feedback
+                setTimeout(() => refreshIcon.classList.remove('spin'), 500);
+            }
+        }
+    }
+
+    window.deleteReport = async function(mId) {
+        if (!confirm("Are you sure? This will permanently delete the PDF and all meeting data from the database.")) return;
+        try {
+            const res = await apiFetch(`/reports/${mId}`, { method: 'DELETE' });
+            if (res.ok) {
+                loadReportsData();
+                loadAnalyticsData(); // Update stats since meeting deleted
+            } else {
+                alert("Failed to delete report.");
+            }
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     async function loadAnalyticsData() {
+        const refreshIcon = document.querySelector('#refresh-analytics-btn i');
+        if (refreshIcon) refreshIcon.classList.add('spin');
+
         try {
             const res = await apiFetch("/analytics/data");
             const stats = await res.json();
@@ -454,7 +488,10 @@ document.addEventListener('DOMContentLoaded', () => {
     window.closeModal = () => modal.classList.remove('active');
 
     const refRBtn = document.getElementById('refresh-reports-btn');
-    if (refRBtn) refRBtn.addEventListener('click', loadReportsData);
+    if (refRBtn) refRBtn.onclick = () => loadReportsData();
+
+    const refABtn = document.getElementById('refresh-analytics-btn');
+    if (refABtn) refABtn.onclick = () => loadAnalyticsData();
 
     const mJoin = document.getElementById('manual-join');
     if (mJoin) mJoin.addEventListener('click', () => dispatchRenata(document.getElementById('manual-url')?.value));

@@ -476,6 +476,14 @@ async def reports_data_api(request: Request):
         m['start_time'] = fmt_time(m['start_time'])
     return {"meetings": meetings}
 
+@app.delete("/reports/{meeting_id}")
+async def delete_meeting_report(meeting_id: str, request: Request):
+    user = require_user(request)
+    success = db.delete_meeting(meeting_id, user['email'])
+    if success:
+        return {"success": True}
+    raise HTTPException(status_code=404, detail="Meeting not found")
+
 @app.get("/live/status", response_class=JSONResponse)
 async def live_status(request: Request):
     user = get_current_user(request)
