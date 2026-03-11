@@ -10,7 +10,6 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 from loguru import logger
-from omegaconf import OmegaConf
 from dotenv import load_dotenv
 
 # Internal imports
@@ -108,86 +107,14 @@ class AdaptiveMeetingNotesGenerator:
         self.last_pdf_path = None
         self.last_json_path = None
 
-    def _setup_diarizer_config(self, audio_path: str):
-        out_dir = str(OUTPUT_DIR / "diarization")
-        os.makedirs(out_dir, exist_ok=True)
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-
-        config_dict = {
-            "device": device,
-            "num_workers": 0,
-            "sample_rate": 16000,
-            "verbose": True,
-            "diarizer": {
-                "manifest_filepath": "",
-                "out_dir": out_dir,
-                "oracle_vad": False,
-                "batch_size": 1,
-                "device": device,
-                "verbose": True,
-                "num_workers": 0,
-                "pin_memory": False,
-                "sample_rate": 16000,
-                "speaker_embeddings": {
-                    "model_path": "titanet_large",
-                    "parameters": {
-                        "window_length_in_sec": [1.5],
-                        "shift_length_in_sec": [0.75],
-                        "multiscale_weights": [1],
-                        "save_embeddings": False
-                    }
-                },
-                "clustering": {
-                    "parameters": {
-                        "oracle_num_speakers": False,
-                        "max_num_speakers": 8,
-                        "enhanced_mag_threshold": 1.0,
-                        "sparse_search_volume": 30,
-                        "max_rp_threshold": 0.25
-                    }
-                },
-                "vad": {
-                    "model_path": "vad_multilingual_marblenet",
-                    "parameters": {
-                        "window_length_in_sec": 0.15,
-                        "shift_length_in_sec": 0.01,
-                        "smoothing": "median",
-                        "overlap": 0.5,
-                        "onset": 0.1,
-                        "offset": 0.1,
-                        "pad_onset": 0.0,
-                        "pad_offset": 0.0,
-                        "min_duration_on": 0.1,
-                        "min_duration_off": 0.1,
-                        "filter_speech_low": 0.05
-                    }
-                }
-            }
-        }
-        
-        config_obj = OmegaConf.create(config_dict)
-        OmegaConf.set_struct(config_obj, False)
-        return config_obj
-        
     def _generate_with_fallback(self, content, prompt_text=None):
-        """Try Gemini 3.0 Flash and fallback to Gemini 2.5 Flash."""
-        # Using model IDs that correspond to the requested versions
-        models_to_try = ["gemini-3.0-flash", "gemini-2.5-flash"]
-        
-        # Mapping to actual available string IDs if the requested ones are symbolic
-        actual_ids = {
-            "gemini-3.0-flash": "gemini-3.0-flash", 
-            "gemini-2.5-flash": "gemini-2.5-flash"
-        }
-        
-        # Note: If these exact IDs give 404, we'll try the closest production equivalents 
-        # but following user instruction to use these specific version strings.
+        """Strictly use Gemini 3.0 Flash or 2.5 Flash as requested."""
+        models_to_try = ["gemini-3.0-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
         
         for model_id in models_to_try:
             try:
-                id_to_use = actual_ids.get(model_id, model_id)
-                logger.info(f"Attempting with model: {id_to_use}")
-                model = genai.GenerativeModel(id_to_use)
+                logger.info(f"Attempting with model: {model_id}")
+                model = genai.GenerativeModel(model_id)
                 if prompt_text:
                     response = model.generate_content([content, prompt_text])
                 else:
@@ -197,21 +124,7 @@ class AdaptiveMeetingNotesGenerator:
                 logger.warning(f"{model_id} failed: {e}")
                 continue
         
-        # Final emergency fallback if the exact version strings aren't yet in SDK but requested by name
-        # We try 'gemini-2.0-flash' which is the current cutting-edge corresponding to the 'new' versions
-        emergency_fallback = ["gemini-2.0-flash", "gemini-1.5-flash"]
-        for model_id in emergency_fallback:
-             try:
-                logger.info(f"Emergency fallback attempt: {model_id}")
-                model = genai.GenerativeModel(model_id)
-                if prompt_text:
-                    response = model.generate_content([content, prompt_text])
-                else:
-                    response = model.generate_content(content)
-                return response
-             except: continue
-
-        raise Exception("All Gemini models failed.")
+        raise Exception("All requested Gemini models failed.")
 
     def _upload_to_gemini(self, path):
         logger.info(f"Uploading {path} to Gemini...")
@@ -229,45 +142,9 @@ class AdaptiveMeetingNotesGenerator:
             return None
 
     def perform_diarization(self, audio_path=None):
-        """Run NeMo Speaker Diarization locally to assist Gemini."""
-        path = audio_path or self.audio_path
-        if not path or not os.path.exists(path):
-            return
-
-        if not NEMO_AVAILABLE:
-            logger.error("NeMo not available for local diarization assist.")
-            return
-
-        try:
-            logger.info("Running NVIDIA NeMo Speaker Diarization...")
-            manifest_path = OUTPUT_DIR / "manifest.jsonl"
-            with open(manifest_path, "w") as f:
-                f.write(json.dumps({
-                    "audio_filepath": os.path.abspath(path),
-                    "offset": 0, "duration": None, "label": "infer", "text": "-"
-                }) + "\n")
-
-            diar_config = self._setup_diarizer_config(path)
-            diar_config.diarizer.manifest_filepath = str(manifest_path)
-
-            from nemo.collections.asr.models import ClusteringDiarizer
-            diarizer = ClusteringDiarizer(cfg=diar_config)
-            diarizer.diarize()
-
-            rttm_files = list((OUTPUT_DIR / "diarization" / "pred_rttms").glob("*.rttm"))
-            if rttm_files:
-                self.speaker_segments = []
-                with open(rttm_files[0], 'r') as f:
-                    for line in f:
-                        parts = line.strip().split()
-                        if len(parts) >= 8:
-                            start = float(parts[3])
-                            dur = float(parts[4])
-                            speaker = parts[7]
-                            self.speaker_segments.append({'start': start, 'end': start + dur, 'speaker': speaker})
-                logger.info(f"Local Diarization Finished: {len(self.speaker_segments)} segments.")
-        except Exception as e:
-            logger.error(f"NeMo local assist failed: {e}")
+        """Disabled local NeMo diarization as per user request to use purely Gemini."""
+        logger.info("Local NeMo Diarization skipped (Pure Gemini Mode).")
+        return
 
     def _align_with_diarization(self, gemini_segments):
         if not self.speaker_segments:
@@ -303,21 +180,37 @@ class AdaptiveMeetingNotesGenerator:
             if not self.gemini_file: return
 
             prompt = """
-            Transcribe the following audio file and identify different speakers (Speaker A, Speaker B, etc.). 
-            Return the result ONLY as a JSON list of objects:
-            [{"timestamp": "MM:SS", "speaker": "Speaker Name", "text": "..."}]
-            """
+You are transcribing a meeting recording. Follow these rules STRICTLY:
+
+1. TRANSCRIBE EVERY WORD from the very beginning of the audio to the very end. Do NOT skip silent parts at the start - include everything.
+2. Use RELATIVE timestamps starting from 00:00 (beginning of the audio file), in MM:SS format.
+3. Identify different speakers as Speaker A, Speaker B, etc.
+4. VERY IMPORTANT - Language: The speakers may speak a mix of Hindi and English (Hinglish).
+   - Write English words in English as-is.
+   - Write Hindi words using Roman script transliteration (e.g., 'aap kaise hain', 'theek hai', 'hoga').
+   - Do NOT use Devanagari script (no Hindi Unicode characters like \u0900-\u097F).
+5. Return ONLY a valid JSON array. No markdown, no explanation.
+
+Output format:
+[{"timestamp": "00:00", "speaker": "Speaker A", "text": "hello theek hai, let's start the meeting"}, ...]
+"""
             
-            logger.info("Requesting Gemini Transcription & Diarization (3.0 Flash Priority)...")
+            logger.info("Requesting Gemini Hinglish Transcription & Diarization...")
             response = self._generate_with_fallback(self.gemini_file, prompt)
             
             raw_text = response.text.strip()
+            # Strip markdown code fences if present
+            if raw_text.startswith('```'):
+                raw_text = re.sub(r'^```[a-z]*\n?', '', raw_text)
+                raw_text = re.sub(r'\n?```$', '', raw_text.strip())
+            
             json_match = re.search(r'\[.*\]', raw_text, re.DOTALL)
             if json_match:
                 self.structured_transcript = json.loads(json_match.group())
-                logger.info("Gemini Transcription & Diarization Complete.")
+                logger.info(f"Gemini Transcription Complete: {len(self.structured_transcript)} segments.")
             else:
-                logger.error("Failed to parse Gemini transcription JSON.")
+                logger.error("Failed to parse Gemini transcription JSON. Raw response:")
+                logger.error(raw_text[:500])
         except Exception as e:
             logger.error(f"Gemini Transcription failed: {e}")
 
@@ -328,9 +221,9 @@ class AdaptiveMeetingNotesGenerator:
             prompt = """
             Analyze the following meeting transcript and return a JSON object with:
             - summary_en: Professional executive summary in English.
-            - summary_hi: Accurate Hindi version of the summary.
-            - mom: List of key discussion points.
-            - actions: List of objects with keys: "task", "owner", "deadline".
+            - summary_hi: Careful Hindi version of the summary (Devanagari).
+            - mom: List of key discussion points in English.
+            - actions: List of objects in English with keys: "task", "owner", "deadline".
             Output ONLY valid JSON.
             """
             
@@ -354,6 +247,20 @@ class AdaptiveMeetingNotesGenerator:
         pdf_path = OUTPUT_DIR / filename
         self.last_pdf_path = str(pdf_path)
 
+        def safe_text(txt):
+            """Remove or replace non-ASCII characters to prevent black boxes in standard PDF fonts.
+            Allows common Latin punctuation. Hindi words should already be in Roman script from Gemini.
+            """
+            if not txt: return ""
+            result = []
+            for c in str(txt):
+                if ord(c) < 128:
+                    result.append(c)
+                else:
+                    # Replace non-ASCII with closest ASCII or just a space
+                    result.append(' ')
+            return ''.join(result).strip()
+
         try:
             PAGE_W, PAGE_H = letter
             MARGIN = 0.75 * inch
@@ -368,38 +275,53 @@ class AdaptiveMeetingNotesGenerator:
             cell_style = ParagraphStyle('RCell', parent=styles['Normal'], fontSize=9, leading=12)
 
             elements = []
-            elements.append(Paragraph(self.bot_name.upper(), title_style))
-            elements.append(Paragraph(f"Intelligence Report • {datetime.now().strftime('%B %d, %Y')}", styles['Normal']))
+            elements.append(Paragraph(safe_text(self.bot_name.upper()), title_style))
+            elements.append(Paragraph(safe_text(f"Intelligence Report • {datetime.now().strftime('%B %d, %Y')}"), styles['Normal']))
             elements.append(Spacer(1, 12))
 
             if self.intel.get("summary_en"):
                 elements.append(Paragraph("Executive Summary", h2_style))
-                elements.append(Paragraph(self.intel["summary_en"], normal_style))
+                elements.append(Paragraph(safe_text(self.intel["summary_en"]), normal_style))
 
             if self.intel.get("summary_hi"):
                 elements.append(Paragraph("Summary (Hindi)", h2_style))
+                # Summary Hindi still uses HindiFont if possible, otherwise Helvetica
                 elements.append(Paragraph(self.intel["summary_hi"], hindi_style))
 
             if self.intel.get("mom"):
                 elements.append(Paragraph("Minutes of Meeting", h2_style))
-                for p in self.intel["mom"]: elements.append(Paragraph(f"• {p}", normal_style))
+                for p in self.intel["mom"]: elements.append(Paragraph(f"• {safe_text(p)}", normal_style))
 
             actions = self.intel.get("actions", [])
             if actions:
                 elements.append(Paragraph("Action Items", h2_style))
                 action_data = [["Task", "Owner", "Deadline"]]
-                for act in actions: action_data.append([act.get("task",""), act.get("owner",""), act.get("deadline","")])
+                for act in actions: action_data.append([safe_text(act.get("task","")), safe_text(act.get("owner","")), safe_text(act.get("deadline",""))])
                 t = Table(action_data, colWidths=[CONTENT_W*0.6, CONTENT_W*0.2, CONTENT_W*0.2])
                 t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.grey), ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke), ('GRID',(0,0),(-1,-1),0.5,colors.grey)]))
                 elements.append(t)
 
             if self.structured_transcript:
                 elements.append(PageBreak())
-                elements.append(Paragraph("Full Diarized Transcript", h2_style))
+                elements.append(Paragraph("Full Transcript (Hinglish - Roman Script)", h2_style))
+                elements.append(Paragraph(
+                    "Hindi words are written in Roman transliteration. English words appear as spoken.",
+                    ParagraphStyle('note', parent=styles['Normal'], fontSize=8, textColor=colors.grey, spaceAfter=8)
+                ))
                 trans_data = [["Time", "Speaker", "Text"]]
-                for s in self.structured_transcript: trans_data.append([s.get('timestamp',''), s.get('speaker',''), s.get('text','')])
+                for s in self.structured_transcript:
+                    trans_data.append([
+                        Paragraph(safe_text(s.get('timestamp','')), cell_style),
+                        Paragraph(safe_text(s.get('speaker','')), cell_style),
+                        Paragraph(safe_text(s.get('text','')), normal_style) # Standard font for English
+                    ])
                 t = Table(trans_data, colWidths=[CONTENT_W*0.1, CONTENT_W*0.2, CONTENT_W*0.7])
-                t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.grey), ('GRID',(0,0),(-1,-1),0.3,colors.lightgrey)]))
+                t.setStyle(TableStyle([
+                    ('BACKGROUND',(0,0),(-1,0),colors.grey), 
+                    ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
+                    ('GRID',(0,0),(-1,-1),0.3,colors.lightgrey),
+                    ('VALIGN',(0,0),(-1,-1),'TOP')
+                ]))
                 elements.append(t)
 
             doc.build(elements)

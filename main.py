@@ -173,8 +173,13 @@ def require_user(request: Request):
         # If no session, try to find the "main" user in the DB (since this is a private server)
         row = db.fetch_one("SELECT email, name, picture FROM users LIMIT 1")
         if row:
-            return {"email": row["email"], "name": row["name"], "picture": row["picture"]}
-        return {"email": "default@rena.ai", "name": "Local User"}
+            user = {"email": row["email"], "name": row["name"], "picture": row["picture"]}
+        else:
+            user = {"email": "default@rena.ai", "name": "Local User", "picture": "https://api.dicebear.com/7.x/avataaars/svg?seed=Local"}
+    
+    # CRITICAL: Ensure the user actually exists in the 'users' table so UPDATE statements work
+    # This 'auto-provisions' the user on their first interaction.
+    db.upsert_user(user["email"], user.get("name"), user.get("picture"))
     return user
 
 # --- Google OAuth Flow Helper ---
@@ -626,7 +631,12 @@ async def live_page_spa(request: Request):
 @app.post("/live/join", response_class=JSONResponse)
 async def live_join(request: Request, meeting_url: str = Form(...)):
     user = require_user(request)
-    # On Vercel, we can't launch subprocesses. 
+
+    # --- Normalize URL: add https:// if missing (e.g. user pastes "meet.google.com/xxx") ---
+    meeting_url = meeting_url.strip()
+    if meeting_url and not meeting_url.startswith("http://") and not meeting_url.startswith("https://"):
+        meeting_url = "https://" + meeting_url
+
     # We create a 'JOIN_PENDING' meeting entry that the local pilot will pick up.
     m_id = f"join_{int(time.time())}"
     db.exec_commit('''
@@ -640,6 +650,7 @@ async def live_join(request: Request, meeting_url: str = Form(...)):
 async def settings_api_save(request: Request):
     user = require_user(request)
     data = await request.json()
+    print(f">>> SAVING SETTINGS FOR {user['email']}: {data}")
     
     settings = {}
     if "name" in data: settings["name"] = data["name"]
@@ -648,7 +659,12 @@ async def settings_api_save(request: Request):
     if "recording" in data: settings["bot_recording_enabled"] = 1 if data["recording"] else 0
     
     if settings:
-        db.update_user_profile(user["email"], settings)
+        try:
+            db.update_user_profile(user["email"], settings)
+            print(f">>> SETTINGS UPDATED IN DB.")
+        except Exception as e:
+            print(f">>> DB UPDATE FAILED: {e}")
+            return {"success": False, "error": str(e)}
         
     # Update local session for UI consistency if name changed
     if "name" in data and "user" in request.session:

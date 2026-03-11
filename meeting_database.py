@@ -221,21 +221,7 @@ def get_user_profile(email):
     """Retrieve user profile from database"""
     return fetch_one("SELECT * FROM users WHERE email = ?", (email,))
 
-def update_user_profile(email, updates):
-    """Update user profile fields"""
-    set_clauses = []
-    values = []
-    for key, val in updates.items():
-        if key != 'email':
-            set_clauses.append(f"{key} = ?")
-            values.append(val)
-    
-    if not set_clauses: return False
-    
-    values.append(email)
-    query = f"UPDATE users SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP WHERE email = ?"
-    exec_commit(query, tuple(values))
-    return True
+# User Profile and Upsert logic defined above...
 
 def upsert_user(email, name=None, picture=None):
     """Create or update basic user info from login"""
@@ -378,9 +364,7 @@ def delete_user_account(email):
     exec_commit("DELETE FROM users WHERE email = ?", (email,))
     return True
 
-def get_user_profile(email):
-    """Get user profile data."""
-    return fetch_one("SELECT * FROM users WHERE email = ?", (email,))
+# End of meeting operations
 
 def update_user_profile(email, settings):
     """Update user profile fields dynamically."""

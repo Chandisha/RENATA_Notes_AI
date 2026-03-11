@@ -30,6 +30,18 @@ def is_zoom_url(text: str) -> bool:
     if not isinstance(text, str): return False
     return "zoom.us/j/" in text or "zoom.us/my/" in text or "zoom.us/s/" in text or ".zoom.us/j/" in text
 
+def normalize_url(url: str) -> str:
+    """Ensure a URL has a proper https:// scheme.
+    Handles cases where users paste 'meet.google.com/xxx' without the protocol.
+    Playwright's page.goto() requires an absolute URL or it crashes.
+    """
+    if not url:
+        return url
+    url = url.strip()
+    if not url.startswith("http://") and not url.startswith("https://"):
+        url = "https://" + url
+    return url
+
 # --- GOOGLE SIGN-IN (DEPRECATED FOR WEB FLOW) ---
 def run_gmail_registration():
     """Sign-in handled via Web OAuth flow in main.py"""
@@ -246,6 +258,7 @@ class RenaMeetingBot:
             # Generate a temporary ID for URL-based joins
             meeting_id = f"zoom_live_{int(time.time())}"
         
+        zoom_url = normalize_url(zoom_url)  # Ensure https:// prefix
         print(f"DEBUG: join_zoom_meeting called for {zoom_url} (User: {user_email})")
         
         # Transform URL to force web client: /j/123 -> /wc/join/123
@@ -328,6 +341,7 @@ class RenaMeetingBot:
         if not meeting_id:
             meeting_id = f"meet_live_{int(time.time())}"
             
+        meet_url = normalize_url(meet_url)  # Ensure https:// prefix
         print(f"DEBUG: join_google_meet called for {meet_url} (User: {user_email})")
         try:
             with sync_playwright() as p:
@@ -660,58 +674,70 @@ class RenaMeetingBot:
 def run_auto_pilot(user_email):
     """
     Main background loop for Renata.
+    Picks up JOIN_PENDING requests from ALL users in the DB so anyone
+    using the app can trigger the single bot running on this machine.
     """
     import meeting_database as db
     from gmail_scanner_service import gmail_scanner
     from dateutil import parser
     
-    print(f"Renata Auto-Pilot Active for {user_email}")
+    print(f"Renata Auto-Pilot Active (operator: {user_email}) — serving ALL users")
     bot = RenaMeetingBot(user_email=user_email)
     session_handled_ids = set() # Track IDs handled in this session
 
     while True:
         try:
+            # --- Operator's profile (for calendar scanning) ---
             profile = db.get_user_profile(user_email)
             if not profile:
                 time.sleep(60)
                 continue
 
-            # 1. SCAN GMAIL
+            # 1. SCAN GMAIL (for operator only — each user can extend this later)
             print("Scanning Gmail...")
             gmail_scanner.scan_inbox(user_email)
 
-            # 2. CHECK FOR LIVE JOIN INTENTS (New)
-            print("Checking for live join intents...")
-            # Pick only the LATEST join intent to join immediately
-            pending_joins = db.fetch_all("SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' AND user_email = ? ORDER BY created_at DESC", (user_email,))
+            # 2. CHECK FOR LIVE JOIN INTENTS FROM **ANY USER**
+            # ─────────────────────────────────────────────────────────────────
+            # The bot runs on a single machine for everyone. Remove the
+            # user_email filter so requests from all app users are handled.
+            # ─────────────────────────────────────────────────────────────────
+            print("Checking for live join intents (all users)...")
+            pending_joins = db.fetch_all(
+                "SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' ORDER BY created_at ASC"
+            )
             
             if pending_joins:
-                # Take the most recent one
-                pending = pending_joins[0]
+                # Take the most recent global request
+                pending = pending_joins[-1]
                 m_id = pending['meeting_id']
                 meet_url = pending['meet_url']
-                
-                # Mark all others for this user as SUPERSEDED so they don't get picked up later
+                requester_email = pending.get('user_email', user_email)  # Who asked for this join
+
+                # Mark older requests (if any) as SUPERSEDED
                 if len(pending_joins) > 1:
-                    for old in pending_joins[1:]:
+                    for old in pending_joins[:-1]:
                         db.update_bot_status(old['meeting_id'], "SUPERSEDED", note="Newer join request took priority")
                         print(f"DEBUG: Marked old join request {old['meeting_id']} as SUPERSEDED.")
 
                 if meet_url and m_id not in session_handled_ids:
-                    print(f"Executing LIVE JOIN for {meet_url}")
-                    session_handled_ids.add(m_id) # Mark this specific meeting ID as handled
-                    rec_enabled = profile.get('bot_recording_enabled', 1)
-                    
+                    print(f"Executing LIVE JOIN for {meet_url} (requested by {requester_email})")
+                    session_handled_ids.add(m_id)
+
+                    # Use the REQUESTER'S profile for bot settings (name, recording pref, etc.)
+                    requester_profile = db.get_user_profile(requester_email) or profile
+                    rec_enabled = requester_profile.get('bot_recording_enabled', 1)
+
                     # Update status immediately to prevent re-join
                     db.update_bot_status(m_id, "JOINING", note=f"Joining meeting: {meet_url}")
                     
                     if is_meet_url(meet_url):
-                        bot.join_google_meet(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
+                        bot.join_google_meet(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=requester_email)
                     elif is_zoom_url(meet_url):
-                        bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
+                        bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=requester_email)
                 else:
                     if m_id in session_handled_ids:
-                        # Already handled, should not be JOIN_PENDING anymore, but just in case
+                        # Already handled — clean up any stale JOIN_PENDING status
                         db.update_bot_status(m_id, "COMPLETED", note="Already joined previously.")
 
             # 3. CHECK CALENDAR

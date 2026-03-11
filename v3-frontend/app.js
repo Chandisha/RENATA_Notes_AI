@@ -84,7 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 await loadAnalyticsData();
                 break;
             case 'integrations':
+            case 'settings':
                 await loadIntegrationsData();
+                await loadDashboardData(); // Also loads preferences and user info
                 break;
         }
     }
@@ -206,21 +208,29 @@ document.addEventListener('DOMContentLoaded', () => {
             grid.innerHTML = '';
 
             data.meetings.forEach(m => {
+                const pdfName = m.pdf_path ? m.pdf_path.split(/[\\/]/).pop() : null;
+                const pdfLink = pdfName ? `${API_BASE}/download/pdf/${pdfName}` : '#';
+                const pdfBtnClass = pdfName ? 'btn-sm primary-btn' : 'btn-sm secondary-btn disabled';
+
                 const card = document.createElement('div');
                 card.className = 'report-card';
                 card.innerHTML = `
                     <div class="report-header">
-                        <span class="report-date">${m.start_time}</span>
-                        <span class="badge">${m.status}</span>
+                        <span class="report-date">${m.start_time || 'No Date'}</span>
+                        <span class="badge ${m.status || 'scheduled'}">${(m.status || 'scheduled').toUpperCase()}</span>
                     </div>
-                    <h3 class="report-title">${m.title}</h3>
-                    <div class="report-footer">
-                        <div class="engagement-mini">Score: ${m.engagement_score || 0}%</div>
-                        <a href="${API_BASE}/download/pdf/${m.pdf_path.split(/[\\/]/).pop()}" target="_blank" class="btn-sm primary-btn">PDF</a>
+                    <h3 class="report-title">${m.title || 'Untitled Meeting'}</h3>
+                    <div class="report-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px;">
+                        <div class="engagement-mini" style="font-size: 0.85rem; color: var(--text-secondary);">
+                            <i data-feather="activity" style="width: 14px; height: 14px; padding-bottom: 2px;"></i> 
+                            Score: ${m.engagement_score || 0}%
+                        </div>
+                        ${pdfName ? `<a href="${pdfLink}" target="_blank" class="${pdfBtnClass}" style="text-decoration:none;">Download PDF</a>` : `<span class="muted" style="font-size: 0.85rem; opacity: 0.6;">Processing AI...</span>`}
                     </div>
                 `;
                 grid.appendChild(card);
             });
+            if (window.feather) feather.replace();
         } catch (err) {
             console.error("Reports load failed", err);
         }
@@ -401,6 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
         profileForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const name = document.getElementById('pref-user-name').value;
+            console.log(">>> Submitting Profile Name Update:", name);
             try {
                 const res = await apiFetch("/settings/api/save", {
                     method: 'POST',
@@ -410,8 +421,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.ok) {
                     alert("Profile updated successfully!");
                     document.querySelectorAll('.user-name').forEach(el => el.textContent = name);
+                } else {
+                    const errData = await res.json();
+                    alert("Update failed: " + (errData.error || "Unknown error"));
                 }
-            } catch (err) { alert("Failed to save profile."); }
+            } catch (err) {
+                console.error(err);
+                alert("Failed to save profile. See console for details.");
+            }
         });
     }
 
@@ -424,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const auto_join = document.getElementById('pref-auto-join').checked;
             const recording = document.getElementById('pref-recording').checked;
 
+            console.log(">>> Submitting Bot Preferences:", { bot_name, auto_join, recording });
             try {
                 const res = await apiFetch("/settings/api/save", {
                     method: 'POST',
@@ -432,8 +450,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 if (res.ok) {
                     alert("Preferences saved successfully!");
+                } else {
+                    const errData = await res.json();
+                    alert("Save failed: " + (errData.error || "Unknown error"));
                 }
-            } catch (err) { alert("Failed to save preferences."); }
+            } catch (err) {
+                console.error(err);
+                alert("Failed to save preferences. See console for details.");
+            }
         });
     }
 
@@ -545,28 +569,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Initialize Engagement Chart
-    const ctx = document.getElementById('engagementChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            datasets: [{
-                label: 'Meeting Productivity',
-                data: [65, 78, 82, 75, 90, 85, 92],
-                borderColor: '#8b5cf6',
-                tension: 0.4,
-                fill: true,
-                backgroundColor: 'rgba(139, 92, 246, 0.1)'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { display: false },
-                x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+    const chartEl = document.getElementById('engagementChart');
+    if (chartEl && typeof Chart !== 'undefined') {
+        const ctx = chartEl.getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                datasets: [{
+                    label: 'Meeting Productivity',
+                    data: [65, 78, 82, 75, 90, 85, 92],
+                    borderColor: '#8b5cf6',
+                    tension: 0.4,
+                    fill: true,
+                    backgroundColor: 'rgba(139, 92, 246, 0.1)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { display: false },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+                }
             }
-        }
-    });
+        });
+    } else {
+        console.warn("Engagement chart could not be initialized. Chart.js might be blocked or missing.");
+    }
 });
