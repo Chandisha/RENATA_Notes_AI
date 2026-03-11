@@ -5,6 +5,7 @@ import subprocess
 import signal
 import re
 import base64
+import threading
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from playwright.sync_api import sync_playwright
@@ -161,24 +162,91 @@ PERMANENT_BOT_EMAIL = "chandisha.das.fit.cse22@teamfuture.in"
 PERMANENT_BOT_PASS = "123Chandisha#"
 BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# CONCURRENT MEETING SLOT POOL
+# Each slot is an independent Playwright browser profile directory.
+# Slot 0  → bot_session/          (original, already logged-in session)
+# Slot 1+ → bot_session/slot_<n>/ (auto-created; requires one-time bot login)
+# Set MAX_CONCURRENT_MEETINGS to however many meetings can run at once.
+# NOTE: Each extra slot needs its own VB-Cable / audio device if you want
+#       separate audio streams. A simple workaround is to record system
+#       audio output (all meetings mix into one stream on the same machine).
+# ─────────────────────────────────────────────────────────────────────────────
+MAX_CONCURRENT_MEETINGS = 3
+
+_slot_lock   = threading.Lock()
+_free_slots  = list(range(MAX_CONCURRENT_MEETINGS))   # [0, 1, 2]
+_active_jobs = {}   # meeting_id -> threading.Thread
+
+def _acquire_slot():
+    """Grab a free browser slot. Returns slot index or None if all busy."""
+    with _slot_lock:
+        if _free_slots:
+            return _free_slots.pop(0)
+    return None
+
+def _release_slot(slot: int):
+    """Return a slot back to the pool after a meeting ends."""
+    with _slot_lock:
+        if slot not in _free_slots:
+            _free_slots.append(slot)
+            _free_slots.sort()
+
+def _get_session_dir(slot: int) -> str:
+    """Slot 0 uses the original bot_session folder; extra slots get sub-dirs."""
+    if slot == 0:
+        return BOT_SESSION_DIR
+    path = os.path.join(BOT_SESSION_DIR, f"slot_{slot}")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def _run_meeting_in_thread(meet_url: str, meeting_id: str, user_email: str,
+                           rec_enabled: bool, slot: int):
+    """
+    Worker function executed in a daemon thread.
+    Joins ONE meeting using its own browser slot, then releases the slot.
+    """
+    session_dir = _get_session_dir(slot)
+    print(f"[Slot {slot}] Starting join for {meeting_id} → {meet_url} (user: {user_email})")
+    thread_bot = RenaMeetingBot(user_email=user_email, session_dir=session_dir)
+    try:
+        if is_meet_url(meet_url):
+            thread_bot.join_google_meet(meet_url, record=rec_enabled, db=db,
+                                        meeting_id=meeting_id, user_email=user_email)
+        elif is_zoom_url(meet_url):
+            thread_bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db,
+                                         meeting_id=meeting_id, user_email=user_email)
+        else:
+            print(f"[Slot {slot}] Unknown URL type: {meet_url}")
+            db.update_bot_status(meeting_id, "FAILED", note="Unknown meeting URL type")
+    except Exception as e:
+        print(f"[Slot {slot}] Thread error for {meeting_id}: {e}")
+        db.update_bot_status(meeting_id, "FAILED", note=f"Thread error: {e}")
+    finally:
+        _release_slot(slot)
+        _active_jobs.pop(meeting_id, None)
+        print(f"[Slot {slot}] Released. Free slots: {sorted(_free_slots)}")
+
 class RenaMeetingBot:
-    def __init__(self, bot_name="Renata AI | Meeting Assistant", audio_device="audio=CABLE Output (VB-Audio Virtual Cable)", user_email=None):
+    def __init__(self, bot_name="Renata AI | Meeting Assistant",
+                 audio_device="audio=CABLE Output (VB-Audio Virtual Cable)",
+                 user_email=None, session_dir=None):
         self.user_email = user_email
         if user_email:
-            # db is already imported in global scope or will be imported locally in methods
             try:
                 profile = db.get_user_profile(user_email)
                 if profile and profile.get('bot_name'):
                     bot_name = profile['bot_name']
             except: pass
-            
-        self.bot_name = bot_name
+
+        self.bot_name     = bot_name
         self.audio_device = audio_device
-        self.output_dir = Path("meeting_outputs") / "recordings"
+        self.output_dir   = Path("meeting_outputs") / "recordings"
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.audio_process = None
+        self.audio_process  = None
         self.recording_path = None
-        self.session_dir = BOT_SESSION_DIR
+        # Allow override so concurrent slots use different browser profiles
+        self.session_dir = session_dir if session_dir else BOT_SESSION_DIR
 
     def bot_setup_login(self):
         """Hidden feature to allow manual login for the bot's permanent email."""
@@ -673,176 +741,188 @@ class RenaMeetingBot:
 
 def run_auto_pilot(user_email):
     """
-    Main background loop for Renata.
-    Picks up JOIN_PENDING requests from ALL users in the DB so anyone
-    using the app can trigger the single bot running on this machine.
+    Main background loop for Renata — MULTI-MEETING, MULTI-ACCOUNT.
+
+    Every 30 s this loop:
+      1. Scans Gmail for the operator account.
+      2. Picks up ALL 'JOIN_PENDING' rows from ANY user and dispatches each
+         into its own daemon thread + browser slot (up to MAX_CONCURRENT_MEETINGS).
+      3. Scans Google Calendar for EVERY connected account in the DB and
+         auto-joins upcoming meetings for each — also in parallel threads.
     """
     import meeting_database as db
     from gmail_scanner_service import gmail_scanner
     from dateutil import parser
-    
-    print(f"Renata Auto-Pilot Active (operator: {user_email}) — serving ALL users")
-    bot = RenaMeetingBot(user_email=user_email)
-    session_handled_ids = set() # Track IDs handled in this session
+
+    print(f"╔{'='*58}╗")
+    print(f"║  Renata Auto-Pilot  │  operator: {user_email}")
+    print(f"║  Max simultaneous meetings : {MAX_CONCURRENT_MEETINGS}")
+    print(f"╚{'='*58}╝")
+
+    session_handled_ids: set = set()   # IDs already dispatched this session
 
     while True:
         try:
-            # --- Operator's profile (for calendar scanning) ---
+            # -- Operator profile (needed for Gmail scan) --
             profile = db.get_user_profile(user_email)
             if not profile:
+                print("Operator profile not found. Retrying in 60s...")
                 time.sleep(60)
                 continue
 
-            # 1. SCAN GMAIL (for operator only — each user can extend this later)
-            print("Scanning Gmail...")
-            gmail_scanner.scan_inbox(user_email)
+            # 1. GMAIL SCAN (operator account only)
+            try:
+                print("Scanning Gmail...")
+                gmail_scanner.scan_inbox(user_email)
+            except Exception as e:
+                print(f"Gmail scan error: {e}")
 
-            # 2. CHECK FOR LIVE JOIN INTENTS FROM **ANY USER**
-            # ─────────────────────────────────────────────────────────────────
-            # The bot runs on a single machine for everyone. Remove the
-            # user_email filter so requests from all app users are handled.
-            # ─────────────────────────────────────────────────────────────────
+            # 2. LIVE JOIN — every pending request, every user, all in parallel
             print("Checking for live join intents (all users)...")
             pending_joins = db.fetch_all(
                 "SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' ORDER BY created_at ASC"
             )
-            
-            if pending_joins:
-                # Take the most recent global request
-                pending = pending_joins[-1]
-                m_id = pending['meeting_id']
-                meet_url = pending['meet_url']
-                requester_email = pending.get('user_email', user_email)  # Who asked for this join
 
-                # Mark older requests (if any) as SUPERSEDED
-                if len(pending_joins) > 1:
-                    for old in pending_joins[:-1]:
-                        db.update_bot_status(old['meeting_id'], "SUPERSEDED", note="Newer join request took priority")
-                        print(f"DEBUG: Marked old join request {old['meeting_id']} as SUPERSEDED.")
+            for pending in pending_joins:
+                m_id            = pending['meeting_id']
+                meet_url        = pending.get('meet_url', '')
+                requester_email = pending.get('user_email', user_email)
 
-                if meet_url and m_id not in session_handled_ids:
-                    print(f"Executing LIVE JOIN for {meet_url} (requested by {requester_email})")
-                    session_handled_ids.add(m_id)
+                if m_id in session_handled_ids:
+                    db.update_bot_status(m_id, "COMPLETED", note="Already handled")
+                    continue
 
-                    # Use the REQUESTER'S profile for bot settings (name, recording pref, etc.)
-                    requester_profile = db.get_user_profile(requester_email) or profile
-                    rec_enabled = requester_profile.get('bot_recording_enabled', 1)
+                if not meet_url:
+                    db.update_bot_status(m_id, "FAILED", note="No meeting URL")
+                    continue
 
-                    # Update status immediately to prevent re-join
-                    db.update_bot_status(m_id, "JOINING", note=f"Joining meeting: {meet_url}")
-                    
-                    if is_meet_url(meet_url):
-                        bot.join_google_meet(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=requester_email)
-                    elif is_zoom_url(meet_url):
-                        bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=requester_email)
-                else:
-                    if m_id in session_handled_ids:
-                        # Already handled — clean up any stale JOIN_PENDING status
-                        db.update_bot_status(m_id, "COMPLETED", note="Already joined previously.")
+                slot = _acquire_slot()
+                if slot is None:
+                    print(f"All slots busy — will retry {m_id} next cycle.")
+                    continue   # retry next loop iteration
 
-            # 3. CHECK CALENDAR
-            if profile.get('bot_auto_join', 1):
-                print("Checking Calendar...")
-                upcoming = get_upcoming_events(user_email=user_email, max_results=5)
-                now = datetime.now(timezone.utc)
+                session_handled_ids.add(m_id)
+                req_profile = db.get_user_profile(requester_email) or profile
+                rec_enabled = bool(req_profile.get('bot_recording_enabled', 1))
+                db.update_bot_status(m_id, "JOINING",
+                                     note=f"[Slot {slot}] Joining {meet_url}")
+
+                t = threading.Thread(
+                    target=_run_meeting_in_thread,
+                    args=(meet_url, m_id, requester_email, rec_enabled, slot),
+                    daemon=True, name=f"LiveSlot-{slot}-{m_id}"
+                )
+                _active_jobs[m_id] = t
+                t.start()
+                print(f"▶ [Slot {slot}] Joining {meet_url} for {requester_email}")
+
+            # 3. CALENDAR — scan EVERY connected Google account
+            try:
+                all_users = db.fetch_all(
+                    "SELECT email FROM users "
+                    "WHERE google_token IS NOT NULL AND google_token != ''"
+                )
+            except Exception as e:
+                print(f"Could not fetch users: {e}")
+                all_users = [{'email': user_email}]
+
+            now = datetime.now(timezone.utc)
+
+            for user_row in all_users:
+                cal_email   = user_row['email'] if isinstance(user_row, dict) else user_row[0]
+                cal_profile = db.get_user_profile(cal_email) or {}
+
+                if not cal_profile.get('bot_auto_join', 1):
+                    continue
+
+                print(f"Checking Calendar for {cal_email}...")
+                try:
+                    upcoming = get_upcoming_events(user_email=cal_email, max_results=5)
+                except Exception as e:
+                    print(f"  Calendar error for {cal_email}: {e}")
+                    continue
 
                 for event in upcoming:
-                    print(f"DEBUG: Found '{event.get('summary')}' | Status: {event.get('status')} | Conf: {event.get('conferenceData') is not None}")
+                    print(f"  [{cal_email}] '{event.get('summary')}' "
+                          f"conf={event.get('conferenceData') is not None}")
                     m_id = event.get('id')
-                    if m_id in session_handled_ids: continue
+                    if m_id in session_handled_ids:
+                        continue
 
-                    # Parse Time
                     start_info = event.get('start', {})
-                    start_str = start_info.get('dateTime', start_info.get('date'))
-                    start_dt = parser.parse(start_str)
+                    start_str  = start_info.get('dateTime', start_info.get('date'))
+                    start_dt   = parser.parse(start_str)
                     if start_dt.tzinfo is None:
                         start_dt = start_dt.replace(tzinfo=timezone.utc)
 
-                    # Smart Join Window Logic:
-                    # - Join if meeting starts in next 5 mins (upcoming)
-                    # - Join if meeting started within last 60 mins AND hasn't ended yet (ongoing)
-                    time_diff = (now - start_dt).total_seconds() / 60
-                    print(f"Time Diff: {time_diff:.2f} mins | Start: {start_dt}")
-                    
-                    # Check if meeting has ended
-                    end_info = event.get('end', {})
-                    end_str = end_info.get('dateTime', end_info.get('date'))
+                    time_diff     = (now - start_dt).total_seconds() / 60
+                    end_info      = event.get('end', {})
+                    end_str       = end_info.get('dateTime', end_info.get('date'))
                     meeting_ended = False
                     if end_str:
                         end_dt = parser.parse(end_str)
                         if end_dt.tzinfo is None:
                             end_dt = end_dt.replace(tzinfo=timezone.utc)
                         meeting_ended = now > end_dt
-                        print(f"End Time: {end_dt} | Meeting Ended: {meeting_ended}")
+                        print(f"    Time Diff: {time_diff:.1f} min | End: {end_dt} | Ended: {meeting_ended}")
                     else:
-                        # No end time provided - assume default 60 min duration
-                        assumed_end = start_dt + timedelta(minutes=60)
-                        meeting_ended = now > assumed_end
-                        print(f"No end time in event, assuming 60min duration | Assumed End: {assumed_end} | Meeting Ended: {meeting_ended}")
-                    
-                    # Only join if:
-                    # 1. Meeting starts within 5 mins OR started within last 60 mins
-                    # 2. Meeting has NOT ended yet
-                    if -5 <= time_diff <= 60 and not meeting_ended:
-                        meet_url = event.get('hangoutLink')
-                        
-                        if not meet_url and 'conferenceData' in event:
-                            for entry in event['conferenceData'].get('entryPoints', []):
-                                if entry.get('type') == 'video': 
-                                    meet_url = entry.get('uri')
-                        
-                        if not meet_url and 'location' in event:
-                            if is_meet_url(event['location']): meet_url = event['location'] # type: ignore
-                            
-                        # Last resort: Check description for links
-                        if not meet_url and 'description' in event:
-                            desc = event['description']
-                            # Simple regex for meet.google.com
-                            meet_match = re.search(r'https://meet\.google\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}', desc)
-                            if meet_match:
-                                meet_url = meet_match.group(0)
-                            
-                            # Regex for Zoom
-                            if not meet_url:
-                                zoom_match = re.search(r'https://[a-z0-9.]*zoom\.us/[j|s|my]/[a-zA-Z0-9?=_]*', desc)
-                                if zoom_match:
-                                    meet_url = zoom_match.group(0)
-                        
-                        print(f"Extracted URL: {meet_url}")
-                        
+                        meeting_ended = now > (start_dt + timedelta(minutes=60))
+                        print(f"    Time Diff: {time_diff:.1f} min | No end time, assuming 60 min")
+
+                    if not (-5 <= time_diff <= 60) or meeting_ended:
+                        continue
+
+                    # Extract meeting URL
+                    meet_url = event.get('hangoutLink')
+                    if not meet_url and 'conferenceData' in event:
+                        for entry in event['conferenceData'].get('entryPoints', []):
+                            if entry.get('type') == 'video':
+                                meet_url = entry.get('uri')
+                    if not meet_url and 'location' in event:
+                        if is_meet_url(event['location']): meet_url = event['location']
+                    if not meet_url and 'description' in event:
+                        desc = event['description']
+                        m = re.search(r'https://meet\.google\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}', desc)
+                        if m: meet_url = m.group(0)
                         if not meet_url:
-                            print(f"DEBUG: FULL EVENT DUMP: {event}")
-                        
-                        if meet_url:
-                            # Check if skipped in DB
-                            db_meeting = db.get_meeting(m_id)
-                            if db_meeting and db_meeting.get('is_skipped'):
-                                print(f"Skipping '{event.get('summary')}' (User cancelled).")
-                                continue
-                            
-                            print(f"Joining Meeting: {event.get('summary')} at {meet_url}")
-                            # Record preference from profile
-                            rec_enabled = profile.get('bot_recording_enabled', 1)
-                            
-                            # Update status for UI feedback
-                            db.set_meeting_bot_status(m_id, "JOINING", user_email=user_email, title=event.get('summary'), start_time=start_str)
-                            
-                            # CRITICAL: Join!
-                            if is_meet_url(meet_url):
-                                bot.join_google_meet(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
-                            elif is_zoom_url(meet_url):
-                                bot.join_zoom_meeting(meet_url, record=rec_enabled, db=db, meeting_id=m_id, user_email=user_email)
-                            else:
-                                print(f"Unknown meeting type for URL: {meet_url}")
-                            
-                            # Note: Status is now updated INSIDE join_google_meet upon admission
-                            joined_meetings.add(m_id)
-            
-            # Wait 30 seconds for aggressive detection
-            time.sleep(30) 
+                            m = re.search(r'https://[a-z0-9.]*zoom\.us/[j|s|my]/[a-zA-Z0-9?=_]*', desc)
+                            if m: meet_url = m.group(0)
+
+                    if not meet_url:
+                        print(f"    No URL found for '{event.get('summary')}'")
+                        continue
+
+                    db_mtg = db.get_meeting(m_id)
+                    if db_mtg and db_mtg.get('is_skipped'):
+                        print(f"    Skipped by user: {event.get('summary')}")
+                        continue
+
+                    slot = _acquire_slot()
+                    if slot is None:
+                        print(f"    All slots busy — will retry {m_id} next cycle.")
+                        continue
+
+                    session_handled_ids.add(m_id)
+                    rec_enabled = bool(cal_profile.get('bot_recording_enabled', 1))
+                    db.set_meeting_bot_status(m_id, "JOINING", user_email=cal_email,
+                                              title=event.get('summary'), start_time=start_str)
+
+                    t = threading.Thread(
+                        target=_run_meeting_in_thread,
+                        args=(meet_url, m_id, cal_email, rec_enabled, slot),
+                        daemon=True, name=f"CalSlot-{slot}-{m_id}"
+                    )
+                    _active_jobs[m_id] = t
+                    t.start()
+                    print(f"  ▶ [Slot {slot}] Calendar join '{event.get('summary')}' for {cal_email}")
+
         except Exception as e:
-            print(f"Auto-Pilot Error: {e}")
-            time.sleep(60)
+            print(f"Auto-Pilot loop error: {e}")
+            import traceback; traceback.print_exc()
+
+        alive = [tid for tid, t in list(_active_jobs.items()) if t.is_alive()]
+        print(f"─ Cycle done. Active: {len(alive)} meetings | Free slots: {sorted(_free_slots)} ─")
+        time.sleep(30)
 
 def main():
     import meeting_database as db
