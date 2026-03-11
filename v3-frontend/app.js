@@ -260,17 +260,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (eVal) eVal.textContent = (stats.engagement_score || 0) + '%';
             if (aVal) aVal.textContent = (stats.app_engagement_minutes || 0) + 'm';
 
-            // Analytics Trends Chart
+            // Analytics Trends Chart (Dynamic)
             const ctx = document.getElementById('analyticsChart')?.getContext('2d');
             if (ctx) {
                 if (window.anaChartInstance) window.anaChartInstance.destroy();
                 window.anaChartInstance = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: ['Session 1', 'Session 2', 'Session 3', 'Session 4', 'Session 5'],
+                        labels: stats.chart_labels || ['No Data'],
                         datasets: [{
-                            label: 'Productivity Trend',
-                            data: [60, 75, 70, 85, 95],
+                            label: 'Engagement Trend',
+                            data: stats.chart_data || [0],
                             borderColor: '#8b5cf6',
                             tension: 0.4,
                             fill: true,
@@ -280,12 +280,32 @@ document.addEventListener('DOMContentLoaded', () => {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { legend: { display: false } },
-                        scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } }
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: {
+                                backgroundColor: '#1e293b',
+                                titleColor: '#fff',
+                                bodyColor: '#cbd5e1',
+                                borderColor: 'rgba(255,255,255,0.1)',
+                                borderWidth: 1
+                            }
+                        },
+                        scales: { 
+                            y: { 
+                                beginAtZero: true, 
+                                max: 100,
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#94a3b8' }
+                            },
+                            x: {
+                                grid: { display: false },
+                                ticks: { color: '#94a3b8' }
+                            }
+                        }
                     }
                 });
             }
-        } catch (err) { }
+        } catch (err) { console.error(err); }
     }
 
     async function loadSearchStats() {

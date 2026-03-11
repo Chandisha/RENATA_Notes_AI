@@ -256,8 +256,8 @@ def get_meeting_stats(user_email):
     stats = {}
     params = (user_email,)
     
-    # 1. Core Totals
-    row = fetch_one("SELECT COUNT(*) as count FROM meetings WHERE user_email = ? AND is_skipped = 0", params)
+    # 1. Core Totals - Use COALESCE to handle NULL is_skipped
+    row = fetch_one("SELECT COUNT(*) as count FROM meetings WHERE user_email = ? AND (is_skipped = 0 OR is_skipped IS NULL)", params)
     stats['total_meetings'] = row['count'] if row else 0
     
     row = fetch_one("SELECT SUM(duration_minutes) as sum FROM meetings WHERE user_email = ? AND duration_minutes IS NOT NULL", params)
@@ -300,10 +300,37 @@ def get_meeting_stats(user_email):
     
     stats['speaker_distribution'] = {k: round(v / len(rows), 1) for k, v in speaker_totals.items()} if rows else {}
 
-    # 4. App Engagement Mock (Simulated based on interactions)
-    # How long they spend in app = Meetings attended + fixed offset for review
+    # 4. App Engagement Metrics
     stats['app_engagement_minutes'] = (total_minutes) + (stats['total_meetings'] * 15) # 15 mins review per meeting
-    stats['engagement_score'] = min(100, (stats['total_meetings'] * 10) + (stats['total_words'] // 100))
+    # Calculate score based on meetings and words
+    base_score = (stats['total_meetings'] * 5) + (stats['total_words'] // 50)
+    stats['engagement_score'] = min(100, max(0, base_score if base_score > 0 else (stats['total_meetings'] * 10)))
+
+    # 5. History for Chart
+    history_rows = fetch_all("""
+        SELECT start_time, engagement_metrics FROM meetings 
+        WHERE user_email = ? AND engagement_metrics IS NOT NULL
+        ORDER BY start_time ASC LIMIT 7
+    """, params)
+    
+    chart_data = []
+    chart_labels = []
+    for h in history_rows:
+        try:
+            d = json.loads(h['engagement_metrics'])
+            chart_data.append(d.get('score', 0))
+            # Format date: Mar 11
+            dt = datetime.fromisoformat(h['start_time'].replace('Z', '+00:00'))
+            chart_labels.append(dt.strftime("%b %d"))
+        except: continue
+    
+    # Fill with placeholders if empty to keep chart visible
+    if not chart_data:
+        chart_data = [0, 0, 0, 0, 0]
+        chart_labels = ["No Data", "No Data", "No Data", "No Data", "No Data"]
+
+    stats['chart_data'] = chart_data
+    stats['chart_labels'] = chart_labels
 
     return stats
 
