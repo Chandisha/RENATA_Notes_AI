@@ -113,26 +113,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 statsArr[3].textContent = (data.stats.participant_count || 0).toFixed(1);
             }
 
-            // Recent Reports List
+            // Recent Reports List (PDFs only)
             const recentList = document.getElementById('recent-list');
             if (recentList) {
                 recentList.innerHTML = '';
-                (data.recent_meetings || []).forEach(m => {
-                    const item = document.createElement('div');
-                    item.className = 'list-item';
-                    item.innerHTML = `
-                        <div class="item-icon"><i data-feather="file-text"></i></div>
-                        <div class="item-details">
-                            <span class="item-title">${m.title || 'Untitled'}</span>
-                            <span class="item-meta">${m.start_time}</span>
-                        </div>
-                        <div class="item-actions">
-                            <span class="badge ${m.status}">${m.status.toUpperCase()}</span>
-                            <button class="icon-btn" onclick="window.location.hash='#reports'"><i data-feather="chevron-right"></i></button>
-                        </div>
-                    `;
-                    recentList.appendChild(item);
-                });
+                const recentPdfs = (data.recent_meetings || []).filter(m => m.pdf_path).slice(0, 5);
+                
+                if (recentPdfs.length === 0) {
+                    recentList.innerHTML = '<p class="muted" style="padding:10px;">No reports generated yet.</p>';
+                } else {
+                    recentPdfs.forEach(m => {
+                        const item = document.createElement('div');
+                        item.className = 'list-item';
+                        item.innerHTML = `
+                            <div class="item-icon"><i data-feather="file-text"></i></div>
+                            <div class="item-details">
+                                <span class="item-title">${m.title || 'Meeting Report'}</span>
+                                <span class="item-meta">Generated ${timeAgo(m.updated_at || m.created_at)}</span>
+                            </div>
+                            <div class="item-actions">
+                                <button class="btn-sm primary-btn" onclick="window.location.hash='#reports'">View</button>
+                            </div>
+                        `;
+                        recentList.appendChild(item);
+                    });
+                }
             }
 
             // Calendar
