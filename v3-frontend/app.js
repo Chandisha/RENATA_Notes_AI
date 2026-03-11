@@ -174,6 +174,26 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.error(err); }
     }
 
+    function timeAgo(date) {
+        if (!date) return "recently";
+        const d = typeof date === 'string' ? new Date(date.replace(' ', 'T')) : new Date(date);
+        if (isNaN(d.getTime())) return "recently";
+        
+        const seconds = Math.floor((new Date() - d) / 1000);
+        if (seconds < 60) return "just now";
+        let interval = seconds / 31536000;
+        if (interval > 1) return Math.floor(interval) + " years ago";
+        interval = seconds / 2592000;
+        if (interval > 1) return Math.floor(interval) + " months ago";
+        interval = seconds / 86400;
+        if (interval > 1) return Math.floor(interval) + " days ago";
+        interval = seconds / 3600;
+        if (interval > 1) return Math.floor(interval) + " hours ago";
+        interval = seconds / 60;
+        if (interval > 1) return Math.floor(interval) + " minutes ago";
+        return Math.floor(seconds) + " seconds ago";
+    }
+
     async function loadReportsData() {
         try {
             const res = await apiFetch("/reports_data");
@@ -182,31 +202,42 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!grid) return;
             grid.innerHTML = '';
 
-            if (data.meetings.length === 0) {
-                grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No reports generated yet. Renata will start populating this as you join meetings.</p></div>';
+            // Filter only meetings that have a PDF generated
+            const pdfMeetings = (data.meetings || []).filter(m => m.pdf_path);
+
+            if (pdfMeetings.length === 0) {
+                grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No reports generated yet. Reports will appear here once meeting processing is complete.</p></div>';
+                return;
             }
 
-            data.meetings.forEach(m => {
-                const pdfName = m.pdf_path ? m.pdf_path.split(/[\\/]/).pop() : null;
-                const pdfLink = pdfName ? `${API_BASE}/download/pdf/${pdfName}` : '#';
+            pdfMeetings.forEach((m, index) => {
+                const pdfName = m.pdf_path.split(/[\\/]/).pop();
+                const pdfLink = `${API_BASE}/download/pdf/${pdfName}`;
+                const generatedTime = timeAgo(m.updated_at || m.created_at);
                 
                 const card = document.createElement('div');
                 card.className = 'report-card';
+                card.style.display = 'flex';
+                card.style.alignItems = 'center';
+                card.style.justifyContent = 'space-between';
+                card.style.padding = '20px';
+                
                 card.innerHTML = `
-                    <div class="report-header">
-                        <span class="report-date">${m.start_time}</span>
-                        <span class="badge ${m.status}">${m.status.toUpperCase()}</span>
+                    <div style="display:flex; align-items:center; gap:20px;">
+                        <div class="report-number" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-purple); opacity: 0.5;">#${pdfMeetings.length - index}</div>
+                        <div>
+                            <h3 class="report-title" style="margin:0; font-size:1.1rem;">${m.title || 'Meeting Report'}</h3>
+                            <span class="muted" style="font-size:0.85rem;">Generated ${generatedTime}</span>
+                        </div>
                     </div>
-                    <h3 class="report-title">${m.title || 'Untitled Meeting'}</h3>
-                    <div class="report-footer" style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="muted" style="font-size:0.8rem;">${m.participant_count || 0} participants</span>
-                        ${pdfName ? `<a href="${pdfLink}" target="_blank" class="btn-sm primary-btn" style="text-decoration:none;">Open PDF</a>` : `<span class="muted" style="font-size:0.85rem;">Processing...</span>`}
-                    </div>
+                    <a href="${pdfLink}" target="_blank" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
+                        <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> View PDF
+                    </a>
                 `;
                 grid.appendChild(card);
             });
             feather.replace();
-        } catch (err) { }
+        } catch (err) { console.error(err); }
     }
 
     async function loadAnalyticsData() {
