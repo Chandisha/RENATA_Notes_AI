@@ -71,8 +71,12 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "re
 # Static files & templates
 if (BASE_DIR / "static").exists():
     app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
-else:
-    print("WARNING: Static directory not found!")
+
+if (BASE_DIR / "logo_img").exists():
+    app.mount("/logo_img", StaticFiles(directory=str(BASE_DIR / "logo_img")), name="logo_img")
+
+if (BASE_DIR / "v3-frontend").exists():
+    app.mount("/v3-frontend", StaticFiles(directory=str(BASE_DIR / "v3-frontend")), name="v3-frontend")
 
 if (BASE_DIR / "templates").exists():
     templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))

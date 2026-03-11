@@ -49,18 +49,20 @@ body {
     gap: 12px;
 }
 
-.logo-icon {
+.logo-img {
     width: 32px;
     height: 32px;
-    background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+    object-fit: contain;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
 .logo-text {
     font-size: 1.25rem;
     font-weight: 800;
     letter-spacing: 1px;
+    background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .sidebar-nav {
