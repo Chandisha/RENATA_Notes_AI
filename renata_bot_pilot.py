@@ -446,7 +446,7 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
         
     try:
         # 1. Update status to JOINING
-        db_module.update_bot_status(meeting_id, "JOINING", note="Bot browser is starting...", user_email=user_email)
+        db.update_bot_status(meeting_id, "JOINING", note="Bot browser is starting...", user_email=user_email)
         print(f"\n[Slot {slot}] JOINING: {meet_url} for {user_email}")
         
         thread_bot = RenaMeetingBot(user_email=user_email, session_dir=session_dir, audio_device=audio_dev)
