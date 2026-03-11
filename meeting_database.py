@@ -89,7 +89,7 @@ def init_database():
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS meetings (
             id {pk_def},
-            meeting_id TEXT UNIQUE,
+            meeting_id TEXT,
             title TEXT NOT NULL,
             start_time TEXT NOT NULL,
             end_time TEXT,
@@ -120,7 +120,8 @@ def init_database():
             pdf_blob TEXT,
             is_summarized_paid INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(meeting_id, user_email)
         )
     ''')
     
@@ -152,6 +153,20 @@ def init_database():
         )
     ''')
     
+    # Gmail Intelligence Table
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS gmail_intelligence (
+            id {pk_def},
+            user_email TEXT NOT NULL,
+            message_id TEXT UNIQUE,
+            category TEXT,
+            subject TEXT,
+            snippet TEXT,
+            is_dismissed INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -177,6 +192,31 @@ def upsert_user(email, name=None, picture=None):
                 picture = COALESCE(users.picture, excluded.picture)
         '''
     exec_commit(query, (email, name, picture))
+    return True
+
+def update_user_profile(email, updates):
+    set_clauses = []
+    values = []
+    for key, value in updates.items():
+        if value is not None:
+            set_clauses.append(f"{key} = ?")
+            values.append(value)
+    
+    if not set_clauses: return False
+    
+    values.append(email)
+    query = f"UPDATE users SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP WHERE email = ?"
+    success, _ = exec_commit(query, tuple(values))
+    return success
+
+def delete_user_account(email):
+    # Delete meetings associated with user
+    exec_commit("DELETE FROM meetings WHERE user_email = ?", (email,))
+    # Delete user
+    exec_commit("DELETE FROM users WHERE email = ?", (email,))
+    # Delete gmail intelligence
+    exec_commit("DELETE FROM gmail_intelligence WHERE user_email = ?", (email,))
+    return True
 
 # --- MEETING OPERATIONS ---
 
@@ -197,9 +237,9 @@ def add_meeting(meeting_id, title, start_time, **kwargs):
         success, last_id = exec_commit(query, tuple(vals))
         return success, last_id
     except:
-        return update_meeting(meeting_id, kwargs)
+        return update_meeting(meeting_id, kwargs, user_email=user_email)
 
-def update_meeting(meeting_id, updates):
+def update_meeting(meeting_id, updates, user_email=None):
     set_clauses = []
     values = []
     for key, value in updates.items():
@@ -212,7 +252,13 @@ def update_meeting(meeting_id, updates):
     if not set_clauses: return False, "No updates"
     
     values.append(meeting_id)
-    query = f"UPDATE meetings SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP WHERE meeting_id = ?"
+    where_clause = "WHERE meeting_id = ?"
+    
+    if user_email:
+        values.append(user_email)
+        where_clause += " AND user_email = ?"
+    
+    query = f"UPDATE meetings SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP {where_clause}"
     success, _ = exec_commit(query, tuple(values))
     return success, success
 
@@ -221,15 +267,15 @@ def set_meeting_bot_status(meeting_id, status, user_email=None, **kwargs):
     updates.update(kwargs)
     if user_email: updates['user_email'] = user_email
     
-    success, _ = update_meeting(meeting_id, updates)
+    success, _ = update_meeting(meeting_id, updates, user_email=user_email)
     if not success:
         # Create minimal record if doesn't exist
         exec_commit("INSERT INTO meetings (meeting_id, title, start_time, bot_status, user_email) VALUES (?, ?, ?, ?, ?)",
                     (meeting_id, kwargs.get('title', 'Upcoming Meeting'), kwargs.get('start_time', datetime.now().isoformat()), status, user_email))
     return True
 
-def update_bot_status(meeting_id, status, note=""):
-    return set_meeting_bot_status(meeting_id, status, bot_status_note=note)
+def update_bot_status(meeting_id, status, note="", user_email=None):
+    return set_meeting_bot_status(meeting_id, status, bot_status_note=note, user_email=user_email)
 
 def get_active_joining_meeting(user_email):
     """STRICTLY SCOPED: Only get the current user's active meeting."""
@@ -240,7 +286,9 @@ def get_active_joining_meeting(user_email):
         ORDER BY created_at DESC LIMIT 1
     """, (user_email,))
 
-def get_meeting(meeting_id):
+def get_meeting(meeting_id, user_email=None):
+    if user_email:
+        return fetch_one("SELECT * FROM meetings WHERE meeting_id = ? AND user_email = ?", (meeting_id, user_email))
     return fetch_one("SELECT * FROM meetings WHERE meeting_id = ?", (meeting_id,))
 
 def get_all_meetings(user_email, limit=50, offset=0, order_by='start_time DESC'):
@@ -333,7 +381,7 @@ def get_meeting_stats(user_email):
 
     return stats
 
-def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_stats, engagement, **kwargs):
+def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_stats, engagement, user_email=None, **kwargs):
     updates = {
         'transcript_text': transcript,
         'summary_text': summary,
@@ -343,7 +391,7 @@ def save_meeting_results(meeting_id, transcript, summary, action_items, speaker_
         'status': 'completed'
     }
     updates.update(kwargs)
-    return update_meeting(meeting_id, updates)
+    return update_meeting(meeting_id, updates, user_email=user_email)
 
 def get_user_token(email):
     row = fetch_one("SELECT google_token FROM users WHERE email = ?", (email,))

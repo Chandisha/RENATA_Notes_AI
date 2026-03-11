@@ -14,7 +14,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import config
-from renata_bot_pilot import get_upcoming_events
+# NOTE: get_upcoming_events is handled by renata_bot_pilot's main loop now.
+# This script is mostly legacy or for standalone monitoring.
 
 # Track which meetings we've already joined
 joined_meetings = set()

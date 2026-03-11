@@ -170,16 +170,17 @@ def get_current_user(request: Request):
 def require_user(request: Request):
     user = get_current_user(request)
     if not user:
-        # If no session, try to find the "main" user in the DB (since this is a private server)
-        row = db.fetch_one("SELECT email, name, picture FROM users LIMIT 1")
-        if row:
-            user = {"email": row["email"], "name": row["name"], "picture": row["picture"]}
-        else:
-            user = {"email": "default@rena.ai", "name": "Local User", "picture": "https://api.dicebear.com/7.x/avataaars/svg?seed=Local"}
+        # Strict requirement: No session = No entry. 
+        # For API routes it returns 401 which the frontend handles.
+        # For Page routes we handle redirection explicitly.
+        raise HTTPException(status_code=401, detail="Authentication required")
     
-    # CRITICAL: Ensure the user actually exists in the 'users' table so UPDATE statements work
-    # This 'auto-provisions' the user on their first interaction.
-    db.upsert_user(user["email"], user.get("name"), user.get("picture"))
+    # Optional: Keep profile updated if they are logged in
+    try:
+        db.upsert_user(user["email"], user.get("name"), user.get("picture"))
+    except:
+        pass
+        
     return user
 
 # --- Google OAuth Flow Helper ---
@@ -381,7 +382,8 @@ async def logout(request: Request):
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page_spa(request: Request):
     """Serve the SPA shell for the dashboard."""
-    require_user(request)
+    if not get_current_user(request):
+        return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.get("/dashboard_data")
@@ -455,7 +457,8 @@ async def dashboard_data(request: Request):
 
 @app.get("/reports", response_class=HTMLResponse)
 async def reports_page_spa(request: Request):
-    require_user(request)
+    if not get_current_user(request):
+        return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.get("/reports_data")
@@ -502,7 +505,8 @@ async def report_detail(request: Request, meeting_id: str):
 
 @app.get("/analytics", response_class=HTMLResponse)
 async def analytics_page_spa(request: Request):
-    require_user(request)
+    if not get_current_user(request):
+        return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.get("/analytics/data", response_class=JSONResponse)
@@ -519,7 +523,8 @@ async def analytics_data(request: Request):
 
 @app.get("/search", response_class=HTMLResponse)
 async def search_page_spa(request: Request):
-    require_user(request)
+    if not get_current_user(request):
+        return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 def _get_kb_stats(user_email=None):
@@ -616,7 +621,8 @@ async def search_status(request: Request):
 
 @app.get("/integrations", response_class=HTMLResponse)
 async def integrations_page_spa(request: Request):
-    require_user(request)
+    if not get_current_user(request):
+        return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 # ============================================================
@@ -625,7 +631,8 @@ async def integrations_page_spa(request: Request):
 
 @app.get("/live", response_class=HTMLResponse)
 async def live_page_spa(request: Request):
-    require_user(request)
+    if not get_current_user(request):
+        return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.post("/live/join", response_class=JSONResponse)
@@ -690,7 +697,8 @@ async def live_status(request: Request):
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page_spa(request: Request):
-    require_user(request)
+    if not get_current_user(request):
+        return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
 @app.post("/settings/save")

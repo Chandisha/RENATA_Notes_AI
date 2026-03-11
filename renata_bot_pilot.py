@@ -104,37 +104,63 @@ class RenaMeetingBot:
 
     def bot_setup_login(self):
         print(f"Opening Browser for Bot Login to {PERMANENT_BOT_EMAIL}...")
-        with sync_playwright() as p:
-            browser = p.chromium.launch_persistent_context(
-                self.session_dir, 
-                headless=False, 
-                args=["--start-maximized"]
-            )
-            page = browser.pages[0]
-            page.goto("https://accounts.google.com/")
-            print("Waiting for login... Close browser when finished.")
-            while len(browser.pages) > 0: 
-                time.sleep(1)
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch_persistent_context(
+                    self.session_dir, 
+                    headless=False, 
+                    args=["--start-maximized"]
+                )
+                page = browser.pages[0]
+                page.goto("https://accounts.google.com/")
+                print("Waiting for login... Close browser when finished.")
+                while True:
+                    try:
+                        if not browser.is_connected() or len(browser.pages) == 0:
+                            break
+                        time.sleep(1)
+                    except:
+                        break
+        except Exception as e:
+            print(f"Setup Login Error: {e}")
         print("Bot Login Session Saved.")
 
     def automate_google_login(self, page):
         try:
-            if "AccountChooser" in page.url or page.locator(f'div[data-email="{PERMANENT_BOT_EMAIL}"]').count() > 0:
-                page.click(f'div[data-email="{PERMANENT_BOT_EMAIL}"]')
+            # Wait for any of the initial login elements
+            page.wait_for_load_state("networkidle", timeout=10000)
+            
+            # 1. Account Chooser / Selector
+            email_div = page.locator(f'div[data-email="{PERMANENT_BOT_EMAIL}"], [aria-label*="{PERMANENT_BOT_EMAIL}"]')
+            if email_div.count() > 0:
+                print(f"Selecting existing account: {PERMANENT_BOT_EMAIL}")
+                email_div.first.click()
                 time.sleep(2)
             
-            if page.locator('input[type="email"]').is_visible(timeout=5000):
-                page.fill('input[type="email"]', PERMANENT_BOT_EMAIL)
+            # 2. Identifier Field (Email)
+            email_input = page.locator('input[type="email"]')
+            if email_input.is_visible(timeout=3000):
+                print(f"Entering email: {PERMANENT_BOT_EMAIL}")
+                email_input.fill(PERMANENT_BOT_EMAIL)
                 page.click('#identifierNext')
                 time.sleep(2)
-                
+            
+            # 3. Password Field
             pw_field = page.locator('input[type="password"]')
-            pw_field.wait_for(state="visible", timeout=10000)
-            pw_field.fill(PERMANENT_BOT_PASS)
-            page.click('#passwordNext')
-            time.sleep(5)
+            try:
+                pw_field.wait_for(state="visible", timeout=10000)
+                print("Entering password...")
+                pw_field.fill(PERMANENT_BOT_PASS)
+                page.click('#passwordNext')
+                time.sleep(5)
+            except:
+                print("Password field not found or already logged in.")
+            
+            # 4. Verification Check
+            page.wait_for_load_state("networkidle", timeout=10000)
             return "accounts.google.com" not in page.url
-        except Exception: 
+        except Exception as e: 
+            print(f"Auto-login failed: {e}")
             return False
 
     def start_audio_recording(self, filename):
@@ -323,17 +349,25 @@ class RenaMeetingBot:
                 alone_since = None
                 while True:
                     time.sleep(5)
-                    if page.is_closed() or page.locator('text="You left the meeting"').count() > 0: 
-                        break
-                    
-                    # Auto-leave if alone
-                    if page.locator('[data-participant-id]').count() <= 1:
-                        if alone_since is None: 
-                            alone_since = time.time()
-                        elif (time.time() - alone_since) > 60: 
+                    try:
+                        if page.is_closed():
                             break
-                    else: 
-                        alone_since = None
+                        if page.locator('text="You left the meeting"').count() > 0: 
+                            break
+                        
+                        # Auto-leave if alone
+                        # Wait for at least 1 participant element to ensure we are actually in
+                        participants = page.locator('[data-participant-id]')
+                        if participants.count() <= 1:
+                            if alone_since is None: 
+                                alone_since = time.time()
+                            elif (time.time() - alone_since) > 120: # Increased to 2 mins for safety
+                                break
+                        else: 
+                            alone_since = None
+                    except Exception:
+                        # If page is closed or navigation happened
+                        break
                 
                 self.stop_audio_recording()
                 
@@ -348,12 +382,17 @@ class RenaMeetingBot:
                         db_module.update_bot_status(meeting_id, "FAILED", note="Processing error")
         except Exception as e: 
             print(f"Meet Error: {e}")
+            if db_module and meeting_id:
+                db_module.update_bot_status(meeting_id, "FAILED", note=f"Meet error: {str(e)[:100]}")
 
 # --- SLOT POOL CONCURRENCY ---
-MAX_CONCURRENT_MEETINGS = 3 
+# You can increase this to 5, 10, or more depending on your RAM/CPU.
+# Each slot uses ~500MB RAM for the browser.
+MAX_CONCURRENT_MEETINGS = 6 
 _slot_lock   = threading.Lock()
 _free_slots  = list(range(MAX_CONCURRENT_MEETINGS))
 _active_jobs = {} # meeting_id -> threading.Thread
+_active_urls = {} # normalized_url -> meeting_id
 
 def _acquire_slot():
     with _slot_lock:
@@ -361,11 +400,15 @@ def _acquire_slot():
             return None
         return _free_slots.pop(0)
 
-def _release_slot(slot):
+def _release_slot(slot, meeting_id=None, user_email=None, url=None):
     with _slot_lock:
         if slot not in _free_slots:
             _free_slots.append(slot)
             _free_slots.sort()
+        if meeting_id:
+            _active_jobs.pop((meeting_id, user_email), None)
+        if url:
+            _active_urls.pop(url, None)
 
 def _get_session_dir(slot):
     if slot == 0: 
@@ -377,23 +420,33 @@ def _get_audio_device(slot):
     To keep audios separated, each concurrency slot should use a different Virtual Cable.
     Default:
     Slot 0 -> VB-Cable (Standard)
-    Slot 1 -> VB-Cable A (Optional)
-    Slot 2 -> VB-Cable B (Optional)
+    Slot 1 -> VB-Cable A
+    Slot 2 -> VB-Cable B
+    Slot 3 -> VB-Cable C (if installed)
+    Slot 4 -> VB-Cable D (if installed)
     
-    If you haven't installed Cable A/B, they will all record from the main cable (mixed).
+    If cables are not installed, it falls back to the main CABLE, 
+    meaning audio from multiple meetings will be mixed in one recording.
     """
     if slot == 1: return "audio=CABLE-A Output (VB-Audio Cable A)"
     if slot == 2: return "audio=CABLE-B Output (VB-Audio Cable B)"
+    if slot == 3: return "audio=CABLE-C Output (VB-Audio Cable C)"
+    if slot == 4: return "audio=CABLE-D Output (VB-Audio Cable D)"
     return "audio=CABLE Output (VB-Audio Virtual Cable)"
 
 def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
     session_dir = _get_session_dir(slot)
     audio_dev = _get_audio_device(slot)
+    norm_url = normalize_url(meet_url)
+    
     os.makedirs(session_dir, exist_ok=True)
+    
+    with _slot_lock:
+        _active_urls[norm_url] = meeting_id
+        
     try:
         print(f"\n[Slot {slot}] STARTING: {meet_url} (Device: {audio_dev}) for {user_email}")
         
-        # We pass the specific audio device to the bot instance for this thread
         thread_bot = RenaMeetingBot(user_email=user_email, session_dir=session_dir, audio_device=audio_dev)
         
         if is_meet_url(meet_url):
@@ -406,8 +459,7 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
         print(f"\n[Slot {slot}] FATAL ERROR in thread: {e}")
         traceback.print_exc()
     finally:
-        _active_jobs.pop(meeting_id, None)
-        _release_slot(slot)
+        _release_slot(slot, meeting_id=meeting_id, user_email=user_email, url=norm_url)
         print(f"\n[Slot {slot}] RELEASED. Free slots: {sorted(_free_slots)}")
 
 # --- AUTOPILOT LOOP ---
@@ -425,12 +477,14 @@ def run_auto_pilot(operator_email):
             pending_joins = db.fetch_all("SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' ORDER BY created_at ASC")
             for pending in pending_joins:
                 m_id = pending['meeting_id']
-                if m_id in session_handled_ids or m_id in _active_jobs: 
+                u_email = pending.get('user_email', operator_email)
+                meet_url = normalize_url(pending['meet_url'])
+                
+                if (m_id, u_email) in session_handled_ids or (m_id, u_email) in _active_jobs or meet_url in _active_urls: 
                     continue
                 
                 slot = _acquire_slot()
                 if slot is not None:
-                    meet_url = pending['meet_url']
                     u_email = pending.get('user_email', operator_email)
                     rec = pending.get('recording_enabled', 1)
                     t = threading.Thread(
@@ -438,9 +492,9 @@ def run_auto_pilot(operator_email):
                         args=(meet_url, m_id, u_email, rec, slot), 
                         daemon=True
                     )
-                    _active_jobs[m_id] = t
+                    _active_jobs[(m_id, u_email)] = t
                     t.start()
-                    session_handled_ids.add(m_id)
+                    session_handled_ids.add((m_id, u_email))
 
             # 2. CALENDAR SCAN (ALL USERS WITH TOKENS)
             all_users = db.fetch_all("SELECT email FROM users WHERE google_token IS NOT NULL AND google_token != ''")
@@ -470,7 +524,7 @@ def run_auto_pilot(operator_email):
                     
                     for event in events:
                         m_id = event.get('id')
-                        if m_id in session_handled_ids or m_id in _active_jobs: 
+                        if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs: 
                             continue
                         
                         start_str = event.get('start', {}).get('dateTime', event.get('start', {}).get('date'))
@@ -490,6 +544,10 @@ def run_auto_pilot(operator_email):
                                 url = loc if is_meet_url(loc) or is_zoom_url(loc) else None
                             
                             if url:
+                                url = normalize_url(url)
+                                if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs or url in _active_urls:
+                                    continue
+                                    
                                 slot = _acquire_slot()
                                 if slot is not None:
                                     db.set_meeting_bot_status(m_id, "JOINING", user_email=cal_email, title=event.get('summary'), start_time=start_str)
@@ -498,9 +556,9 @@ def run_auto_pilot(operator_email):
                                         args=(url, m_id, cal_email, 1, slot), 
                                         daemon=True
                                     )
-                                    _active_jobs[m_id] = t
+                                    _active_jobs[(m_id, cal_email)] = t
                                     t.start()
-                                    session_handled_ids.add(m_id)
+                                    session_handled_ids.add((m_id, cal_email))
                 except Exception: 
                     pass
             

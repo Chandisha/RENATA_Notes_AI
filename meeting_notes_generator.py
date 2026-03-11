@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 
 # Internal imports
 import config
+import meeting_database as db
 
 # DRIVE SPACE & TEMP FIX: Redirect all large AI models and temp files
 MODELS_DIR = os.getenv("MODELS_DIR", os.path.join(os.getcwd(), "models"))
@@ -48,6 +49,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 warnings.filterwarnings("ignore")
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # -----------------------------
 # CONFIG
@@ -268,16 +270,25 @@ Output format:
             doc = SimpleDocTemplate(str(pdf_path), pagesize=letter, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=MARGIN)
             styles = getSampleStyleSheet()
 
-            title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], alignment=1, fontSize=18, spaceAfter=4)
-            h2_style = ParagraphStyle('RH2', parent=styles['Heading2'], fontSize=13, spaceBefore=18, spaceAfter=6)
-            normal_style = ParagraphStyle('RNormal', parent=styles['Normal'], fontSize=10, leading=14)
-            hindi_style = ParagraphStyle('RHindi', parent=styles['Normal'], fontName='HindiFont' if HINDI_AVAILABLE else 'Helvetica', fontSize=11, leading=18)
-            cell_style = ParagraphStyle('RCell', parent=styles['Normal'], fontSize=9, leading=12)
+            title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], alignment=1, fontSize=22, spaceAfter=8, textColor=colors.HexColor("#2563eb"))
+            h2_style = ParagraphStyle('RH2', parent=styles['Heading2'], fontSize=14, spaceBefore=20, spaceAfter=8, textColor=colors.HexColor("#1e40af"), borderPadding=4, borderSide="bottom", borderWidth=0.5, borderColor=colors.HexColor("#bfdbfe"))
+            normal_style = ParagraphStyle('RNormal', parent=styles['Normal'], fontSize=10, leading=15, textColor=colors.HexColor("#334155"))
+            hindi_style = ParagraphStyle('RHindi', parent=styles['Normal'], fontName='HindiFont' if HINDI_AVAILABLE else 'Helvetica', fontSize=11, leading=18, textColor=colors.HexColor("#1e293b"))
+            cell_style = ParagraphStyle('RCell', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.HexColor("#475569"))
 
             elements = []
-            elements.append(Paragraph(safe_text(self.bot_name.upper()), title_style))
-            elements.append(Paragraph(safe_text(f"Intelligence Report • {datetime.now().strftime('%B %d, %Y')}"), styles['Normal']))
-            elements.append(Spacer(1, 12))
+            # Modern Header
+            header_table_data = [[
+                Paragraph(safe_text(self.bot_name.upper()), ParagraphStyle('BName', parent=title_style, alignment=0, fontSize=20)),
+                Paragraph(f"Intelligence Report<br/>{datetime.now().strftime('%B %d, %Y')}", ParagraphStyle('RDate', parent=normal_style, alignment=2, fontSize=9))
+            ]]
+            header_table = Table(header_table_data, colWidths=[CONTENT_W*0.7, CONTENT_W*0.3])
+            header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'BOTTOM'), ('BOTTOMPADDING', (0,0), (-1,-1), 12)]))
+            elements.append(header_table)
+            
+            # Decorative Line
+            elements.append(Table([[""]], colWidths=[CONTENT_W], rowHeights=[2], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#2563eb"))])))
+            elements.append(Spacer(1, 18))
 
             if self.intel.get("summary_en"):
                 elements.append(Paragraph("Executive Summary", h2_style))
@@ -298,7 +309,14 @@ Output format:
                 action_data = [["Task", "Owner", "Deadline"]]
                 for act in actions: action_data.append([safe_text(act.get("task","")), safe_text(act.get("owner","")), safe_text(act.get("deadline",""))])
                 t = Table(action_data, colWidths=[CONTENT_W*0.6, CONTENT_W*0.2, CONTENT_W*0.2])
-                t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.grey), ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke), ('GRID',(0,0),(-1,-1),0.5,colors.grey)]))
+                t.setStyle(TableStyle([
+                    ('BACKGROUND',(0,0),(-1,0),colors.HexColor("#f1f5f9")), 
+                    ('TEXTCOLOR',(0,0),(-1,0),colors.HexColor("#1e40af")), 
+                    ('GRID',(0,0),(-1,-1),0.5,colors.HexColor("#cbd5e1")),
+                    ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+                    ('TOPPADDING', (0,0), (-1,-1), 6),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+                ]))
                 elements.append(t)
 
             if self.structured_transcript:
@@ -312,15 +330,17 @@ Output format:
                 for s in self.structured_transcript:
                     trans_data.append([
                         Paragraph(safe_text(s.get('timestamp','')), cell_style),
-                        Paragraph(safe_text(s.get('speaker','')), cell_style),
-                        Paragraph(safe_text(s.get('text','')), normal_style) # Standard font for English
+                        Paragraph(safe_text(s.get('speaker','')), ParagraphStyle('RSpeak', parent=cell_style, fontName='Helvetica-Bold')),
+                        Paragraph(safe_text(s.get('text','')), normal_style)
                     ])
-                t = Table(trans_data, colWidths=[CONTENT_W*0.1, CONTENT_W*0.2, CONTENT_W*0.7])
+                t = Table(trans_data, colWidths=[CONTENT_W*0.12, CONTENT_W*0.18, CONTENT_W*0.7])
                 t.setStyle(TableStyle([
-                    ('BACKGROUND',(0,0),(-1,0),colors.grey), 
-                    ('TEXTCOLOR',(0,0),(-1,0),colors.whitesmoke),
-                    ('GRID',(0,0),(-1,-1),0.3,colors.lightgrey),
-                    ('VALIGN',(0,0),(-1,-1),'TOP')
+                    ('BACKGROUND',(0,0),(-1,0),colors.HexColor("#f8fafc")), 
+                    ('TEXTCOLOR',(0,0),(-1,0),colors.HexColor("#475569")),
+                    ('GRID',(0,0),(-1,-1),0.1,colors.HexColor("#e2e8f0")),
+                    ('VALIGN',(0,0),(-1,-1),'TOP'),
+                    ('TOPPADDING', (0,0), (-1,-1), 4),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 4),
                 ]))
                 elements.append(t)
 
@@ -357,6 +377,33 @@ Output format:
         with open(json_path, 'w') as f: json.dump(data, f, indent=4)
         self.last_json_path = str(json_path)
         logger.info("Gemini Hybrid Pipeline Finished.")
+
+def process_meeting_audio(audio_path: str, meeting_id: str):
+    """
+    Standard entry point for the bot pilot to process a recording.
+    """
+    logger.info(f"Starting pipeline for meeting {meeting_id} with audio {audio_path}")
+    generator = AdaptiveMeetingNotesGenerator(audio_path)
+    try:
+        generator.process_meeting(audio_path)
+        
+        # Save results to database
+        db.save_meeting_results(
+            meeting_id,
+            transcript=json.dumps(generator.structured_transcript),
+            summary=generator.intel.get("summary_en", ""),
+            action_items=json.dumps(generator.intel.get("actions", [])),
+            speaker_stats=json.dumps(generator.intel.get("speaker_analytics", {})),
+            engagement=json.dumps(generator.intel.get("engagement_metrics", {})),
+            pdf_path=generator.last_pdf_path,
+            json_path=generator.last_json_path
+        )
+        logger.info(f"Pipeline results saved to DB for {meeting_id}")
+    except Exception as e:
+        logger.error(f"Pipeline failed for {meeting_id}: {e}")
+        traceback.print_exc()
+        db.update_bot_status(meeting_id, "FAILED", note=str(e))
+        raise e
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
