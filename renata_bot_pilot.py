@@ -9,6 +9,7 @@ import threading
 import argparse
 import traceback
 from pathlib import Path
+import sqlite3
 from datetime import datetime, timezone, timedelta
 from dateutil import parser as dt_parser
 
@@ -487,37 +488,37 @@ def run_auto_pilot(operator_email):
                 u_email = pending.get('user_email', operator_email)
                 meet_url = normalize_url(pending['meet_url'])
                 
-                if (m_id, u_email) in session_handled_ids or (m_id, u_email) in _active_jobs or meet_url in _active_urls: 
+                # PREVENT DUPLICATE JOINS: Check ID, URL, and if currently active
+                if (m_id, u_email) in session_handled_ids or (meet_url, u_email) in session_handled_ids:
+                    continue
+                if (m_id, u_email) in _active_jobs or meet_url in _active_urls:
                     continue
                 
                 # RECENT CHECK: Only join if the meeting request was created in the last 15 minutes
                 try:
-                    # In SQLite, CURRENT_TIMESTAMP is UTC. 
-                    # If pending['created_at'] exists, compare age.
                     created_at_str = pending.get('created_at')
                     if created_at_str:
-                        # Handle both 'YYYY-MM-DD HH:MM:SS' and ISO formats
                         if 'T' in created_at_str:
                             c_dt = dt_parser.isoparse(created_at_str)
                         else:
                             c_dt = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
                         
                         age_mins = (datetime.now(timezone.utc) - c_dt).total_seconds() / 60
-                        if age_mins > 20: # Skip if more than 20 mins old
-                            print(f"Skipping stale Live Join: {m_id} (Age: {int(age_mins)}m)")
+                        if age_mins > 20: 
                             session_handled_ids.add((m_id, u_email))
-                            db.update_bot_status(m_id, "FAILED", note="Skipped: Manual join request expired (stale).", user_email=u_email)
+                            session_handled_ids.add((meet_url, u_email))
+                            db.update_bot_status(m_id, "FAILED", note="Skipped: Stale request.", user_email=u_email)
                             continue
                 except: pass
 
                 slot = _acquire_slot()
                 if slot is not None:
-                    # MARK ACTIVE IMMEDIATELY to prevent race conditions
-                    _active_jobs[(m_id, u_email)] = True # Placeholder
+                    _active_jobs[(m_id, u_email)] = True 
                     _active_urls[meet_url] = m_id
                     session_handled_ids.add((m_id, u_email))
+                    session_handled_ids.add((meet_url, u_email))
                     
-                    db.update_bot_status(m_id, "DISPATCHING", note=f"Assigned to Slot {slot}. Initializing isolated session...", user_email=u_email)
+                    db.update_bot_status(m_id, "DISPATCHING", note=f"Slot {slot} acquired. Joining...", user_email=u_email)
                     
                     rec = pending.get('recording_enabled', 1)
                     t = threading.Thread(
@@ -556,7 +557,14 @@ def run_auto_pilot(operator_email):
                     
                     for event in events:
                         m_id = event.get('id')
-                        if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs: 
+                        url = event.get('hangoutLink')
+                        if not url and 'location' in event: 
+                            loc = event['location']
+                            url = loc if is_meet_url(loc) or is_zoom_url(loc) else None
+                        
+                        norm_url = normalize_url(url) if url else None
+                        
+                        if (m_id, cal_email) in session_handled_ids or (norm_url, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs: 
                             continue
                         
                         start_str = event.get('start', {}).get('dateTime', event.get('start', {}).get('date'))
@@ -571,11 +579,6 @@ def run_auto_pilot(operator_email):
                         
                         # Real-time window: started up to 10 mins ago, or starting in next 2 mins
                         if -2 <= diff <= 10:
-                            url = event.get('hangoutLink')
-                            if not url and 'location' in event: 
-                                loc = event['location']
-                                url = loc if is_meet_url(loc) or is_zoom_url(loc) else None
-                            
                             if url:
                                 url = normalize_url(url)
                                 if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs or url in _active_urls:
@@ -587,6 +590,7 @@ def run_auto_pilot(operator_email):
                                     _active_jobs[(m_id, cal_email)] = True
                                     _active_urls[url] = m_id
                                     session_handled_ids.add((m_id, cal_email))
+                                    session_handled_ids.add((url, cal_email))
                                     
                                     db.set_meeting_bot_status(m_id, "DISPATCHING", user_email=cal_email, title=event.get('summary'), start_time=start_str, bot_status_note=f"Scheduled event detected. Assigning Slot {slot}...")
                                     
@@ -597,13 +601,17 @@ def run_auto_pilot(operator_email):
                                     )
                                     _active_jobs[(m_id, cal_email)] = t
                                     t.start()
-                except Exception: 
-                    pass
+                except Exception as ex:
+                    print(f"Calendar Error for user {cal_email}: {ex}")
             
-            time.sleep(30)
-        except Exception as e: 
-            print(f"Pilot Loop Error: {e}")
-            time.sleep(60)
+            time.sleep(15) 
+            
+        except Exception as e:
+            if "database" in str(e).lower() or "address" in str(e).lower():
+                print(f"Pilot Loop (Network/DB Error): {e}. Retrying in 10s...")
+            else:
+                print(f"Pilot Loop Error: {e}")
+            time.sleep(10)
 
 # --- ENTRY POINT ---
 def main():

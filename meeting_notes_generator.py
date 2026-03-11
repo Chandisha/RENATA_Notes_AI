@@ -111,7 +111,12 @@ class AdaptiveMeetingNotesGenerator:
 
     def _generate_with_fallback(self, content, prompt_text=None):
         """Strictly use Gemini 3.0 Flash or 2.5 Flash as requested."""
-        models_to_try = ["gemini-3.0-flash", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        models_to_try = [
+            "gemini-1.5-flash", 
+            "gemini-1.5-pro", 
+            "gemini-2.0-flash-exp", 
+            "gemini-1.5-flash-8b"
+        ]
         
         for model_id in models_to_try:
             try:

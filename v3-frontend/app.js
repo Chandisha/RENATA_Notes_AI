@@ -453,6 +453,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (jBtn) jBtn.addEventListener('click', () => modal.classList.add('active'));
     window.closeModal = () => modal.classList.remove('active');
 
+    const refRBtn = document.getElementById('refresh-reports-btn');
+    if (refRBtn) refRBtn.addEventListener('click', loadReportsData);
+
     const mJoin = document.getElementById('manual-join');
     if (mJoin) mJoin.addEventListener('click', () => dispatchRenata(document.getElementById('manual-url')?.value));
 

@@ -174,9 +174,14 @@
 
                 <!-- Other pages are hidden by default and managed by JS -->
                 <section id="reports-page" class="page">
-                    <div class="page-header">
-                        <h1>Meeting Archive</h1>
-                        <p class="subtitle">Access your past and newly generated reports.</p>
+                    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+                        <div>
+                            <h1>Meeting Archive</h1>
+                            <p class="subtitle">Access your past and newly generated reports.</p>
+                        </div>
+                        <button id="refresh-reports-btn" class="secondary-btn" style="width: auto; padding: 10px 20px;">
+                            <i data-feather="refresh-cw"></i> Refresh Reports
+                        </button>
                     </div>
                     <div class="reports-container" id="reports-grid">
                         <!-- Dynamic Grid -->
