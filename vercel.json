@@ -36,6 +36,14 @@
             "dest": "api/main.py"
         },
         {
+            "src": "/analytics(.*)",
+            "dest": "api/main.py"
+        },
+        {
+            "src": "/chat/(.*)",
+            "dest": "api/main.py"
+        },
+        {
             "src": "/dashboard(.*)",
             "dest": "api/main.py"
         },

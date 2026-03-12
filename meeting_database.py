@@ -448,12 +448,22 @@ def create_chat_session(user_email, session_id, title="New Conversation"):
 
 def get_chat_sessions(user_email, limit=20):
     # Only keep chats from the last 30 days as requested
-    query = """
-        SELECT * FROM chat_sessions 
-        WHERE user_email = ? 
-        AND updated_at >= datetime('now', '-30 days')
-        ORDER BY updated_at DESC LIMIT ?
-    """
+    if DATABASE_URL:
+        # PostgreSQL syntax
+        query = """
+            SELECT * FROM chat_sessions 
+            WHERE user_email = %s 
+            AND updated_at >= NOW() - INTERVAL '30 days'
+            ORDER BY updated_at DESC LIMIT %s
+        """
+    else:
+        # SQLite syntax
+        query = """
+            SELECT * FROM chat_sessions 
+            WHERE user_email = ? 
+            AND updated_at >= datetime('now', '-30 days')
+            ORDER BY updated_at DESC LIMIT ?
+        """
     return fetch_all(query, (user_email, limit))
 
 def get_chat_messages(session_id):

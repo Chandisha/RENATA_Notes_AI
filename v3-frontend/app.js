@@ -388,6 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data.sessions.forEach(s => {
                 const item = document.createElement('div');
                 item.className = `history-item ${s.session_id === currentSessionId ? 'active' : ''}`;
+                item.setAttribute('data-session', s.session_id);
                 item.innerHTML = `<i data-feather="message-square"></i> <span>${s.title || 'Conversation'}</span>`;
                 item.onclick = () => selectSession(s.session_id);
                 list.appendChild(item);
@@ -406,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         currentSessionId = sessionId;
         localStorage.setItem('renata_chat_session', sessionId);
         document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
-        const activeItem = Array.from(document.querySelectorAll('.history-item')).find(i => i.textContent.includes(sessionId));
+        const activeItem = document.querySelector(`.history-item[data-session="${sessionId}"]`);
         if (activeItem) activeItem.classList.add('active');
 
         // Load messages
