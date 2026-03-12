@@ -1086,3 +1086,31 @@ input:checked+.slider:before {
     color: var(--accent-green);
     font-weight: 600;
 }
+
+/* Analytics Page Specifics */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+    margin-bottom: 24px;
+    width: 100%;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 24px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+}
+
+.stat-icon {
+    font-size: 1.25rem;
+    padding: 12px;
+    border-radius: 14px;
+    background: rgba(242, 113, 33, 0.1);
+    color: var(--accent-orange);
+}

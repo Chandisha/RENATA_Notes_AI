@@ -291,23 +291,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mVal) mVal.textContent = stats.total_meetings || 0;
             if (rVal) rVal.textContent = stats.total_reports || 0;
             if (eVal) eVal.textContent = (stats.engagement_score || 0) + '%';
-            if (uVal) uVal.textContent = stats.upcoming_meetings || 0;
+            if (uVal) uVal.textContent = stats.upcoming_count || 0;
 
             // Analytics Trends Chart (Dynamic)
             const ctx = document.getElementById('analyticsChart')?.getContext('2d');
             if (ctx) {
                 if (window.anaChartInstance) window.anaChartInstance.destroy();
                 window.anaChartInstance = new Chart(ctx, {
-                    type: 'line',
+                    type: 'bar', // Better for daily activity
                     data: {
-                        labels: stats.chart_labels || ['No Data'],
+                        labels: stats.chart_labels,
                         datasets: [{
-                            label: 'Engagement Trend',
-                            data: stats.chart_data || [0],
-                            borderColor: '#8b5cf6',
-                            tension: 0.4,
-                            fill: true,
-                            backgroundColor: 'rgba(139, 92, 246, 0.1)'
+                            label: 'Daily Engagement',
+                            data: stats.chart_data,
+                            backgroundColor: 'rgba(242, 113, 33, 0.7)',
+                            borderColor: '#f27121',
+                            borderWidth: 1,
+                            borderRadius: 6
                         }]
                     },
                     options: {

@@ -111,44 +111,37 @@
                 </section>
 
                 <section id="analytics-page" class="page">
-                    <div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <div>
+                    <div class="page-header">
+                        <div class="header-main">
                             <h1>Account Analytics</h1>
                             <p class="subtitle">Personalized performance and engagement metrics.</p>
+                        </div>
                     </div>
 
-                    <div class="stats-grid">
+                    <div class="stats-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px;">
                         <div class="stat-card">
-                            <div class="stat-icon purple">
-                                <i data-feather="video"></i>
-                            </div>
+                            <i data-feather="video" class="stat-icon purple"></i>
                             <div class="stat-data">
                                 <span class="stat-value" id="ana-total-meetings">0</span>
                                 <span class="stat-label">Total Meetings Joined</span>
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon blue">
-                                <i data-feather="clock"></i>
-                            </div>
+                            <i data-feather="clock" class="stat-icon blue"></i>
                             <div class="stat-data">
                                 <span class="stat-value" id="ana-total-reports">0</span>
                                 <span class="stat-label">Reports Generated</span>
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon green">
-                                <i data-feather="activity"></i>
-                            </div>
+                            <i data-feather="activity" class="stat-icon green"></i>
                             <div class="stat-data">
                                 <span class="stat-value" id="ana-total-engagement">0%</span>
                                 <span class="stat-label">Engagement Score</span>
                             </div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-icon cyan">
-                                <i data-feather="zap"></i>
-                            </div>
+                            <i data-feather="zap" class="stat-icon cyan"></i>
                             <div class="stat-data">
                                 <span class="stat-value" id="ana-upcoming">0</span>
                                 <span class="stat-label">Upcoming Meetings</span>

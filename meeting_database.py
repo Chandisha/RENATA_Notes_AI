@@ -368,37 +368,39 @@ def get_meeting_stats(user_email, upcoming_count=0):
     # App engagement - Platform time
     stats['app_engagement_minutes'] = (total_minutes) + (stats['total_meetings'] * 10) + (stats['total_reports'] * 5)
 
-    # 4. History for Chart (Eng. over time)
-    # If no engagement metrics, use a synthetic trend based on reports
-    history_rows = fetch_all("""
-        SELECT start_time, engagement_metrics, (pdf_path IS NOT NULL) as has_pdf FROM meetings 
-        WHERE LOWER(user_email) = LOWER(?)
-        ORDER BY start_time ASC LIMIT 10
-    """, params)
-    
+    stats['upcoming_count'] = upcoming_count
+
+    # 4. History for Chart: Daily engagement for last 7 days
+    from datetime import timedelta
     chart_data = []
     chart_labels = []
-    for h in history_rows:
-        try:
-            score = 0
-            if h.get('engagement_metrics'):
-                d = json.loads(h['engagement_metrics'])
-                score = d.get('score', 0)
-            
-            # Fallback for reports without explicit metrics yet
-            if score == 0 and h.get('has_pdf'):
-                score = 65 # Baseline for a completed meeting
-            elif score == 0:
-                score = 20 # Baseline for a joined but not yet processed meeting
-                
-            chart_data.append(score)
-            dt = datetime.fromisoformat(h['start_time'].replace('Z', '+00:00'))
-            chart_labels.append(dt.strftime("%b %d"))
-        except: continue
     
-    if not chart_data:
-        chart_data = [0, 0, 0, 0, 0]
-        chart_labels = ["No Data", "No Data", "No Data", "No Data", "No Data"]
+    for i in range(7):
+        day = (datetime.now() - timedelta(days=6-i))
+        day_str = day.strftime("%Y-%m-%d")
+        label = day.strftime("%b %d")
+        
+        # Use LIKE for both SQLite and Postgres for consistency with ISO strings
+        query = "SELECT engagement_metrics FROM meetings WHERE LOWER(user_email) = LOWER(?) AND start_time LIKE ?"
+        params_day = (user_email, day_str + "%")
+             
+        day_rows = fetch_all(query, params_day)
+        
+        if not day_rows:
+            score = 0
+        else:
+            total_score = 0
+            for r in day_rows:
+                s = 0
+                if r.get('engagement_metrics'):
+                    try: s = json.loads(r['engagement_metrics']).get('score', 0)
+                    except: pass
+                if s == 0: s = 40 # Baseline for a meeting on that day
+                total_score += s
+            score = min(100, round(total_score / len(day_rows)) if day_rows else 0)
+            
+        chart_data.append(score)
+        chart_labels.append(label)
 
     stats['chart_data'] = chart_data
     stats['chart_labels'] = chart_labels
