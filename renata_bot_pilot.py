@@ -392,9 +392,9 @@ class RenaMeetingBot:
                 db_module.update_bot_status(meeting_id, "FAILED", note=f"Meet error: {str(e)[:100]}")
 
 # --- SLOT POOL CONCURRENCY ---
-# You can increase this to 5, 10, or more depending on your RAM/CPU.
+# Optimized for 10+ users and high simultaneous demand
 # Each slot uses ~500MB RAM for the browser.
-MAX_CONCURRENT_MEETINGS = 6 
+MAX_CONCURRENT_MEETINGS = 20 
 _slot_lock   = threading.Lock()
 _free_slots  = list(range(MAX_CONCURRENT_MEETINGS))
 _active_jobs = {} # meeting_id -> threading.Thread

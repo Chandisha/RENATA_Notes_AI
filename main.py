@@ -534,10 +534,8 @@ async def analytics_page_spa(request: Request):
 async def analytics_data(request: Request):
     user = require_user(request)
     email = user['email']
-    print(f"DEBUG: Analytics request for {email}")
-    stats = db.get_meeting_stats(user_email=email)
     
-    # 5. Add Upcoming Meetings Count from Google Calendar
+    # 5. Add Upcoming Meetings Count from Google Calendar (Match Dashboard Logic)
     upcoming_count = 0
     try:
         creds = get_user_credentials(email)
@@ -547,9 +545,10 @@ async def analytics_data(request: Request):
             now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
             result = svc.events().list(
                 calendarId="primary", timeMin=now_iso,
-                maxResults=50, singleEvents=True, orderBy="startTime"
+                maxResults=15, singleEvents=True, orderBy="startTime"
             ).execute()
-            upcoming_count = len(result.get("items", []))
+            items = result.get("items", [])
+            upcoming_count = len(items)
     except Exception as e:
         print(f"Analytics Calendar Error: {e}")
         
