@@ -66,21 +66,14 @@
         <!-- Main Content -->
         <main class="main-content">
             <header class="top-bar">
-                <div class="search-box">
-                    <i data-feather="search"></i>
-                    <input type="text" placeholder="Search meetings, speakers, or topics...">
-                </div>
                 <div class="top-bar-actions">
                     <div class="status-badge">
                         <span class="status-dot pulse"></span>
                         <span class="status-text">Server: Connected</span>
                     </div>
-                    <button class="icon-btn">
-                        <i data-feather="bell"></i>
-                    </button>
-                    <button class="primary-btn" id="join-btn">
-                        <i data-feather="plus"></i>
-                        <span>New Meeting</span>
+                    <button class="primary-btn" id="header-live-btn" onclick="window.location.hash='#live'; window.location.reload();">
+                        <i data-feather="video"></i>
+                        <span>Live Meeting</span>
                     </button>
                 </div>
             </header>
@@ -122,10 +115,6 @@
                         <div>
                             <h1>Account Analytics</h1>
                             <p class="subtitle">Personalized performance and engagement metrics.</p>
-                        </div>
-                        <button id="refresh-analytics-btn" class="secondary-btn">
-                            <i data-feather="refresh-cw"></i> Sync
-                        </button>
                     </div>
 
                     <div class="stats-grid">
@@ -201,11 +190,8 @@
                         </div>
                         <div class="search-stats-container">
                             <div class="kb-stats" id="kb-stats-area">
-                                <span class="badge"><b id="pdf-count">0</b> Reports</span>
+                                <span class="badge"><b id="report-count">0</b> Reports</span>
                             </div>
-                            <button id="sync-kb-btn" class="secondary-btn">
-                                <i data-feather="refresh-cw"></i> Sync Knowledge Base
-                            </button>
                         </div>
                     </div>
                     <div class="chat-layout">

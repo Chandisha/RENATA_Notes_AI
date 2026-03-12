@@ -534,6 +534,7 @@ async def analytics_page_spa(request: Request):
 async def analytics_data(request: Request):
     user = require_user(request)
     email = user['email']
+    print(f"DEBUG: Analytics request for {email}")
     stats = db.get_meeting_stats(user_email=email)
     
     # 5. Add Upcoming Meetings Count from Google Calendar

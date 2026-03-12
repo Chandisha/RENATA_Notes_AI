@@ -71,6 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'analytics':
                 await loadAnalyticsData();
+                startAnalyticsAutoRefresh();
                 break;
             case 'search':
                 await loadSearchStats();
@@ -278,9 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadAnalyticsData() {
-        const refreshIcon = document.querySelector('#refresh-analytics-btn i');
-        if (refreshIcon) refreshIcon.classList.add('spin');
-
         try {
             const res = await apiFetch("/analytics/data");
             const stats = await res.json();
@@ -340,20 +338,33 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             }
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error("Analytics Error:", err); }
+    }
+
+    let analyticsInterval = null;
+    function startAnalyticsAutoRefresh() {
+        if (analyticsInterval) clearInterval(analyticsInterval);
+        analyticsInterval = setInterval(() => {
+            if (window.location.hash === '#analytics') {
+                loadAnalyticsData();
+            } else {
+                clearInterval(analyticsInterval);
+                analyticsInterval = null;
+            }
+        }, 30000); // 30 seconds
     }
 
     async function loadSearchStats() {
         try {
             const res = await apiFetch("/search/status");
             const data = await res.json();
-            const pc = document.getElementById("pdf-count");
+            const pc = document.getElementById("report-count");
             if (pc) pc.textContent = (data.pdf_count || 0) + " Reports";
         } catch (err) { }
     }
 
     // --- CHAT SESSION LOGIC ---
-    let currentSessionId = null;
+    let currentSessionId = localStorage.getItem('renata_chat_session');
 
     async function loadChatSessions() {
         try {
@@ -368,6 +379,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Persistence: If no currentSessionId is set, pick the most recent
+            if (!currentSessionId && data.sessions.length > 0) {
+                currentSessionId = data.sessions[0].session_id;
+                localStorage.setItem('renata_chat_session', currentSessionId);
+            }
+
             data.sessions.forEach(s => {
                 const item = document.createElement('div');
                 item.className = `history-item ${s.session_id === currentSessionId ? 'active' : ''}`;
@@ -375,12 +392,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 item.onclick = () => selectSession(s.session_id);
                 list.appendChild(item);
             });
+
+            // Auto-load messages for current session if not already loaded
+            if (currentSessionId && document.getElementById('chat-box')?.children.length <= 1) {
+                selectSession(currentSessionId);
+            }
+
             feather.replace();
         } catch (err) { console.error(err); }
     }
 
     async function selectSession(sessionId) {
         currentSessionId = sessionId;
+        localStorage.setItem('renata_chat_session', sessionId);
         document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
         const activeItem = Array.from(document.querySelectorAll('.history-item')).find(i => i.textContent.includes(sessionId));
         if (activeItem) activeItem.classList.add('active');
@@ -413,6 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch("/chat/sessions", { method: 'POST' });
             const data = await res.json();
             currentSessionId = data.session_id;
+            localStorage.setItem('renata_chat_session', currentSessionId);
             const box = document.getElementById('chat-box');
             if (box) {
                 box.innerHTML = '<div class="message assistant"><p>Started a new conversation. Ask me anything about your reports!</p></div>';

@@ -331,8 +331,8 @@ def get_meeting_stats(user_email, upcoming_count=0):
     row = fetch_one("SELECT COUNT(*) as count FROM meetings WHERE LOWER(user_email) = LOWER(?) AND (is_skipped = 0 OR is_skipped IS NULL)", params)
     stats['total_meetings'] = row['count'] if row else 0
     
-    # Total Reports (PDFs)
-    row = fetch_one("SELECT COUNT(*) as count FROM meetings WHERE LOWER(user_email) = LOWER(?) AND (pdf_path IS NOT NULL OR pdf_blob IS NOT NULL)", params)
+    # Total Reports (Meetings with transcripts/summaries are considered reports)
+    row = fetch_one("SELECT COUNT(*) as count FROM meetings WHERE LOWER(user_email) = LOWER(?) AND (pdf_path IS NOT NULL OR transcript_text IS NOT NULL OR summary_text IS NOT NULL)", params)
     stats['total_reports'] = row['count'] if row else 0
     
     # Duration - if duration is NULL, estimate 30 mins for older sessions to show engagement
@@ -447,7 +447,13 @@ def create_chat_session(user_email, session_id, title="New Conversation"):
     return success
 
 def get_chat_sessions(user_email, limit=20):
-    query = "SELECT * FROM chat_sessions WHERE user_email = ? ORDER BY updated_at DESC LIMIT ?"
+    # Only keep chats from the last 30 days as requested
+    query = """
+        SELECT * FROM chat_sessions 
+        WHERE user_email = ? 
+        AND updated_at >= datetime('now', '-30 days')
+        ORDER BY updated_at DESC LIMIT ?
+    """
     return fetch_all(query, (user_email, limit))
 
 def get_chat_messages(session_id):
