@@ -219,47 +219,86 @@
                 <section id="live-page" class="page">
                     <div class="page-header">
                         <h1>Live Control Room</h1>
-                        <p>Manually dispatch Renata to any call.</p>
+                        <p class="subtitle">Dispatch Renata to any call and track its progress in real-time.</p>
                     </div>
-                    <div class="card live-dispatch">
-                        <h3>Join a Meeting</h3>
+
+                    <!-- Dispatch Card -->
+                    <div class="card live-dispatch" style="margin-bottom: 24px;">
+                        <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Join a Meeting</h3>
                         <div class="input-group">
-                            <input type="text" id="manual-url" placeholder="https://meet.google.com/xxx-xxxx-xxx">
-                            <button class="primary-btn" id="manual-join">Dispatch Renata</button>
+                            <input type="text" id="manual-url" placeholder="https://meet.google.com/xxx-xxxx-xxx or zoom.us/j/...">
+                            <button class="primary-btn" id="manual-join">
+                                <i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i>
+                                Dispatch Renata
+                            </button>
                         </div>
                     </div>
 
-                    <div id="bot-live-status" class="card status-card" style="margin-top: 24px;">
-                        <div class="status-header">
-                            <h3>Bot Status</h3>
-                            <span class="pulse-indicator" id="bot-pulse" style="background: #64748b;"></span>
-                        </div>
-                        <div id="bot-progress-area" style="display: none; margin-top: 10px;">
-                            <div class="progress-container">
-                                <div id="live-progress-bar" class="progress-bar"></div>
+                    <!-- Live Bot Tracker Card -->
+                    <div id="bot-live-status" class="card" style="padding: 28px;">
+                        <!-- Header Row -->
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <span class="pulse-indicator" id="bot-pulse" style="background:#64748b; flex-shrink:0;"></span>
+                                <div>
+                                    <h3 style="font-size:1.05rem; margin:0;">Bot Status</h3>
+                                    <p id="bot-status-badge" style="margin:0; font-size:0.8rem; color:var(--text-secondary);">Idle</p>
+                                </div>
+                            </div>
+                            <div id="bot-live-timer" style="display:none; font-size:0.85rem; color:var(--accent-green); font-weight:700; font-variant-numeric:tabular-nums;">
+                                ● 00:00
                             </div>
                         </div>
-                        <div id="bot-idle-msg" style="color: var(--text-secondary); font-size: 0.9rem;">Awaiting
-                            dispatch. Enter a meeting link above and click Dispatch Renata.</div>
-                        <div class="status-steps" id="bot-steps" style="display: none;">
-                            <div class="step" id="step-dispatching">
-                                <div class="step-icon"><i data-feather="send"></i></div>
-                                <span>Dispatching</span>
+
+                        <!-- IDLE STATE -->
+                        <div id="bot-idle-msg" style="color:var(--text-secondary); font-size:0.9rem; padding: 12px 0;">
+                            Awaiting dispatch. Enter a meeting link above and click <strong>Dispatch Renata</strong>.
+                        </div>
+
+                        <!-- PROGRESS STATE (hidden until dispatched) -->
+                        <div id="bot-tracker" style="display:none;">
+                            <!-- tqdm-style Progress Bar -->
+                            <div style="margin-bottom:22px;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.78rem; color:var(--text-secondary);">
+                                    <span id="progress-label">Initializing...</span>
+                                    <span id="progress-percent">0%</span>
+                                </div>
+                                <div style="width:100%; height:10px; background:#f1f5f9; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0;">
+                                    <div id="live-progress-bar" style="height:100%; width:0%; border-radius:10px; background:linear-gradient(90deg,#f27121,#e94057); transition:width 0.8s cubic-bezier(0.4,0,0.2,1); position:relative;">
+                                        <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);animation:shimmer 1.5s infinite;"></div>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="step" id="step-fetching">
-                                <div class="step-icon"><i data-feather="download"></i></div>
-                                <span>Fetching</span>
+
+                            <!-- Phase Steps -->
+                            <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:20px;">
+                                <div class="bot-phase" id="phase-dispatching">
+                                    <div class="bot-phase-icon"><i data-feather="cpu" style="width:18px;height:18px;"></i></div>
+                                    <span>Dispatching</span>
+                                </div>
+                                <div class="bot-phase" id="phase-navigating">
+                                    <div class="bot-phase-icon"><i data-feather="compass" style="width:18px;height:18px;"></i></div>
+                                    <span>Navigating</span>
+                                </div>
+                                <div class="bot-phase" id="phase-lobby">
+                                    <div class="bot-phase-icon"><i data-feather="clock" style="width:18px;height:18px;"></i></div>
+                                    <span>In Lobby</span>
+                                </div>
+                                <div class="bot-phase" id="phase-live">
+                                    <div class="bot-phase-icon"><i data-feather="mic" style="width:18px;height:18px;"></i></div>
+                                    <span>Bot Active</span>
+                                </div>
+                                <div class="bot-phase" id="phase-processing">
+                                    <div class="bot-phase-icon"><i data-feather="file-text" style="width:18px;height:18px;"></i></div>
+                                    <span>Processing</span>
+                                </div>
                             </div>
-                            <div class="step" id="step-connecting">
-                                <div class="step-icon"><i data-feather="link"></i></div>
-                                <span>Connecting</span>
-                            </div>
-                            <div class="step" id="step-live">
-                                <div class="step-icon"><i data-feather="activity"></i></div>
-                                <span>Live In Call</span>
+
+                            <!-- Live Log / Note -->
+                            <div id="bot-log" style="background:#f8fafc; border-radius:12px; padding:14px 16px; font-size:0.83rem; color:var(--text-secondary); border:1px solid var(--border-color); font-family: monospace; min-height:40px; line-height:1.7;">
+                                <span id="bot-log-text">» Sending join request to pilot...</span>
                             </div>
                         </div>
-                        <p id="bot-note" class="muted" style="margin-top: 12px; font-size: 0.85rem;"></p>
                     </div>
                 </section>
 

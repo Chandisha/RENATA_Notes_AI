@@ -1113,4 +1113,84 @@ input:checked+.slider:before {
     border-radius: 14px;
     background: rgba(242, 113, 33, 0.1);
     color: var(--accent-orange);
-}
+}
+
+/* ===== Bot Phase Tracker ===== */
+.bot-phase {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    text-align: center;
+    opacity: 0.35;
+    transition: opacity 0.4s ease, color 0.4s ease;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.bot-phase-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    border: 2px solid #e2e8f0;
+    transition: all 0.4s ease;
+    color: var(--text-secondary);
+}
+
+/* Active phase: pulsing orange ring */
+.bot-phase.active {
+    opacity: 1;
+    color: var(--accent-orange);
+}
+.bot-phase.active .bot-phase-icon {
+    background: rgba(242, 113, 33, 0.1);
+    border-color: var(--accent-orange);
+    color: var(--accent-orange);
+    box-shadow: 0 0 0 4px rgba(242, 113, 33, 0.12);
+    animation: phase-pulse 1.4s infinite;
+}
+
+/* Complete phase: green tick background */
+.bot-phase.complete {
+    opacity: 1;
+    color: var(--accent-green);
+}
+.bot-phase.complete .bot-phase-icon {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+    box-shadow: none;
+    animation: none;
+}
+
+@keyframes phase-pulse {
+    0%   { box-shadow: 0 0 0 0   rgba(242, 113, 33, 0.4); }
+    70%  { box-shadow: 0 0 0 10px rgba(242, 113, 33, 0); }
+    100% { box-shadow: 0 0 0 0   rgba(242, 113, 33, 0); }
+}
+
+/* input-group wider for live page */
+.live-dispatch .input-group {
+    display: flex;
+    gap: 12px;
+}
+.live-dispatch .input-group input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 0.95rem;
+    outline: none;
+    background: #fff;
+    color: var(--text-primary);
+    transition: border-color 0.2s;
+}
+.live-dispatch .input-group input:focus {
+    border-color: var(--accent-orange);
+}
+

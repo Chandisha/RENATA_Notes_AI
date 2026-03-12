@@ -450,12 +450,128 @@ document.addEventListener('DOMContentLoaded', () => {
     const newChatBtn = document.getElementById('new-chat-sidebar-btn');
     if (newChatBtn) newChatBtn.onclick = createNewChat;
 
+    // ─── Timer for live call duration ───
+    let _liveTimerInterval = null;
+    let _liveStartTs = null;
+
+    function _startLiveTimer() {
+        if (_liveTimerInterval) return; // already running
+        _liveStartTs = Date.now();
+        const el = document.getElementById('bot-live-timer');
+        if (el) el.style.display = 'block';
+        _liveTimerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - _liveStartTs) / 1000);
+            const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const s = String(elapsed % 60).padStart(2, '0');
+            const el2 = document.getElementById('bot-live-timer');
+            if (el2) el2.textContent = `● ${m}:${s}`;
+        }, 1000);
+    }
+
+    function _stopLiveTimer() {
+        if (_liveTimerInterval) { clearInterval(_liveTimerInterval); _liveTimerInterval = null; }
+        const el = document.getElementById('bot-live-timer');
+        if (el) el.style.display = 'none';
+    }
+
+    // ─── Phase helpers ───
+    const PHASES = ['dispatching','navigating','lobby','live','processing'];
+
+    function _setPhase(activePhase, completeUpTo) {
+        PHASES.forEach((ph, idx) => {
+            const el = document.getElementById(`phase-${ph}`);
+            if (!el) return;
+            el.classList.remove('active','complete');
+            if (completeUpTo !== undefined && idx < completeUpTo) el.classList.add('complete');
+            else if (ph === activePhase) el.classList.add('active');
+        });
+    }
+
+    function _setLog(msg) {
+        const el = document.getElementById('bot-log-text');
+        if (el) el.innerHTML = '» ' + msg;
+    }
+
+    function _setProgress(pct, label) {
+        const bar = document.getElementById('live-progress-bar');
+        const lbl = document.getElementById('progress-label');
+        const pct_el = document.getElementById('progress-percent');
+        if (bar) bar.style.width = pct + '%';
+        if (lbl) lbl.textContent = label || '';
+        if (pct_el) pct_el.textContent = pct + '%';
+    }
+
+    function _setBadge(text, color) {
+        const el = document.getElementById('bot-status-badge');
+        if (el) { el.textContent = text; el.style.color = color || 'var(--text-secondary)'; }
+    }
+
+    function showBotActive(status, note) {
+        const idle = document.getElementById('bot-idle-msg');
+        const tracker = document.getElementById('bot-tracker');
+        const pulse = document.getElementById('bot-pulse');
+
+        if (idle) idle.style.display = 'none';
+        if (tracker) tracker.style.display = 'block';
+
+        const logMsg = note || status;
+
+        if (status === 'JOIN_PENDING' || status === 'DISPATCHING') {
+            pulse.style.background = '#f27121'; pulse.style.animation = 'pulse 1.5s infinite';
+            _setPhase('dispatching', 0); _setProgress(12, 'Sending request to bot pilot...'); _setBadge('Dispatching…', '#f27121');
+            _setLog('Request queued — waiting for bot pilot to pick up the job...');
+            _stopLiveTimer();
+        } else if (status === 'JOINING' || status === 'FETCHING') {
+            pulse.style.background = '#f27121';
+            _setPhase('navigating', 1); _setProgress(35, 'Bot is launching browser...'); _setBadge('Launching Browser', '#f27121');
+            _setLog(logMsg || 'Playwright browser is starting and navigating to the meeting URL...');
+            _stopLiveTimer();
+        } else if (status === 'CONNECTING' || status.includes('LOBBY') || status.includes('LOGIN')) {
+            pulse.style.background = '#f59e0b';
+            _setPhase('lobby', 2); _setProgress(62, 'Waiting in meeting lobby...'); _setBadge('In Lobby', '#f59e0b');
+            _setLog(logMsg || 'Bot is in the waiting room — waiting for host to admit Renata...');
+            _stopLiveTimer();
+        } else if (status === 'CONNECTED' || status.includes('LIVE')) {
+            pulse.style.background = '#10b981';
+            _setPhase('live', 4); _setProgress(85, 'Bot is LIVE in the meeting!'); _setBadge('🟢 Bot Active — Recording', '#10b981');
+            _setLog('✅ Renata has joined the meeting and is capturing intelligence. Recording in progress...');
+            _startLiveTimer();
+        } else if (status === 'PROCESSING') {
+            pulse.style.background = '#8b5cf6'; pulse.style.animation = 'pulse 1.5s infinite';
+            _setPhase('processing', 4); _setProgress(95, 'Generating AI report...'); _setBadge('Processing Report', '#8b5cf6');
+            _setLog('Meeting ended. Gemini AI is transcribing and generating your intelligence report...');
+            _stopLiveTimer();
+        } else if (status === 'COMPLETED') {
+            pulse.style.background = '#10b981'; pulse.style.animation = 'none';
+            PHASES.forEach(ph => { const el = document.getElementById(`phase-${ph}`); if(el) { el.classList.remove('active'); el.classList.add('complete'); } });
+            _setProgress(100, 'Report ready! ✅'); _setBadge('✅ Completed', '#10b981');
+            _setLog('All done! Your meeting report is now available in the <b>Reports</b> tab.');
+            _stopLiveTimer();
+        } else if (status === 'FAILED') {
+            pulse.style.background = '#ef4444'; pulse.style.animation = 'none';
+            _setProgress(100, 'Failed'); _setBadge('❌ Failed', '#ef4444');
+            _setLog('⚠️ ' + (logMsg || 'An error occurred. The bot could not join the meeting.'));
+            _stopLiveTimer();
+        }
+    }
+
+    function showBotIdle() {
+        const idle = document.getElementById('bot-idle-msg');
+        const tracker = document.getElementById('bot-tracker');
+        const pulse = document.getElementById('bot-pulse');
+        if (idle) idle.style.display = 'block';
+        if (tracker) tracker.style.display = 'none';
+        if (pulse) { pulse.style.background = '#64748b'; pulse.style.animation = 'none'; }
+        _setBadge('Idle', 'var(--text-secondary)');
+        _stopLiveTimer();
+    }
+
     async function loadLiveStatus() {
         if (window.location.hash !== '#live') return;
         try {
             const res = await apiFetch("/live/status");
             const data = await res.json();
-            if (data.meeting) {
+            if (data.meeting && data.status && data.status !== 'IDLE') {
                 showBotActive(data.status, data.meeting.bot_status_note);
             } else {
                 showBotIdle();
@@ -463,99 +579,23 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { }
     }
 
-    function showBotActive(status, note) {
-        const idle = document.getElementById('bot-idle-msg');
-        const steps = document.getElementById('bot-steps');
-        const pulse = document.getElementById('bot-pulse');
-        const progressArea = document.getElementById('bot-progress-area');
-        const progressBar = document.getElementById('live-progress-bar');
-        
-        if (idle) idle.style.display = 'none';
-        if (steps) steps.style.display = 'grid';
-        if (progressArea) progressArea.style.display = 'block';
-        if (pulse) { pulse.style.background = '#10b981'; pulse.style.animation = 'pulse 1.5s infinite'; }
-        
-        document.querySelectorAll('.step').forEach(s => {
-            s.classList.remove('active');
-            s.classList.remove('complete');
-        });
-
-        const nt = document.getElementById('bot-note');
-        if (nt) {
-            if (status.includes("LIVE") || status.includes("CONNECTED")) {
-                nt.innerHTML = `<b style="color:var(--accent-green)">Bot joined!</b> Initializing meeting intelligence...`;
-            } else {
-                nt.textContent = note || '';
-            }
-        }
-
-        let progress = 0;
-        const stepsElements = {
-            dispatching: document.getElementById("step-dispatching"),
-            fetching: document.getElementById("step-fetching"),
-            connecting: document.getElementById("step-connecting"),
-            live: document.getElementById("step-live")
-        };
-
-        if (status === "DISPATCHING") {
-            progress = 15;
-            stepsElements.dispatching?.classList.add("active");
-        } 
-        else if (status === "JOIN_PENDING" || status === "JOINING") {
-            progress = 35;
-            stepsElements.dispatching?.classList.add("complete");
-            stepsElements.fetching?.classList.add("active");
-        }
-        else if (status === "FETCHING") {
-            progress = 55;
-            stepsElements.dispatching?.classList.add("complete");
-            stepsElements.fetching?.classList.add("complete");
-            stepsElements.connecting?.classList.add("active");
-        }
-        else if (status.includes("CONNECTING") || status.includes("LOBBY")) {
-            progress = 80;
-            stepsElements.dispatching?.classList.add("complete");
-            stepsElements.fetching?.classList.add("complete");
-            stepsElements.connecting?.classList.add("complete");
-            stepsElements.live?.classList.add("active");
-        }
-        else if (status.includes("CONNECTED") || status.includes("LIVE")) {
-            progress = 100;
-            stepsElements.dispatching?.classList.add("complete");
-            stepsElements.fetching?.classList.add("complete");
-            stepsElements.connecting?.classList.add("complete");
-            stepsElements.live?.classList.add("complete");
-            // Stop pulsing once fully joined
-            if (pulse) pulse.style.animation = 'none';
-        }
-
-        if (progressBar) progressBar.style.width = `${progress}%`;
-    }
-
-    function showBotIdle() {
-        const idle = document.getElementById('bot-idle-msg');
-        const steps = document.getElementById('bot-steps');
-        const pulse = document.getElementById('bot-pulse');
-        const progressArea = document.getElementById('bot-progress-area');
-        
-        if (idle) idle.style.display = 'block';
-        if (steps) steps.style.display = 'none';
-        if (progressArea) progressArea.style.display = 'none';
-        if (pulse) { pulse.style.background = '#64748b'; pulse.style.animation = 'none'; }
-    }
-
     window.dispatchRenata = async (url) => {
-        if (!url) return alert("Please enter a meeting link.");
+        if (!url) return alert('Please enter a meeting link.');
+        const btn = document.getElementById('manual-join');
+        if (btn) btn.disabled = true;
         const fd = new FormData();
         fd.append('meeting_url', url);
         try {
-            const res = await apiFetch("/live/join", { method: 'POST', body: fd });
+            const res = await apiFetch('/live/join', { method: 'POST', body: fd });
             const data = await res.json();
             if (data.success) {
-                showBotActive("JOIN_PENDING", data.message);
+                showBotActive('JOIN_PENDING', data.message);
                 if (window.closeModal) window.closeModal();
-            } else alert("Error: " + (data.message || "Failed to dispatch."));
-        } catch (err) { alert("Server error."); }
+            } else {
+                alert('Error: ' + (data.message || 'Failed to dispatch.'));
+            }
+        } catch (err) { alert('Server error. Is your pilot script running?'); }
+        finally { if (btn) btn.disabled = false; }
     };
 
     // Integrations Data
