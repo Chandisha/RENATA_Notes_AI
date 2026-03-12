@@ -235,10 +235,19 @@ def update_user_profile(email, updates):
 def delete_user_account(email):
     # Delete meetings associated with user
     exec_commit("DELETE FROM meetings WHERE user_email = ?", (email,))
-    # Delete user
-    exec_commit("DELETE FROM users WHERE email = ?", (email,))
+    
+    # Delete chat messages linked to the user's sessions
+    # (SQLite and Postgres differences require either cascade or subqueries. We'll use a subquery)
+    exec_commit("DELETE FROM chat_messages WHERE session_id IN (SELECT session_id FROM chat_sessions WHERE user_email = ?)", (email,))
+    
+    # Delete chat sessions
+    exec_commit("DELETE FROM chat_sessions WHERE user_email = ?", (email,))
+    
     # Delete gmail intelligence
     exec_commit("DELETE FROM gmail_intelligence WHERE user_email = ?", (email,))
+    
+    # Delete user
+    exec_commit("DELETE FROM users WHERE email = ?", (email,))
     return True
 
 # --- MEETING OPERATIONS ---

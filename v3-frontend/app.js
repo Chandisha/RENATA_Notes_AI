@@ -719,6 +719,79 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sBtn) sBtn.addEventListener('click', askAI);
     if (cin) cin.addEventListener('keypress', (e) => { if (e.key === 'Enter') askAI(); });
 
+    // SETTINGS FORMS
+    const profileForm = document.getElementById('profile-form');
+    if (profileForm) {
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = profileForm.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.textContent = 'Saving...';
+            btn.disabled = true;
+
+            const newName = document.getElementById('pref-user-name').value;
+            try {
+                const res = await apiFetch('/settings/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    btn.textContent = 'Saved!';
+                    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+                    // Update Sidebar Name
+                    const userNameEl = document.querySelector('.user-name');
+                    if (userNameEl) userNameEl.textContent = newName;
+                } else {
+                    throw new Error(data.error || 'Failed to save');
+                }
+            } catch(err) {
+                alert('Error updating profile: ' + err.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+    }
+
+    const prefForm = document.getElementById('settings-preferences-form');
+    if (prefForm) {
+        prefForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = prefForm.querySelector('button[type="submit"]');
+            const originalText = btn.textContent;
+            btn.textContent = 'Saving...';
+            btn.disabled = true;
+
+            const botName = document.getElementById('pref-bot-name').value;
+            const autoJoin = document.getElementById('pref-auto-join').checked;
+            const recording = document.getElementById('pref-recording').checked;
+
+            try {
+                const res = await apiFetch('/settings/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        bot_name: botName,
+                        auto_join: autoJoin,
+                        recording: recording
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    btn.textContent = 'Saved!';
+                    setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
+                } else {
+                    throw new Error(data.error || 'Failed to save');
+                }
+            } catch(err) {
+                alert('Error submitting preferences: ' + err.message);
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        });
+    }
+
     // AUTO-REFRESH DATA
     // Live status is handled by _startBotPolling() for active sessions.
     // The global interval here only does a gentle background probe on
