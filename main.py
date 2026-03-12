@@ -410,6 +410,7 @@ async def dashboard_data(request: Request):
                 maxResults=10, singleEvents=True, orderBy="startTime"
             ).execute()
             items = result.get("items", [])
+            upcoming_meetings_count = len(items)
             for item in items:
                 start_raw = item['start'].get('dateTime', item['start'].get('date'))
                 calendar_events.append({
@@ -419,8 +420,9 @@ async def dashboard_data(request: Request):
                 })
     except Exception as e:
         print(f"Calendar error: {e}")
+        upcoming_meetings_count = 0
 
-    stats = db.get_meeting_stats(user_email=email)
+    stats = db.get_meeting_stats(user_email=email, upcoming_count=upcoming_meetings_count)
     recent = db.get_all_meetings(user_email=email, limit=5)
     
     # Process recent meetings to include formatted time
@@ -531,7 +533,26 @@ async def analytics_page_spa(request: Request):
 @app.get("/analytics/data", response_class=JSONResponse)
 async def analytics_data(request: Request):
     user = require_user(request)
-    stats = db.get_meeting_stats(user_email=user['email'])
+    email = user['email']
+    stats = db.get_meeting_stats(user_email=email)
+    
+    # 5. Add Upcoming Meetings Count from Google Calendar
+    upcoming_count = 0
+    try:
+        creds = get_user_credentials(email)
+        if creds:
+            from googleapiclient.discovery import build
+            svc = build("calendar", "v3", credentials=creds)
+            now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+            result = svc.events().list(
+                calendarId="primary", timeMin=now_iso,
+                maxResults=50, singleEvents=True, orderBy="startTime"
+            ).execute()
+            upcoming_count = len(result.get("items", []))
+    except Exception as e:
+        print(f"Analytics Calendar Error: {e}")
+        
+    stats = db.get_meeting_stats(user_email=email, upcoming_count=upcoming_count)
     return stats
 
 # ============================================================

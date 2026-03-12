@@ -286,20 +286,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const stats = await res.json();
 
             const mVal = document.getElementById('ana-total-meetings');
-            const tVal = document.getElementById('ana-total-time');
+            const rVal = document.getElementById('ana-total-reports');
             const eVal = document.getElementById('ana-total-engagement');
-            const aVal = document.getElementById('ana-app-time');
+            const uVal = document.getElementById('ana-upcoming');
 
             if (mVal) mVal.textContent = stats.total_meetings || 0;
-            if (tVal) tVal.textContent = (stats.total_duration_hours || 0).toFixed(1) + 'h';
+            if (rVal) rVal.textContent = stats.total_reports || 0;
             if (eVal) eVal.textContent = (stats.engagement_score || 0) + '%';
-            
-            // Show Total Reports instead of "App time" for better clarity
-            if (aVal) {
-                const label = aVal.parentElement.querySelector('.stat-label');
-                if (label) label.textContent = 'Total Reports Generated';
-                aVal.textContent = stats.total_reports || 0;
-            }
+            if (uVal) uVal.textContent = stats.upcoming_meetings || 0;
 
             // Analytics Trends Chart (Dynamic)
             const ctx = document.getElementById('analyticsChart')?.getContext('2d');

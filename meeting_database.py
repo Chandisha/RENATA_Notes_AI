@@ -320,7 +320,7 @@ def get_all_meetings(user_email, limit=50, offset=0, order_by='start_time DESC')
     query = f"SELECT * FROM meetings WHERE user_email = ? ORDER BY {order_by} LIMIT ? OFFSET ?"
     return fetch_all(query, (user_email, limit, offset))
 
-def get_meeting_stats(user_email):
+def get_meeting_stats(user_email, upcoming_count=0):
     """STRICTLY SCOPED: user_email is REQUIRED. Aggregates data for the specific user."""
     if not user_email: return {}
     
@@ -358,8 +358,9 @@ def get_meeting_stats(user_email):
     stats['total_words'] = total_words
 
     # 3. Dynamic Engagement Score (Growth-based)
-    # Give weight to meetings joined, reports produced, and words transcribed
-    base_activity = (stats['total_meetings'] * 10) + (stats['total_reports'] * 15)
+    # Give weight to meetings joined, reports produced, words transcribed, and upcoming meetings
+    upcoming_weight = upcoming_count * 5
+    base_activity = (stats['total_meetings'] * 10) + (stats['total_reports'] * 15) + upcoming_weight
     word_weight = (total_words // 100)
     final_score = base_activity + word_weight
     stats['engagement_score'] = min(100, max(12 if stats['total_meetings'] > 0 else 0, final_score))
