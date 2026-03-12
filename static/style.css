@@ -4,21 +4,21 @@
    ============================================= */
 
 :root {
-  --bg-base: #070b14;
-  --bg-surface: #0d1525;
-  --bg-card: rgba(255, 255, 255, 0.04);
-  --bg-card-hover: rgba(255, 255, 255, 0.07);
-  --border: rgba(255, 255, 255, 0.08);
-  --border-hover: rgba(124, 58, 237, 0.4);
+  --bg-base: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #fef3c7;
+  --border: #e2e8f0;
+  --border-hover: #fbbf24;
 
-  --primary: #7c3aed;
-  --primary-light: #9d5cf6;
-  --primary-glow: rgba(124, 58, 237, 0.25);
-  --accent: #2563eb;
+  --primary: #f27121; /* Main Renata Orange */
+  --primary-light: #ff8c42;
+  --primary-glow: rgba(242, 113, 33, 0.1);
+  --accent: #e94057; /* Reddish Orange Accent */
 
-  --text-1: #f1f5f9;
-  --text-2: #94a3b8;
-  --text-3: #475569;
+  --text-1: #0f172a;
+  --text-2: #475569;
+  --text-3: #94a3b8;
 
   --success: #10b981;
   --warning: #f59e0b;
@@ -27,9 +27,9 @@
 
   --sidebar-w: 260px;
   --radius: 12px;
-  --radius-lg: 18px;
-  --shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 40px rgba(124, 58, 237, 0.15);
+  --radius-lg: 20px;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  --shadow-glow: 0 10px 40px rgba(242, 113, 33, 0.1);
 }
 
 *,
@@ -63,7 +63,8 @@ a:hover {
 
 code {
   font-size: 0.85em;
-  background: rgba(255, 255, 255, 0.08);
+  background: #f1f5f9;
+  color: var(--primary);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -103,17 +104,42 @@ code {
   padding: 0 0.25rem;
 }
 
-.brand-icon {
-  font-size: 1.6rem;
+.brand-icon-app {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #f27121, #e94057);
+  mask: radial-gradient(circle at 50% 50%, transparent 4px, black 4.5px);
+  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 4px, black 4.5px);
+  position: relative;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.brand-icon-app::before,
+.brand-icon-app::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: inherit;
+  border-radius: 50%;
+}
+
+.brand-icon-app::before {
+  transform: translate(-6px, -6px) scale(0.6);
+}
+
+.brand-icon-app::after {
+  transform: translate(6px, 6px) scale(0.6);
 }
 
 .brand-name {
-  font-size: 1.2rem;
+  font-size: 1.4rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  background: linear-gradient(135deg, #f27121, #e94057, #8a2387);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
 }
 
 .user-card {
@@ -126,23 +152,27 @@ code {
 }
 
 .user-avatar {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  border: 2px solid var(--primary);
-  margin-bottom: 0.5rem;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px rgba(242, 113, 33, 0.2);
+  margin-bottom: 0.75rem;
 }
 
 .user-avatar-placeholder {
-  width: 48px;
-  height: 48px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
-  background: var(--primary-glow);
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  color: #fff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 12px rgba(242, 113, 33, 0.2);
 }
 
 .user-name {
@@ -221,10 +251,11 @@ code {
 }
 
 .nav-item.active {
-  background: var(--primary-glow);
-  color: var(--primary-light);
-  border-color: rgba(124, 58, 237, 0.3);
-  font-weight: 600;
+  background: linear-gradient(90deg, #fffcf5 0%, #fff 100%);
+  color: var(--primary);
+  border-color: #fde68a;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(242, 113, 33, 0.08);
 }
 
 .nav-item.logout:hover {
@@ -313,11 +344,12 @@ code {
 .btn-primary {
   background: linear-gradient(135deg, var(--primary), var(--accent));
   color: #fff;
+  box-shadow: 0 4px 15px rgba(242, 113, 33, 0.25);
 }
 
 .btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px var(--primary-glow);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(242, 113, 33, 0.35);
   color: #fff;
 }
 
@@ -374,6 +406,7 @@ code {
   font-size: 2rem;
   font-weight: 800;
   background: linear-gradient(135deg, var(--primary-light), var(--info));
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   line-height: 1;
@@ -387,11 +420,13 @@ code {
 
 .stat-completed .stat-value {
   background: linear-gradient(135deg, var(--success), #34d399);
+  background-clip: text;
   -webkit-background-clip: text;
 }
 
 .stat-scheduled .stat-value {
   background: linear-gradient(135deg, var(--info), #60a5fa);
+  background-clip: text;
   -webkit-background-clip: text;
 }
 
@@ -671,18 +706,21 @@ code {
 }
 
 .chip {
-  padding: 0.35rem 0.8rem;
-  background: rgba(124, 58, 237, 0.12);
-  border: 1px solid rgba(124, 58, 237, 0.25);
+  padding: 0.4rem 1rem;
+  background: #fff;
+  border: 1px solid var(--border);
   border-radius: 100px;
-  font-size: 0.78rem;
-  color: var(--primary-light);
+  font-size: 0.85rem;
+  color: var(--text-2);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .chip:hover {
-  background: rgba(124, 58, 237, 0.25);
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-glow);
+  transform: translateY(-1px);
 }
 
 .search-input-wrap {
@@ -716,11 +754,12 @@ code {
 }
 
 .search-result {
-  margin-top: 1.5rem;
-  background: rgba(124, 58, 237, 0.08);
-  border: 1px solid rgba(124, 58, 237, 0.25);
+  margin-top: 2rem;
+  background: #fff;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.25rem;
+  padding: 1.5rem;
+  box-shadow: var(--shadow);
 }
 
 .result-label {
@@ -1180,13 +1219,12 @@ canvas {
 }
 
 .login-card {
-  background: rgba(13, 21, 37, 0.85);
+  background: #ffffff;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 2.5rem;
+  padding: 3rem;
   text-align: center;
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow), var(--shadow-glow);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
 }
 
 .login-logo {
@@ -1195,12 +1233,13 @@ canvas {
 }
 
 .login-title {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  background: linear-gradient(135deg, #f27121, #e94057);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.5rem;
 }
 
 .login-subtitle {
