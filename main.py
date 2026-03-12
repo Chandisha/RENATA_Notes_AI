@@ -612,15 +612,30 @@ async def search_ask(request: Request, question: str = Form(...), session_id: Op
         import google.generativeai as genai
         genai.configure(api_key=api_key)
 
-        # 1. Get History if session_id is provided
+        # --- 1. Quick Greetings Check ---
+        lower_q = question.strip().lower()
+        if lower_q in ["hi", "hello", "hey", "hi there", "hello there", "greetings"]:
+            ans = "Hello, I am Renata! I can share information from your reports. What do you want to know?"
+            if session_id:
+                past_msgs = db.get_chat_messages(session_id)
+                if not past_msgs:
+                    db.rename_chat_session(session_id, "Greeting")
+                db.add_chat_message(session_id, "user", question)
+                db.add_chat_message(session_id, "assistant", ans)
+            return {"answer": ans, "success": True, "session_id": session_id}
+
+        # --- 2. Get History if session_id is provided ---
         history_context = ""
+        is_first_message = False
         if session_id:
             past_messages = db.get_chat_messages(session_id)
+            if not past_messages:
+                is_first_message = True
             for msg in past_messages[-10:]: # Last 10 messages for context
                 history_context += f"{msg['role'].upper()}: {msg['content']}\n"
             db.add_chat_message(session_id, "user", question)
 
-        # 2. Gather Reports (Meetings) from database
+        # --- 3. Gather Reports (Meetings) from database ---
         # Sort by start_time DESC to help with "last report" queries
         meetings = db.get_all_meetings(user['email'], limit=30, order_by="start_time DESC")
         context_parts = []
@@ -652,20 +667,37 @@ PREVIOUS CONVERSATION:
         prompt = f"{system_instruction}\n\nUSER QUESTION: {question}\n\nDETAILED ANSWER:"
 
         last_err = "No models responded."
-        requested_models = ["gemini-3.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+        requested_models = ["gemini-3-flash-preview", "gemini-2.5-flash"]
         
+        final_response = None
         for model_name in requested_models:
             try:
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
                 if response and response.text:
-                    if session_id:
-                        db.add_chat_message(session_id, "assistant", response.text)
-                    return {"answer": response.text, "success": True, "session_id": session_id}
+                    final_response = response.text
+                    break
             except Exception as model_err:
                 last_err = str(model_err)
                 continue
                 
+        if final_response:
+            if session_id:
+                db.add_chat_message(session_id, "assistant", final_response)
+                
+                # If first message, generate a dynamic title
+                if is_first_message:
+                    try:
+                        title_model = genai.GenerativeModel("gemini-2.5-flash")
+                        title_prompt = f"Given the user question: '{question}', generate a very short 3-5 word title for this chat session. Just output the title, nothing else."
+                        title_resp = title_model.generate_content(title_prompt)
+                        if title_resp and title_resp.text:
+                            new_title = title_resp.text.strip().replace('"', '').replace("'", "")
+                            db.rename_chat_session(session_id, new_title)
+                    except: pass
+                    
+            return {"answer": final_response, "success": True, "session_id": session_id}
+            
         return {"answer": f"Gemini Error: {last_err}", "success": False}
     except Exception as e:
         return {"answer": f"Engine Error: {str(e)}", "success": False}

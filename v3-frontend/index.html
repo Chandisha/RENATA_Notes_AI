@@ -181,7 +181,10 @@
                             <h1>AI Assistant</h1>
                             <p>Search across all your meetings with natural language.</p>
                         </div>
-                        <div class="search-stats-container">
+                        <div class="search-stats-container" style="display: flex; gap: 12px; align-items: center;">
+                            <button id="sync-pdf-btn" class="secondary-btn" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 8px;" title="Re-sync meeting reports for AI Search">
+                                <i data-feather="database" style="width: 14px; height: 14px;"></i> Sync PDF
+                            </button>
                             <div class="kb-stats" id="kb-stats-area">
                                 <span class="badge"><b id="report-count">0</b> Reports</span>
                             </div>

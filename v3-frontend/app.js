@@ -670,6 +670,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const refABtn = document.getElementById('refresh-analytics-btn');
     if (refABtn) refABtn.onclick = () => loadAnalyticsData();
 
+    const syncBtn = document.getElementById('sync-pdf-btn');
+    if (syncBtn) {
+        syncBtn.addEventListener('click', async () => {
+            const origHTML = syncBtn.innerHTML;
+            syncBtn.innerHTML = '<i data-feather="loader" style="width:14px;height:14px;"></i> Syncing...';
+            syncBtn.disabled = true;
+            feather.replace();
+            
+            try {
+                const res = await apiFetch("/search/index", { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    syncBtn.innerHTML = '<i data-feather="check" style="width:14px;height:14px;"></i> Synced!';
+                    const rc = document.getElementById('report-count');
+                    if (rc) rc.textContent = data.indexed_segments || 0;
+                } else {
+                    syncBtn.innerHTML = origHTML;
+                    alert('Sync error: ' + (data.message || 'Failed'));
+                }
+            } catch (e) {
+                syncBtn.innerHTML = origHTML;
+                alert('Sync action failed: ' + e.message);
+            }
+            feather.replace();
+            setTimeout(() => {
+                syncBtn.innerHTML = origHTML;
+                syncBtn.disabled = false;
+                feather.replace();
+            }, 3000);
+        });
+    }
+
     const mJoin = document.getElementById('manual-join');
     if (mJoin) mJoin.addEventListener('click', () => dispatchRenata(document.getElementById('manual-url')?.value));
 

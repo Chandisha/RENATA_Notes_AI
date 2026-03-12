@@ -488,6 +488,11 @@ def add_chat_message(session_id, role, content):
     exec_commit("UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ?", (session_id,))
     return success
 
+def rename_chat_session(session_id, title):
+    query = "UPDATE chat_sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?"
+    success, _ = exec_commit(query, (title, session_id))
+    return success
+
 def delete_chat_session(session_id, user_email):
     exec_commit("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
     exec_commit("DELETE FROM chat_sessions WHERE session_id = ? AND user_email = ?", (session_id, user_email))
