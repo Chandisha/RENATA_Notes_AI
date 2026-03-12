@@ -768,6 +768,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: newName })
                 });
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`Server returned status ${res.status}: ${errText.substring(0, 100)}`);
+                }
                 const data = await res.json();
                 if (data.success) {
                     btn.textContent = 'Saved!';
@@ -795,7 +799,6 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.textContent = 'Saving...';
             btn.disabled = true;
 
-            const botName = document.getElementById('pref-bot-name').value;
             const autoJoin = document.getElementById('pref-auto-join').checked;
             const recording = document.getElementById('pref-recording').checked;
 
@@ -804,11 +807,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        bot_name: botName,
                         auto_join: autoJoin,
                         recording: recording
                     })
                 });
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`Server returned status ${res.status}: ${errText.substring(0, 100)}`);
+                }
                 const data = await res.json();
                 if (data.success) {
                     btn.textContent = 'Saved!';

@@ -759,7 +759,7 @@ async def live_join(request: Request, meeting_url: str = Form(...)):
     
     return {"success": True, "message": "Renata has been alerted. Make sure your local pilot script is running!"}
 
-@app.post("/settings/api/save")
+@app.post("/settings/api/save", response_class=JSONResponse)
 async def settings_api_save(request: Request):
     user = require_user(request)
     data = await request.json()
