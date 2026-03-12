@@ -14,13 +14,13 @@
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
 </head>
 
-<body class="dark-theme">
+<body class="light-theme">
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="logo">
-                    <img src="/logo_img/renataiot_logo.jpg" class="logo-img" alt="Renata Logo">
+                    <img src="/static/renataiot_logo.jpg" class="logo-img" alt="Renata Logo">
                     <span class="logo-text">RENATA</span>
                 </div>
             </div>
@@ -202,26 +202,38 @@
                         <div class="search-stats-container">
                             <div class="kb-stats" id="kb-stats-area">
                                 <span class="badge"><b id="pdf-count">0</b> Reports</span>
-                                <span class="badge"><b id="seg-count">0</b> Segments</span>
                             </div>
                             <button id="sync-kb-btn" class="secondary-btn">
-                                <i data-feather="refresh-cw"></i> Sync Index & Meeting PDFs
+                                <i data-feather="refresh-cw"></i> Sync Knowledge Base
                             </button>
                         </div>
                     </div>
-                    <div class="chat-container">
-                        <div class="chat-messages" id="chat-box">
-                            <div class="message assistant">
-                                <p>Hello! I'm Renata. Ask me anything about your meetings, like 'What were the action
-                                    items for John?'</p>
+                    <div class="chat-layout">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="chat-box">
+                                <div class="message assistant">
+                                    <p>Hello! I'm Renata. Ask me anything about your meeting reports. For example, try 'What was discussed in the last report?'</p>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <input type="text" id="chat-input" placeholder="Type your question about meeting reports...">
+                                <button id="send-chat" class="primary-btn">
+                                    <i data-feather="send"></i>
+                                </button>
                             </div>
                         </div>
-                        <div class="chat-input-area">
-                            <input type="text" id="chat-input" placeholder="Type your question...">
-                            <button id="send-chat" class="primary-btn">
-                                <i data-feather="send"></i>
-                            </button>
-                        </div>
+                        <aside class="chat-history-sidebar">
+                            <div class="history-header">
+                                <span>Recent Chats</span>
+                                <button id="new-chat-sidebar-btn" class="icon-btn" title="New Chat">
+                                    <i data-feather="plus"></i>
+                                </button>
+                            </div>
+                            <div class="history-list" id="chat-session-list">
+                                <!-- Sessions loaded via JS -->
+                                <div class="history-item empty">No history yet</div>
+                            </div>
+                        </aside>
                     </div>
                 </section>
 

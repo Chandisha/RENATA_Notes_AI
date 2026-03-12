@@ -167,6 +167,29 @@ def init_database():
         )
     ''')
     
+    # Chat Sessions Table
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS chat_sessions (
+            session_id TEXT PRIMARY KEY,
+            user_email TEXT NOT NULL,
+            title TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    # Chat Messages Table
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id {pk_def},
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES chat_sessions(session_id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -415,6 +438,32 @@ def delete_meeting(meeting_id, user_email):
 def get_user_token(email):
     row = fetch_one("SELECT google_token FROM users WHERE email = ?", (email,))
     return row['google_token'] if row else None
+
+# --- CHAT OPERATIONS ---
+def create_chat_session(user_email, session_id, title="New Conversation"):
+    query = "INSERT INTO chat_sessions (session_id, user_email, title) VALUES (?, ?, ?)"
+    success, _ = exec_commit(query, (session_id, user_email, title))
+    return success
+
+def get_chat_sessions(user_email, limit=20):
+    query = "SELECT * FROM chat_sessions WHERE user_email = ? ORDER BY updated_at DESC LIMIT ?"
+    return fetch_all(query, (user_email, limit))
+
+def get_chat_messages(session_id):
+    query = "SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC"
+    return fetch_all(query, (session_id,))
+
+def add_chat_message(session_id, role, content):
+    query = "INSERT INTO chat_messages (session_id, role, content) VALUES (?, ?, ?)"
+    success, _ = exec_commit(query, (session_id, role, content))
+    # Update session's updated_at
+    exec_commit("UPDATE chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE session_id = ?", (session_id,))
+    return success
+
+def delete_chat_session(session_id, user_email):
+    exec_commit("DELETE FROM chat_messages WHERE session_id = ?", (session_id,))
+    exec_commit("DELETE FROM chat_sessions WHERE session_id = ? AND user_email = ?", (session_id, user_email))
+    return True
 
 # Initialize database on import
 init_database()

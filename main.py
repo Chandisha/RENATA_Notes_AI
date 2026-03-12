@@ -559,61 +559,95 @@ def _get_kb_stats(user_email=None):
     except Exception as e:
         return {"pdf_count": 0, "indexed_segments": 0, "status": "error"}
 
+@app.get("/chat/sessions")
+async def list_chat_sessions(request: Request):
+    user = require_user(request)
+    sessions = db.get_chat_sessions(user['email'])
+    return {"sessions": sessions}
+
+@app.post("/chat/sessions")
+async def create_new_session(request: Request):
+    user = require_user(request)
+    session_id = f"chat_{int(time.time() * 1000)}"
+    db.create_chat_session(user['email'], session_id)
+    return {"session_id": session_id}
+
+@app.get("/chat/sessions/{session_id}/messages")
+async def list_chat_messages(session_id: str, request: Request):
+    user = require_user(request)
+    messages = db.get_chat_messages(session_id)
+    return {"messages": messages}
+
+
 @app.post("/search/ask", response_class=JSONResponse)
-async def search_ask(request: Request, question: str = Form(...)):
+async def search_ask(request: Request, question: str = Form(...), session_id: Optional[str] = Form(None)):
     user = require_user(request)
     api_key = os.getenv("GEMINI_API_KEY")
     
-    # Debug: Check if key is actually set (masked for safety)
     if not api_key or len(api_key) < 5:
-        return {"answer": "GEMINI_API_KEY is missing or too short. Please add your Google AI Studio key to your .env file or Vercel environment variables.", "success": False}
+        return {"answer": "GEMINI_API_KEY is missing. Please add it to your environment.", "success": False}
 
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
 
-        # Gather transcripts from database - Multi-meeting context
-        meetings = db.get_all_meetings(user_email=user['email'], limit=50)
+        # 1. Get History if session_id is provided
+        history_context = ""
+        if session_id:
+            past_messages = db.get_chat_messages(session_id)
+            for msg in past_messages[-10:]: # Last 10 messages for context
+                history_context += f"{msg['role'].upper()}: {msg['content']}\n"
+            db.add_chat_message(session_id, "user", question)
+
+        # 2. Gather Reports (Meetings) from database
+        # Sort by start_time DESC to help with "last report" queries
+        meetings = db.get_all_meetings(user['email'], limit=30, order_by="start_time DESC")
         context_parts = []
-        for m in meetings:
+        for i, m in enumerate(meetings):
             if m.get('transcript_text') or m.get('summary_text'):
                 title = m.get('title', 'Untitled')
-                date = m.get('start_time', '')[:10]
-                content = m.get('transcript_text') or m.get('summary_text', '')
-                context_parts.append(f"--- DOCUMENT: {title} | DATE: {date} ---\n{content[:20000]}")
+                date = m.get('start_time', '')[:19]
+                content = m.get('summary_text') or m.get('transcript_text', '')
+                # Specifically tag the most recent one
+                tag = " (MOST RECENT REPORT)" if i == 0 else ""
+                context_parts.append(f"--- REPORT {i+1}{tag}: {title} | DATE: {date} ---\n{content[:15000]}")
 
         if not context_parts:
-            return {"answer": "No meeting intelligence or PDFs found in the knowledge base yet.", "success": True}
+            return {"answer": "No meeting reports found in your knowledge base.", "success": True}
 
         context = "\n\n".join(context_parts)
-        prompt = f"""You are Renata Intelligence Assistant. Answer using the provided context.
         
-KNOWLEDGE BASE:
+        system_instruction = f"""You are Renata Intelligence Assistant. 
+The user refers to meeting summaries/PDFs as 'Reports'. 
+When the user asks about the 'last report' or 'latest report', they mean REPORT 1 (the most recent one chronologically).
+
+KNOWLEDGE BASE (Meeting Reports):
 {context}
 
-USER QUESTION: {question}
-
-DETAILED ANSWER:"""
+PREVIOUS CONVERSATION:
+{history_context}
+"""
+        
+        prompt = f"{system_instruction}\n\nUSER QUESTION: {question}\n\nDETAILED ANSWER:"
 
         last_err = "No models responded."
-        # Use ONLY the models requested by the user: 3.0 Flash and 2.5 Flash
-        requested_models = ["gemini-3.0-flash", "gemini-2.5-flash"]
+        requested_models = ["gemini-3.0-flash", "gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
         
         for model_name in requested_models:
             try:
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
                 if response and response.text:
-                    return {"answer": response.text, "success": True}
+                    if session_id:
+                        db.add_chat_message(session_id, "assistant", response.text)
+                    return {"answer": response.text, "success": True, "session_id": session_id}
             except Exception as model_err:
                 last_err = str(model_err)
-                print(f"Model {model_name} failed: {model_err}")
                 continue
                 
-        # If the requested models fail, we provide a detailed error but respect the "don't use others" rule
-        return {"answer": f"[v2] Gemini Error: {last_err}. (Note: As requested, I am ONLY using 3.0-flash and 2.5-flash. Please ensure your API key has access to these specific versions.)", "success": False}
+        return {"answer": f"Gemini Error: {last_err}", "success": False}
     except Exception as e:
-        return {"answer": f"[v2] Intelligence Engine Error: {str(e)}", "success": False}
+        return {"answer": f"Engine Error: {str(e)}", "success": False}
 
 @app.post("/search/index", response_class=JSONResponse)
 async def search_index(request: Request):

@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'search':
                 await loadSearchStats();
+                await loadChatSessions();
                 break;
             case 'live':
                 await loadLiveStatus();
@@ -353,11 +354,81 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch("/search/status");
             const data = await res.json();
             const pc = document.getElementById("pdf-count");
-            const sc = document.getElementById("seg-count");
-            if (pc) pc.textContent = data.pdf_count || 0;
-            if (sc) sc.textContent = data.indexed_segments || 0;
+            if (pc) pc.textContent = (data.pdf_count || 0) + " Reports";
         } catch (err) { }
     }
+
+    // --- CHAT SESSION LOGIC ---
+    let currentSessionId = null;
+
+    async function loadChatSessions() {
+        try {
+            const res = await apiFetch("/chat/sessions");
+            const data = await res.json();
+            const list = document.getElementById('chat-session-list');
+            if (!list) return;
+
+            list.innerHTML = '';
+            if (!data.sessions || data.sessions.length === 0) {
+                list.innerHTML = '<div class="history-item empty">No history yet</div>';
+                return;
+            }
+
+            data.sessions.forEach(s => {
+                const item = document.createElement('div');
+                item.className = `history-item ${s.session_id === currentSessionId ? 'active' : ''}`;
+                item.innerHTML = `<i data-feather="message-square"></i> <span>${s.title || 'Conversation'}</span>`;
+                item.onclick = () => selectSession(s.session_id);
+                list.appendChild(item);
+            });
+            feather.replace();
+        } catch (err) { console.error(err); }
+    }
+
+    async function selectSession(sessionId) {
+        currentSessionId = sessionId;
+        document.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
+        const activeItem = Array.from(document.querySelectorAll('.history-item')).find(i => i.textContent.includes(sessionId));
+        if (activeItem) activeItem.classList.add('active');
+
+        // Load messages
+        try {
+            const res = await apiFetch(`/chat/sessions/${sessionId}/messages`);
+            const data = await res.json();
+            const box = document.getElementById('chat-box');
+            if (!box) return;
+
+            box.innerHTML = '';
+            if (!data.messages || data.messages.length === 0) {
+                box.innerHTML = '<div class="message assistant"><p>How can I help you with your meeting reports today?</p></div>';
+            } else {
+                data.messages.forEach(m => {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = `message ${m.role}`;
+                    msgDiv.innerHTML = `<p>${m.content}</p>`;
+                    box.appendChild(msgDiv);
+                });
+            }
+            box.scrollTop = box.scrollHeight;
+        } catch (err) { console.error(err); }
+        loadChatSessions(); // Update UI
+    }
+
+    async function createNewChat() {
+        try {
+            const res = await apiFetch("/chat/sessions", { method: 'POST' });
+            const data = await res.json();
+            currentSessionId = data.session_id;
+            const box = document.getElementById('chat-box');
+            if (box) {
+                box.innerHTML = '<div class="message assistant"><p>Started a new conversation. Ask me anything about your reports!</p></div>';
+            }
+            loadChatSessions();
+        } catch (err) { console.error(err); }
+    }
+
+    const newChatBtn = document.getElementById('new-chat-sidebar-btn');
+    if (newChatBtn) newChatBtn.onclick = createNewChat;
 
     async function loadLiveStatus() {
         if (window.location.hash !== '#live') return;
@@ -500,17 +571,44 @@ document.addEventListener('DOMContentLoaded', () => {
     const cin = document.getElementById('chat-input');
     const sBtn = document.getElementById('send-chat');
     async function askAI() {
-        const q = cin.value; if (!q) return;
+        const q = cin.value.trim();
+        if (!q) return;
+
+        // Auto-create session if none active
+        if (!currentSessionId) {
+            await createNewChat();
+        }
+
         const box = document.getElementById('chat-box');
-        const uM = document.createElement('div'); uM.className = 'message user'; uM.innerHTML = `<p>${q}</p>`;
-        box.appendChild(uM); cin.value = ''; box.scrollTop = box.scrollHeight;
+        const uM = document.createElement('div');
+        uM.className = 'message user';
+        uM.innerHTML = `<p>${q}</p>`;
+        box.appendChild(uM);
+        cin.value = '';
+        box.scrollTop = box.scrollHeight;
+
         try {
-            const fd = new FormData(); fd.append('question', q);
+            const fd = new FormData();
+            fd.append('question', q);
+            if (currentSessionId) fd.append('session_id', currentSessionId);
+
             const r = await apiFetch("/search/ask", { method: 'POST', body: fd });
             const d = await r.json();
-            const aM = document.createElement('div'); aM.className = 'message assistant'; aM.innerHTML = `<p>${d.answer}</p>`;
-            box.appendChild(aM); box.scrollTop = box.scrollHeight;
-        } catch (err) { }
+            
+            const aM = document.createElement('div');
+            aM.className = 'message assistant';
+            aM.innerHTML = `<p>${d.answer}</p>`;
+            box.appendChild(aM);
+            box.scrollTop = box.scrollHeight;
+            
+            // Refresh history text if it's the first message
+            loadChatSessions();
+        } catch (err) {
+            const eM = document.createElement('div');
+            eM.className = 'message assistant';
+            eM.innerHTML = `<p>Sorry, I encountered an error processing your request.</p>`;
+            box.appendChild(eM);
+        }
     }
     if (sBtn) sBtn.addEventListener('click', askAI);
     if (cin) cin.addEventListener('keypress', (e) => { if (e.key === 'Enter') askAI(); });
