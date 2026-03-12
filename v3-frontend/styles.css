@@ -52,32 +52,24 @@ body {
     gap: 12px;
 }
 
-.logo-icon {
-    width: 32px;
-    height: 32px;
-    background: linear-gradient(135deg, #f27121, #e94057);
-    border-radius: 8px;
-    position: relative;
-    box-shadow: 0 4px 10px rgba(242, 113, 33, 0.2);
-}
-
-.logo-icon::before {
-    content: "";
-    position: absolute;
-    inset: 4px;
-    border: 2px solid rgba(255, 255, 255, 0.4);
-    border-radius: 6px;
+.logo-img {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 
 .logo-text {
-    font-size: 1.4rem;
+    font-size: 1.5rem;
     font-weight: 800;
     letter-spacing: 1px;
     background: linear-gradient(135deg, #f27121, #e94057, #8a2387);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    margin-left: 10px;
+    white-space: nowrap;
 }
 
 .sidebar-nav {

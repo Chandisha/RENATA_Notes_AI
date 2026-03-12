@@ -105,41 +105,27 @@ code {
 }
 
 .brand-icon-app {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #f27121, #e94057);
-  mask: radial-gradient(circle at 50% 50%, transparent 4px, black 4.5px);
-  -webkit-mask: radial-gradient(circle at 50% 50%, transparent 4px, black 4.5px);
-  position: relative;
+  height: 40px;
+  width: auto;
+  object-fit: contain;
   flex-shrink: 0;
-  border-radius: 8px;
+  transition: transform 0.3s ease;
 }
 
-.brand-icon-app::before,
-.brand-icon-app::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: inherit;
-  border-radius: 50%;
-}
-
-.brand-icon-app::before {
-  transform: translate(-6px, -6px) scale(0.6);
-}
-
-.brand-icon-app::after {
-  transform: translate(6px, 6px) scale(0.6);
+.sidebar-brand:hover .brand-icon-app {
+  transform: scale(1.05);
 }
 
 .brand-name {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 800;
   background: linear-gradient(135deg, #f27121, #e94057, #8a2387);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
+  margin-left: 8px;
+  white-space: nowrap;
 }
 
 .user-card {
