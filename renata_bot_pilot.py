@@ -253,11 +253,24 @@ class RenaMeetingBot:
                 if db_module and meeting_id:
                     db_module.set_meeting_bot_status(meeting_id, "CONNECTED", user_email=user_email, bot_status_note="Bot joined! Capturing meeting intelligence...")
                 
+                # Monitor Loop — wait for meeting to end or everyone leaves
+                alone_since = None
+                ALONE_TIMEOUT_SECS = 60
                 while True:
                     try:
-                        if page.is_closed() or page.locator('button:has-text("Leave")').count() == 0: 
+                        if page.is_closed():
                             break
-                    except Exception: 
+                        # If Leave button gone, meeting likely ended
+                        has_leave = page.locator('button:has-text("Leave")').count() > 0
+                        if not has_leave:
+                            if alone_since is None:
+                                alone_since = time.time()
+                                print("[Zoom Bot] Leave button gone. Will exit in 60s if not restored...")
+                            elif (time.time() - alone_since) > ALONE_TIMEOUT_SECS:
+                                break
+                        else:
+                            alone_since = None
+                    except Exception:
                         break
                     time.sleep(10)
                 
@@ -351,28 +364,55 @@ class RenaMeetingBot:
                 if record: 
                     self.start_audio_recording(f"Meet_{int(time.time())}")
                     
-                # Monitor Loop
+                # Monitor Loop — wait for meeting to end
                 alone_since = None
+                ALONE_TIMEOUT_SECS = 60  # Leave 60 seconds after everyone else leaves
                 while True:
                     time.sleep(5)
                     try:
                         if page.is_closed():
                             break
-                        if page.locator('text="You left the meeting"').count() > 0: 
+                        if page.locator('text="You left the meeting"').count() > 0:
                             break
-                        
-                        # Auto-leave if alone
-                        # Wait for at least 1 participant element to ensure we are actually in
-                        participants = page.locator('[data-participant-id]')
-                        if participants.count() <= 1:
-                            if alone_since is None: 
-                                alone_since = time.time()
-                            elif (time.time() - alone_since) > 120: # Increased to 2 mins for safety
+
+                        # ── Participant count ──────────────────────────────────────────
+                        # Try multiple selectors that Google Meet uses across versions
+                        participant_count = 0
+                        for sel in [
+                            '[data-participant-id]',           # Classic tile selector
+                            '[jsname="r4nke"]',                # Newer participant chip
+                            '.VfPpkd-StrnGf-Jh9lGc',          # Participant grid item
+                        ]:
+                            cnt = page.locator(sel).count()
+                            if cnt > 0:
+                                participant_count = cnt
                                 break
-                        else: 
+
+                        # Bot itself counts as 1 — if only 1 (or 0) left, start timer
+                        if participant_count <= 1:
+                            if alone_since is None:
+                                alone_since = time.time()
+                                print(f"[Bot] Only bot remains in meeting. Will leave in {ALONE_TIMEOUT_SECS}s...")
+                                if db_module and meeting_id:
+                                    db_module.update_bot_status(meeting_id, "CONNECTED",
+                                        note=f"All participants left. Leaving in {ALONE_TIMEOUT_SECS}s...",
+                                        user_email=user_email)
+                            elif (time.time() - alone_since) > ALONE_TIMEOUT_SECS:
+                                print("[Bot] Timeout reached. Auto-leaving meeting.")
+                                # Click Leave call button if it exists
+                                try:
+                                    leave_btn = page.locator('button[aria-label*="Leave call" i]').first
+                                    if leave_btn.count() > 0:
+                                        leave_btn.click()
+                                        time.sleep(2)
+                                except Exception:
+                                    pass
+                                break
+                        else:
+                            if alone_since is not None:
+                                print("[Bot] Participants rejoined — resetting alone timer.")
                             alone_since = None
                     except Exception:
-                        # If page is closed or navigation happened
                         break
                 
                 self.stop_audio_recording()

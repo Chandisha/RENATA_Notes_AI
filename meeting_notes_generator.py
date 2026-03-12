@@ -110,12 +110,10 @@ class AdaptiveMeetingNotesGenerator:
         self.last_json_path = None
 
     def _generate_with_fallback(self, content, prompt_text=None):
-        """Strictly use Gemini 3.0 Flash or 2.5 Flash as requested."""
+        """Use Gemini 3 Flash (Preview) as primary, Gemini 2.5 Flash (Stable) as fallback."""
         models_to_try = [
-            "gemini-1.5-flash", 
-            "gemini-1.5-pro", 
-            "gemini-2.0-flash-exp", 
-            "gemini-1.5-flash-8b"
+            "gemini-3-flash-preview",   # Gemini 3 Flash — frontier performance
+            "gemini-2.5-flash",         # Gemini 2.5 Flash — stable GA fallback
         ]
         
         for model_id in models_to_try:

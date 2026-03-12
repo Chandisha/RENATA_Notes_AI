@@ -450,6 +450,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const newChatBtn = document.getElementById('new-chat-sidebar-btn');
     if (newChatBtn) newChatBtn.onclick = createNewChat;
 
+    // ─── Bot session state ───
+    let _botActive = false;          // True while a bot session is in-flight
+    let _botPollingInterval = null;  // Dedicated polling loop after dispatch
+
+    function _startBotPolling() {
+        if (_botPollingInterval) return; // already running
+        _botPollingInterval = setInterval(async () => {
+            try {
+                const res = await apiFetch('/live/status');
+                const data = await res.json();
+                if (data.meeting && data.status && data.status !== 'IDLE') {
+                    _botActive = true;
+                    showBotActive(data.status, data.meeting.bot_status_note);
+                    if (data.status === 'COMPLETED' || data.status === 'FAILED') {
+                        _stopBotPolling();
+                        // After a finished session, show idle after 6 seconds
+                        setTimeout(() => {
+                            _botActive = false;
+                            showBotIdle();
+                        }, 6000);
+                    }
+                } else if (!_botActive) {
+                    // Server says idle and we never started — stop polling quietly
+                    _stopBotPolling();
+                }
+                // If _botActive but server says idle: keep showing last state
+                // (transient — server may lag a bit on first write)
+            } catch (e) { console.warn('Bot poll error:', e); }
+        }, 2000);
+    }
+
+    function _stopBotPolling() {
+        if (_botPollingInterval) { clearInterval(_botPollingInterval); _botPollingInterval = null; }
+    }
+
     // ─── Timer for live call duration ───
     let _liveTimerInterval = null;
     let _liveStartTs = null;
@@ -532,9 +567,9 @@ document.addEventListener('DOMContentLoaded', () => {
             _setLog(logMsg || 'Bot is in the waiting room — waiting for host to admit Renata...');
             _stopLiveTimer();
         } else if (status === 'CONNECTED' || status.includes('LIVE')) {
-            pulse.style.background = '#10b981';
-            _setPhase('live', 4); _setProgress(85, 'Bot is LIVE in the meeting!'); _setBadge('🟢 Bot Active — Recording', '#10b981');
-            _setLog('✅ Renata has joined the meeting and is capturing intelligence. Recording in progress...');
+            pulse.style.background = '#10b981'; pulse.style.animation = 'pulse 1.5s infinite';
+            _setPhase('live', 4); _setProgress(85, 'Bot is LIVE in the meeting!'); _setBadge('🟢 Bot Joined Successfully — Recording', '#10b981');
+            _setLog('🎉 <b>Bot Joined Successfully!</b> Renata is now live in the meeting and capturing intelligence. Recording in progress...');
             _startLiveTimer();
         } else if (status === 'PROCESSING') {
             pulse.style.background = '#8b5cf6'; pulse.style.animation = 'pulse 1.5s infinite';
@@ -572,8 +607,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch("/live/status");
             const data = await res.json();
             if (data.meeting && data.status && data.status !== 'IDLE') {
+                _botActive = true;
                 showBotActive(data.status, data.meeting.bot_status_note);
-            } else {
+                // Ensure polling is running whenever we detect an active bot
+                _startBotPolling();
+            } else if (!_botActive) {
+                // Only reset to idle if we are NOT in the middle of a local dispatch
                 showBotIdle();
             }
         } catch (err) { }
@@ -582,19 +621,26 @@ document.addEventListener('DOMContentLoaded', () => {
     window.dispatchRenata = async (url) => {
         if (!url) return alert('Please enter a meeting link.');
         const btn = document.getElementById('manual-join');
-        if (btn) btn.disabled = true;
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i data-feather="loader" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatching...'; feather.replace(); }
         const fd = new FormData();
         fd.append('meeting_url', url);
         try {
             const res = await apiFetch('/live/join', { method: 'POST', body: fd });
             const data = await res.json();
             if (data.success) {
+                _botActive = true;          // Mark session as active immediately
                 showBotActive('JOIN_PENDING', data.message);
+                _stopBotPolling();          // Reset any old poll
+                _startBotPolling();         // Start fresh dedicated polling loop
                 if (window.closeModal) window.closeModal();
             } else {
                 alert('Error: ' + (data.message || 'Failed to dispatch.'));
+                if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata'; feather.replace(); }
             }
-        } catch (err) { alert('Server error. Is your pilot script running?'); }
+        } catch (err) { 
+            alert('Server error. Is your pilot script running?');
+            if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata'; feather.replace(); }
+        }
         finally { if (btn) btn.disabled = false; }
     };
 
@@ -673,10 +719,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (sBtn) sBtn.addEventListener('click', askAI);
     if (cin) cin.addEventListener('keypress', (e) => { if (e.key === 'Enter') askAI(); });
 
-    // AUTO-REFRESH DATA (Every 3 seconds for Live, 15 for others)
+    // AUTO-REFRESH DATA
+    // Live status is handled by _startBotPolling() for active sessions.
+    // The global interval here only does a gentle background probe on
+    // page load / navigation (does NOT override an active dispatch).
     setInterval(() => {
         const currentHash = window.location.hash.replace('#', '');
         if (currentHash === 'analytics') loadAnalyticsData();
-        if (currentHash === 'live' || currentHash === 'dashboard') loadLiveStatus();
-    }, 3000);
+        // Only probe live status if no dedicated polling loop is already running
+        if ((currentHash === 'live' || currentHash === 'dashboard') && !_botPollingInterval) {
+            loadLiveStatus();
+        }
+    }, 5000);
 });
