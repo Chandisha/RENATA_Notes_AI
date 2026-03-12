@@ -618,9 +618,43 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { }
     }
 
+    let currentDispatchMeetingId = null;
+
     window.dispatchRenata = async (url) => {
         if (!url) return alert('Please enter a meeting link.');
         const btn = document.getElementById('manual-join');
+
+        if (btn && btn.getAttribute('data-mode') === 'cancel') {
+            btn.innerHTML = '<i data-feather="loader" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Canceling...';
+            btn.disabled = true;
+            feather.replace();
+            try {
+                const fd = new FormData();
+                fd.append('meeting_id', currentDispatchMeetingId);
+                const res = await apiFetch('/live/cancel', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success) {
+                    btn.removeAttribute('data-mode');
+                    btn.style.background = '';
+                    btn.style.color = '';
+                    btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata';
+                    feather.replace();
+                    currentDispatchMeetingId = null;
+                    showBotIdle();
+                } else {
+                    alert('Error canceling: ' + (data.message || 'Failed'));
+                    btn.innerHTML = '<i data-feather="x-circle" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Cancel Dispatch';
+                    feather.replace();
+                }
+            } catch (err) {
+                alert('Server error.');
+                btn.innerHTML = '<i data-feather="x-circle" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Cancel Dispatch';
+                feather.replace();
+            }
+            finally { if (btn) btn.disabled = false; }
+            return;
+        }
+
         if (btn) { btn.disabled = true; btn.innerHTML = '<i data-feather="loader" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatching...'; feather.replace(); }
         const fd = new FormData();
         fd.append('meeting_url', url);
@@ -628,11 +662,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch('/live/join', { method: 'POST', body: fd });
             const data = await res.json();
             if (data.success) {
+                currentDispatchMeetingId = data.meeting_id;
                 _botActive = true;          // Mark session as active immediately
                 showBotActive('JOIN_PENDING', data.message);
                 _stopBotPolling();          // Reset any old poll
                 _startBotPolling();         // Start fresh dedicated polling loop
+                
                 if (window.closeModal) window.closeModal();
+                
+                if (btn) {
+                    btn.setAttribute('data-mode', 'cancel');
+                    btn.style.background = '#ef4444';
+                    btn.style.color = 'white';
+                    btn.innerHTML = '<i data-feather="x-circle" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Cancel Dispatch';
+                    feather.replace();
+                }
             } else {
                 alert('Error: ' + (data.message || 'Failed to dispatch.'));
                 if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata'; feather.replace(); }

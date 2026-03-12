@@ -756,8 +756,17 @@ async def live_join(request: Request, meeting_url: str = Form(...)):
         INSERT INTO meetings (meeting_id, title, start_time, meet_url, user_email, bot_status, bot_status_note)
         VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, 'JOIN_PENDING', 'Waiting for local bot pilot...')
     ''', (m_id, "Live Meeting", meeting_url, user['email']))
+    return {"success": True, "message": "Renata has been alerted. Make sure your local pilot script is running!", "meeting_id": m_id}
+
+@app.post("/live/cancel", response_class=JSONResponse)
+async def live_cancel(request: Request, meeting_id: str = Form(...)):
+    user = require_user(request)
+    # Attempt to delete if it's still pending (bot hasn't picked it up yet)
+    success, _ = db.exec_commit("DELETE FROM meetings WHERE meeting_id = ? AND user_email = ? AND bot_status = 'JOIN_PENDING'", (meeting_id, user['email']))
     
-    return {"success": True, "message": "Renata has been alerted. Make sure your local pilot script is running!"}
+    # If the bot already picked it up, set to CANCELED so it might abort.
+    db.exec_commit("UPDATE meetings SET bot_status = 'CANCELED', bot_status_note = 'Canceled by user' WHERE meeting_id = ? AND user_email = ?", (meeting_id, user['email']))
+    return {"success": True, "message": "Dispatch canceled successfully."}
 
 @app.post("/settings/api/save", response_class=JSONResponse)
 async def settings_api_save(request: Request):
