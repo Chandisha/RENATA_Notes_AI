@@ -591,7 +591,8 @@ def run_auto_pilot(operator_email):
                     _active_jobs[(m_id, u_email)] = t
                     t.start()
 
-            # 2. CALENDAR SCAN (ALL USERS WITH TOKENS)
+            # 2. CALENDAR SCAN (DISABLED AS PER USER REQUEST - ONLY JOIN ON DISPATCH)
+            """
             all_users = db.fetch_all("SELECT email FROM users WHERE google_token IS NOT NULL AND google_token != ''")
             now = datetime.now(timezone.utc)
             
@@ -665,6 +666,7 @@ def run_auto_pilot(operator_email):
                                     t.start()
                 except Exception as ex:
                     print(f"Calendar Error for user {cal_email}: {ex}")
+            """
             
             time.sleep(15) 
             
