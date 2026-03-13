@@ -120,23 +120,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 statsArr[3].textContent = (data.stats.participant_count || 0).toFixed(1);
             }
 
-            // Recent Reports List (PDFs only)
+            // Recent Reports List (PDF and processing)
             const recentList = document.getElementById('recent-list');
             if (recentList) {
                 recentList.innerHTML = '';
-                const recentPdfs = (data.recent_meetings || []).filter(m => m.pdf_path).slice(0, 5);
+                const recentAll = (data.recent_meetings || []).slice(0, 5);
                 
-                if (recentPdfs.length === 0) {
-                    recentList.innerHTML = '<p class="muted" style="padding:10px;">No reports generated yet.</p>';
+                if (recentAll.length === 0) {
+                    recentList.innerHTML = '<p class="muted" style="padding:10px;">No meetings yet.</p>';
                 } else {
-                    recentPdfs.forEach(m => {
+                    recentAll.forEach(m => {
+                        const isProcessing = m.status === 'processing' || m.bot_status === 'PROCESSING';
                         const item = document.createElement('div');
                         item.className = 'list-item';
                         item.innerHTML = `
-                            <div class="item-icon"><i data-feather="file-text"></i></div>
+                            <div class="item-icon"><i data-feather="${isProcessing ? 'loader' : 'file-text'}" class="${isProcessing ? 'spin' : ''}"></i></div>
                             <div class="item-details">
-                                <span class="item-title">${m.title || 'Meeting Report'}</span>
-                                <span class="item-meta">Generated ${timeAgo(m.updated_at || m.created_at)}</span>
+                                <span class="item-title">${m.title || 'Meeting'}</span>
+                                <span class="item-meta">${isProcessing ? 'AI Processing...' : 'Generated ' + timeAgo(m.updated_at || m.created_at)}</span>
                             </div>
                             <div class="item-actions">
                                 <button class="btn-sm primary-btn" onclick="window.location.hash='#reports'">View</button>
@@ -217,18 +218,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!grid) return;
             grid.innerHTML = '';
 
-            // Filter only meetings that have a PDF generated
-            const pdfMeetings = (data.meetings || []).filter(m => m.pdf_path);
+            // Show all meetings (completed and processing)
+            const allMeetings = (data.meetings || []);
 
-            if (pdfMeetings.length === 0) {
-                grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No reports generated yet. Reports will appear here once meeting processing is complete.</p></div>';
+            if (allMeetings.length === 0) {
+                grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No meetings yet. Reports will appear here once meeting processing is complete.</p></div>';
                 if (refreshIcon) refreshIcon.classList.remove('spin');
                 return;
             }
 
-            pdfMeetings.forEach((m, index) => {
-                const pdfName = m.pdf_path.split(/[\\/]/).pop();
-                const pdfLink = `${API_BASE}/download/pdf/${pdfName}`;
+            allMeetings.forEach((m, index) => {
+                const pdfPath = m.pdf_path;
+                const isProcessing = !pdfPath || m.bot_status === 'PROCESSING';
+                const pdfName = pdfPath ? pdfPath.split(/[\\/]/).pop() : null;
+                const pdfLink = pdfName ? `${API_BASE}/download/pdf/${pdfName}` : null;
                 
                 let transcriptsName = null;
                 if (m.transcripts_pdf_path) {
@@ -250,19 +253,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 card.innerHTML = `
                     <div style="display:flex; align-items:center; gap:20px;">
-                        <div class="report-number" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-purple); opacity: 0.5;">#${pdfMeetings.length - index}</div>
+                        <div class="report-number" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-purple); opacity: 0.5;">#${allMeetings.length - index}</div>
                         <div>
                             <h3 class="report-title" style="margin:0; font-size:1.1rem;">${m.title || 'Meeting Report'}</h3>
-                            <span class="muted" style="font-size:0.85rem;">Generated ${generatedTime}</span>
+                            <span class="muted" style="font-size:0.85rem;">${isProcessing ? '🔄 AI Processing in progress...' : 'Generated ' + generatedTime}</span>
                         </div>
                     </div>
                     <div style="display:flex; gap:12px; align-items:center;">
-                        <a href="javascript:void(0);" onclick="handleViewPdf('${pdfLink}')" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
-                            <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> View PDF
-                        </a>
-                        ${transcriptsName ? `<a href="${API_BASE}/download/transcripts_pdf/${transcriptsName}" target="_blank" class="secondary-btn" style="text-decoration:none; padding: 10px 20px;">
-                            <i data-feather="align-left" style="width:16px; margin-right:8px;"></i> View Transcripts
-                        </a>` : ''}
+                        ${isProcessing ? `
+                            <div class="processing-tag" style="padding: 8px 16px; background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); color: var(--accent-purple); border-radius: 8px; font-size: 0.85rem;">
+                                <i data-feather="loader" class="spin" style="width:14px; height:14px; vertical-align:middle; margin-right:6px;"></i> Processing Intelligence...
+                            </div>
+                        ` : `
+                            <a href="javascript:void(0);" onclick="handleViewPdf('${pdfLink}')" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
+                                <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> View PDF
+                            </a>
+                            ${transcriptsName ? `<a href="${API_BASE}/download/transcripts_pdf/${transcriptsName}" target="_blank" class="secondary-btn" style="text-decoration:none; padding: 10px 20px;">
+                                <i data-feather="align-left" style="width:16px; margin-right:8px;"></i> View Transcripts
+                            </a>` : ''}
+                        `}
                         <button class="delete-btn" onclick="deleteReport('${m.meeting_id}')" title="Delete Permanentely">
                             <i data-feather="trash-2" style="width:16px;"></i>
                         </button>
@@ -648,6 +657,9 @@ document.addEventListener('DOMContentLoaded', () => {
             _setProgress(100, 'Report ready! ✅'); _setBadge('✅ Completed', '#10b981');
             _setLog('All done! Your meeting report is now available in the <b>Reports</b> tab.');
             _stopLiveTimer();
+            // Auto-refresh reports data if visible
+            if (window.location.hash === '#reports') loadReportsData();
+            if (window.location.hash === '#dashboard') loadDashboardData();
         } else if (status === 'FAILED') {
             pulse.style.background = '#ef4444'; pulse.style.animation = 'none';
             _setProgress(100, 'Failed'); _setBadge('❌ Failed', '#ef4444');
