@@ -48,7 +48,8 @@ def normalize_url(url: str) -> str:
 # --- BOT CONFIGURATION ---
 PERMANENT_BOT_EMAIL = "chandisha.das.fit.cse22@teamfuture.in"
 PERMANENT_BOT_PASS = "123Chandisha#"
-BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session")
+BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session", "main")
+os.makedirs(BOT_SESSION_DIR, exist_ok=True)
 
 # --- CALENDAR OPERATIONS ---
 def get_service(user_email=None):
@@ -127,39 +128,75 @@ class RenaMeetingBot:
         print("Bot Login Session Saved.")
 
     def automate_google_login(self, page):
+        """Robust automation for Google Login flow."""
         try:
-            # Wait for any of the initial login elements
-            page.wait_for_load_state("networkidle", timeout=10000)
+            print(f"Checking Google Login for {PERMANENT_BOT_EMAIL}...")
             
-            # 1. Account Chooser / Selector
-            email_div = page.locator(f'div[data-email="{PERMANENT_BOT_EMAIL}"], [aria-label*="{PERMANENT_BOT_EMAIL}"]')
-            if email_div.count() > 0:
-                print(f"Selecting existing account: {PERMANENT_BOT_EMAIL}")
-                email_div.first.click()
-                time.sleep(2)
-            
-            # 2. Identifier Field (Email)
-            email_input = page.locator('input[type="email"]')
-            if email_input.is_visible(timeout=3000):
-                print(f"Entering email: {PERMANENT_BOT_EMAIL}")
-                email_input.fill(PERMANENT_BOT_EMAIL)
-                page.click('#identifierNext')
-                time.sleep(2)
-            
-            # 3. Password Field
-            pw_field = page.locator('input[type="password"]')
+            # If already on accounts page or redirected
+            if "accounts.google.com" not in page.url:
+                page.goto("https://accounts.google.com/signin", wait_until="networkidle")
+
+            # 1. Check if already logged in by looking for profile info or meet identity
+            if "accounts.google.com/v3/signin/identifier" not in page.url and "signin" not in page.url:
+                print("Already logged in or on a non-login page.")
+                return True
+
+            # 2. Account Chooser / Selector (if multiple accounts exist)
             try:
+                email_div = page.locator(f'div[data-email="{PERMANENT_BOT_EMAIL}"], [aria-label*="{PERMANENT_BOT_EMAIL}"]').first
+                if email_div.is_visible(timeout=5000):
+                    print(f"Selecting existing account: {PERMANENT_BOT_EMAIL}")
+                    email_div.click()
+                    time.sleep(2)
+            except: pass
+
+            # 3. Identifier Field (Email)
+            try:
+                email_input = page.locator('input[type="email"], #identifierId').first
+                if email_input.is_visible(timeout=5000):
+                    print(f"Entering email: {PERMANENT_BOT_EMAIL}")
+                    email_input.fill(PERMANENT_BOT_EMAIL)
+                    page.click('#identifierNext, [jsname="V67oBc"]')
+                    time.sleep(3)
+            except: pass
+
+            # 4. Handle "Use another account" if needed
+            try:
+                another = page.locator('text="Use another account"').first
+                if another.is_visible(timeout=3000):
+                    another.click()
+                    time.sleep(2)
+            except: pass
+
+            # 5. Password Field
+            try:
+                pw_field = page.locator('input[type="password"], input[name="password"]').first
                 pw_field.wait_for(state="visible", timeout=10000)
                 print("Entering password...")
                 pw_field.fill(PERMANENT_BOT_PASS)
-                page.click('#passwordNext')
+                page.click('#passwordNext, [jsname="V67oBc"]')
                 time.sleep(5)
             except:
-                print("Password field not found or already logged in.")
-            
-            # 4. Verification Check
+                print("Password field not found. Might be already logged in or stuck.")
+
+            # 6. Handle Verification / "Protect your account" / "Continue"
+            for _ in range(3):
+                try:
+                    # Common Google "Continue" or "Not now" buttons after login
+                    btns = page.locator('button:has-text("Not now"), button:has-text("Continue"), button:has-text("Done"), button:has-text("I agree")')
+                    if btns.count() > 0:
+                        print(f"Clicking verification/consent button...")
+                        btns.first.click()
+                        time.sleep(3)
+                    else:
+                        break
+                except: break
+
+            # 7. Final check
             page.wait_for_load_state("networkidle", timeout=10000)
-            return "accounts.google.com" not in page.url
+            success = "accounts.google.com" not in page.url or "myaccount.google.com" in page.url
+            print(f"Login success: {success}")
+            return success
         except Exception as e: 
             print(f"Auto-login failed: {e}")
             return False
@@ -305,39 +342,26 @@ class RenaMeetingBot:
                 page = context.pages[0]
                 Stealth().apply_stealth_sync(page)
                 
+                # PROACTIVE LOGIN: Ensure authenticated before joining
+                if not self.automate_google_login(page):
+                    print("Warning: Google Login might have failed. Proceeding anyway...")
+                
                 if db_module and meeting_id: 
                     db_module.update_bot_status(meeting_id, "FETCHING", "Navigating to Google Meet...", user_email=user_email)
                 
-                page.goto(meet_url)
+                page.goto(meet_url, wait_until="networkidle")
                 time.sleep(5)
                 
                 if db_module and meeting_id: 
                     db_module.update_bot_status(meeting_id, "CONNECTING", "Entering lobby...", user_email=user_email)
                 
-                # Handling Guest Join
-                try:
-                    name_input = page.locator('input[placeholder*="What\'s your name"], input[aria-label*="What\'s your name"]').first
-                    if name_input.count() > 0:
-                        name_input.fill(self.bot_name)
-                        time.sleep(1)
-                        page.keyboard.press("Enter")
-                        time.sleep(2)
-                        # Forced click on any button that looks like 'Join'
-                        page.evaluate('''() => { 
-                            const b = Array.from(document.querySelectorAll('button, div[role="button"]'))
-                                           .find(x => x.innerText.includes('Join') || x.innerText.includes('Ask')); 
-                            if (b) b.click(); 
-                        }''')
-                except Exception: 
-                    pass
-                
-                # Check if we landed on login page
+                # Double check if redirected to login again
                 if "accounts.google.com" in page.url:
                     if db_module and meeting_id: 
-                        db_module.update_bot_status(meeting_id, "CONNECTING", "Logging in...")
-                    if self.automate_google_login(page): 
-                        page.goto(meet_url)
-                        time.sleep(5)
+                        db_module.update_bot_status(meeting_id, "CONNECTING", "Re-authenticating...")
+                    self.automate_google_login(page)
+                    page.goto(meet_url)
+                    time.sleep(5)
                 
                 # Mute mic/camera shortcuts
                 page.keyboard.press("Control+d")
@@ -457,9 +481,7 @@ def _release_slot(slot, meeting_id=None, user_email=None, url=None):
             _active_urls.pop(url, None)
 
 def _get_session_dir(slot):
-    if slot == 0: 
-        return os.path.join(os.getcwd(), "bot_session")
-    return os.path.join(os.getcwd(), f"bot_session/slot_{slot}")
+    return os.path.join(os.getcwd(), "bot_session", f"slot_{slot}")
 
 def _get_audio_device(slot):
     """
