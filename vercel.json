@@ -40,6 +40,10 @@
             "dest": "api/main.py"
         },
         {
+            "src": "/payments(.*)",
+            "dest": "api/main.py"
+        },
+        {
             "src": "/chat/(.*)",
             "dest": "api/main.py"
         },

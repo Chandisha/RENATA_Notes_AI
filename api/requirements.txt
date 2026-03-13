@@ -27,3 +27,4 @@ sqlalchemy
 
 # PDF (lightweight)
 reportlab
+razorpay
