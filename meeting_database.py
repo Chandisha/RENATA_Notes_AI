@@ -127,6 +127,19 @@ def init_database():
         )
     ''')
     
+    # Add new columns if migrating from old schema
+    try:
+        cursor.execute("ALTER TABLE meetings ADD COLUMN transcripts_pdf_path TEXT")
+        conn.commit()
+    except Exception:
+        if not getattr(conn, "autocommit", False): conn.rollback()
+
+    try:
+        cursor.execute("ALTER TABLE meetings ADD COLUMN transcripts_pdf_blob TEXT")
+        conn.commit()
+    except Exception:
+        if not getattr(conn, "autocommit", False): conn.rollback()
+
     # Users Table
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS users (
@@ -438,7 +451,7 @@ def delete_meeting(meeting_id, user_email):
         return False
     
     # 2. Delete files from disk if they exist
-    for field in ['pdf_path', 'json_path', 'recording_path']:
+    for field in ['pdf_path', 'json_path', 'recording_path', 'transcripts_pdf_path']:
         if meeting.get(field):
             try:
                 p = Path(meeting[field])
