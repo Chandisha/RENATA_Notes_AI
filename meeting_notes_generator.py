@@ -5,6 +5,7 @@ import warnings
 import sys
 import torch
 import time
+import base64
 import traceback
 from pathlib import Path
 from datetime import datetime
@@ -464,6 +465,21 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
     try:
         generator.process_meeting(audio_path)
         
+        # Read PDFs for blob storage (Vercel support)
+        pdf_blob = None
+        transcripts_pdf_blob = None
+        
+        try:
+            if generator.last_pdf_path and os.path.exists(generator.last_pdf_path):
+                with open(generator.last_pdf_path, "rb") as f:
+                    pdf_blob = base64.b64encode(f.read()).decode('utf-8')
+            
+            if generator.last_transcripts_pdf_path and os.path.exists(generator.last_transcripts_pdf_path):
+                with open(generator.last_transcripts_pdf_path, "rb") as f:
+                    transcripts_pdf_blob = base64.b64encode(f.read()).decode('utf-8')
+        except Exception as e:
+            logger.error(f"Error encoding PDF blobs: {e}")
+
         # Save results to database
         db.save_meeting_results(
             meeting_id,
@@ -474,6 +490,8 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
             engagement=json.dumps(generator.intel.get("engagement_metrics", {})),
             pdf_path=generator.last_pdf_path,
             transcripts_pdf_path=generator.last_transcripts_pdf_path,
+            pdf_blob=pdf_blob,
+            transcripts_pdf_blob=transcripts_pdf_blob,
             json_path=generator.last_json_path
         )
         logger.info(f"Pipeline results saved to DB for {meeting_id}")
