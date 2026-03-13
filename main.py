@@ -877,9 +877,16 @@ async def download_transcripts_pdf(filename: str, request: Request):
         return FileResponse(path, media_type="application/pdf", filename=filename)
         
     # 2. Check Database Blob (for Cloud/Vercel)
+    # Strategy A: Try exact match on transcripts_pdf_path
     meeting = db.fetch_one("SELECT transcripts_pdf_blob FROM meetings WHERE transcripts_pdf_path LIKE ? AND user_email = ?", 
                            (f"%{filename}%", user['email']))
     
+    # Strategy B: If A fails, try to find a meeting where the main PDF matches (fallback for old or misnamed records)
+    if not (meeting and meeting.get('transcripts_pdf_blob')):
+        search_name = filename.replace("Transcripts_", "Report_")
+        meeting = db.fetch_one("SELECT transcripts_pdf_blob FROM meetings WHERE pdf_path LIKE ? AND user_email = ?",
+                               (f"%{search_name}%", user['email']))
+
     if meeting and meeting.get('transcripts_pdf_blob'):
         try:
             pdf_bytes = base64.b64decode(meeting['transcripts_pdf_blob'])

@@ -108,6 +108,7 @@ class AdaptiveMeetingNotesGenerator:
         self.gemini_file = None
         self.last_pdf_path = None
         self.last_transcripts_pdf_path = None
+        self.meeting_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         self.last_json_path = None
 
     def _generate_with_fallback(self, content, prompt_text=None):
@@ -249,7 +250,7 @@ Output format:
 
     def export_to_pdf(self):
         stem = Path(self.audio_path).stem if self.audio_path else "Meeting"
-        filename = f"{stem}_Renata_Report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filename = f"{stem}_Renata_Report_{self.meeting_timestamp}.pdf"
         pdf_path = OUTPUT_DIR / filename
         self.last_pdf_path = str(pdf_path)
 
@@ -355,7 +356,7 @@ Output format:
 
     def export_transcripts_pdf(self):
         stem = Path(self.audio_path).stem if self.audio_path else "Meeting"
-        filename = f"{stem}_Renata_Transcripts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filename = f"{stem}_Renata_Transcripts_{self.meeting_timestamp}.pdf"
         pdf_path = OUTPUT_DIR / filename
         self.last_transcripts_pdf_path = str(pdf_path)
 
