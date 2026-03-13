@@ -513,5 +513,21 @@ def delete_chat_session(session_id, user_email):
     exec_commit("DELETE FROM chat_sessions WHERE session_id = ? AND user_email = ?", (session_id, user_email))
     return True
 
+# --- PAYMENT & PLAN OPERATIONS ---
+def add_credits(email, amount):
+    query = "UPDATE users SET credits = credits + ? WHERE email = ?"
+    return exec_commit(query, (amount, email))
+
+def unlock_meeting_summary(email, meeting_id):
+    query = "UPDATE meetings SET is_summarized_paid = 1 WHERE meeting_id = ? AND user_email = ?"
+    success, _ = exec_commit(query, (meeting_id, email))
+    if success:
+        return True, "Meeting unlocked successfully"
+    return False, "Failed to unlock meeting"
+
+def update_user_plan(email, plan):
+    query = "UPDATE users SET subscription_plan = ? WHERE email = ?"
+    return exec_commit(query, (plan, email))
+
 # Initialize database on import
 init_database()

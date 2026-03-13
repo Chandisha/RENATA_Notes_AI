@@ -1,52 +1,75 @@
+import os
+import razorpay
 import meeting_database as db
-import time
-import random
+from dotenv import load_dotenv
 
-class PaymentService:
+load_dotenv()
+
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
+
+class RazorpayService:
     def __init__(self):
+        self.client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         self.pricing = {
-            "single_meeting": 99,  # INR
-            "pro_monthly": 499,
-            "enterprise": 2499
+            "single_meeting": 100,  # 1 INR in Paise = 100
+            "pro_monthly": 49900,   # 499 INR in Paise = 49900
+            "enterprise": 249900    # 2499 INR = 249900
         }
 
-    def generate_payment_link(self, email, item_type, meeting_id=None):
-        """Simulate creating a Stripe/Razorpay checkout session"""
-        amount = self.pricing.get(item_type, 0)
-        payment_id = f"PAY_{int(time.time())}_{random.randint(1000, 9999)}"
+    def create_order(self, email, item_type, meeting_id=None):
+        """Create a real Razorpay Order"""
+        amount = self.pricing.get(item_type, 100) # Default to 1 INR if not found
         
-        # In a real app, this would return a URL to the gateway
-        return {
-            "status": "success",
-            "payment_id": payment_id,
+        data = {
             "amount": amount,
-            "email": email,
-            "item": item_type,
-            "meeting_id": meeting_id,
-            "checkout_url": f"https://rena.ai/checkout/{payment_id}"
+            "currency": "INR",
+            "receipt": f"receipt_{email}_{item_type}",
+            "notes": {
+                "email": email,
+                "item_type": item_type,
+                "meeting_id": meeting_id
+            }
+        }
+        
+        try:
+            order = self.client.order.create(data=data)
+            return {
+                "status": "success",
+                "order_id": order['id'],
+                "amount": amount,
+                "key": RAZORPAY_KEY_ID
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def verify_payment(self, razorpay_order_id, razorpay_payment_id, razorpay_signature, email, item_type, meeting_id=None):
+        """Verify the signature and update the database"""
+        params_dict = {
+            'razorpay_order_id': razorpay_order_id,
+            'razorpay_payment_id': razorpay_payment_id,
+            'razorpay_signature': razorpay_signature
         }
 
-    def process_simulated_payment(self, email, item_type, meeting_id=None):
-        """
-        Simulate a successful payment webhook/callback.
-        In production, this would be triggered by a gateway notification.
-        """
-        # Simulate network delay
-        time.sleep(1)
-        
-        if item_type == "single_meeting" and meeting_id:
-            db.add_credits(email, 1)
-            success, msg = db.unlock_meeting_summary(email, meeting_id)
-            return success, msg
-        
-        elif item_type == "pro_monthly":
-            success = db.update_user_plan(email, "Pro")
-            return success, "Upgraded to Pro successfully"
+        try:
+            # This will raise an error if signature is invalid
+            self.client.utility.verify_payment_signature(params_dict)
             
-        elif item_type == "enterprise":
-            success = db.update_user_plan(email, "Enterprise")
-            return success, "Upgraded to Enterprise successfully"
+            # Signature is valid, update DB
+            if item_type == "single_meeting" and meeting_id:
+                db.unlock_meeting_summary(email, meeting_id)
+                return True, "Meeting unlocked successfully"
             
-        return False, "Unknown item type"
+            elif item_type == "pro_monthly":
+                db.update_user_plan(email, "Pro")
+                return True, "Upgraded to Pro successfully"
+                
+            elif item_type == "enterprise":
+                db.update_user_plan(email, "Enterprise")
+                return True, "Upgraded to Enterprise successfully"
+            
+            return False, "Unknown item type"
+        except Exception as e:
+            return False, f"Signature verification failed: {str(e)}"
 
-payments = PaymentService()
+razorpay_service = RazorpayService()

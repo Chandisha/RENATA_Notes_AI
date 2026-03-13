@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <i data-feather="loader" class="spin" style="width:14px; height:14px; vertical-align:middle; margin-right:6px;"></i> Processing Intelligence...
                             </div>
                         ` : `
-                            <a href="javascript:void(0);" onclick="handleViewPdf('${pdfLink}')" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
+                            <a href="javascript:void(0);" onclick="handleViewPdf('${pdfLink}', '${m.meeting_id}', ${m.is_summarized_paid})" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
                                 <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> View PDF
                             </a>
                             ${transcriptsName ? `<a href="${API_BASE}/download/transcripts_pdf/${transcriptsName}" target="_blank" class="secondary-btn" style="text-decoration:none; padding: 10px 20px;">
@@ -306,10 +306,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Payment & Upgrade Logic
-    window.handleViewPdf = function(pdfUrl) {
-        if (window.currentUserPlan === 'Pro') {
+    let currentMeetingToUnlock = null;
+    let currentPdfToOpen = null;
+
+    window.handleViewPdf = function(pdfUrl, meetingId, isPaid) {
+        if (window.currentUserPlan === 'Pro' || isPaid) {
             window.open(pdfUrl, '_blank');
         } else {
+            currentMeetingToUnlock = meetingId;
+            currentPdfToOpen = pdfUrl;
             const modal = document.getElementById('payment-modal');
             if (modal) modal.classList.add('active');
         }
@@ -322,34 +327,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.processUpgrade = async function() {
         const btn = document.getElementById('confirm-upgrade-btn');
-        if (btn) {
-            btn.innerHTML = '<i data-feather="loader" class="spin" style="width:16px; margin-right:8px;"></i> Processing...';
-            btn.disabled = true;
-            feather.replace();
-        }
+        const origHTML = btn.innerHTML;
+        btn.innerHTML = '<i data-feather="loader" class="spin" style="width:16px; margin-right:8px;"></i> Initializing Gateway...';
+        btn.disabled = true;
+        feather.replace();
 
         try {
-            const res = await apiFetch('/upgrade_account', { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                alert("Payment Successful! Your account has been upgraded to Pro. You can now unlock and view all PDFs.");
-                window.currentUserPlan = 'Pro';
-                
-                // Update UI instantly
-                const userAccountEl = document.querySelector('.user-account');
-                if (userAccountEl) userAccountEl.textContent = `Account: Pro`;
-                
-                closePaymentModal();
-            } else {
-                alert("Payment Failed: " + (data.error || "Unknown error"));
+            // 1. Create Order on Backend
+            const res = await apiFetch("/payments/create_order", {
+                method: 'POST',
+                body: JSON.stringify({ item_type: 'pro_monthly' })
+            });
+            const orderData = await res.json();
+
+            if (!orderData || orderData.status !== 'success') {
+                throw new Error(orderData ? orderData.message : 'Server error');
             }
-        } catch (err) {
-            alert("Error connecting to payment gateway.");
-        } finally {
-            if (btn) {
-                btn.innerHTML = 'Pay & Upgrade';
+
+            // 2. Open Razorpay Checkout
+            const options = {
+                "key": orderData.key,
+                "amount": orderData.amount,
+                "currency": "INR",
+                "name": "RENATA AI",
+                "description": "Upgrade to Pro Plan",
+                "order_id": orderData.order_id,
+                "handler": async function (response) {
+                    // 3. Verify Payment
+                    btn.innerHTML = '<i data-feather="loader" class="spin" style="width:16px; margin-right:8px;"></i> Verifying...';
+                    feather.replace();
+
+                    const verifyRes = await apiFetch("/payments/verify", {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature,
+                            item_type: 'pro_monthly'
+                        })
+                    });
+                    const verifyData = await verifyRes.json();
+
+                    if (verifyData.status === 'success') {
+                        alert("Upgrade Successful! Welcome to RENATA Pro.");
+                        window.currentUserPlan = 'Pro';
+                        const userAccountEl = document.querySelector('.user-account');
+                        if (userAccountEl) userAccountEl.textContent = `Account: Pro`;
+                        closePaymentModal();
+                        loadReportsData();
+                    } else {
+                        alert("Verification Failed: " + verifyData.message);
+                    }
+                    
+                    btn.innerHTML = origHTML;
+                    btn.disabled = false;
+                    feather.replace();
+                },
+                "modal": {
+                    "ondismiss": function() {
+                        btn.innerHTML = origHTML;
+                        btn.disabled = false;
+                        feather.replace();
+                    }
+                },
+                "prefill": {
+                    "email": document.querySelector('.user-account')?.textContent || ""
+                },
+                "theme": { "color": "#8b5cf6" }
+            };
+            const rzp = new Razorpay(options);
+            rzp.on('payment.failed', function (response){
+                alert("Payment Failed: " + response.error.description);
+                btn.innerHTML = origHTML;
                 btn.disabled = false;
-            }
+                feather.replace();
+            });
+            rzp.open();
+
+        } catch (err) {
+            alert("Payment Error: " + err.message);
+            btn.innerHTML = origHTML;
+            btn.disabled = false;
+            feather.replace();
         }
     };
 

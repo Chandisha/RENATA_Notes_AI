@@ -27,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import meeting_database as db
+from payment_service import razorpay_service
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 import googleapiclient.discovery
@@ -457,6 +458,50 @@ async def dashboard_data(request: Request):
             "recording": bool(profile.get("bot_recording_enabled", 1))
         }
     }
+
+# ============================================================
+# PAYMENTS (RAZORPAY)
+# ============================================================
+
+@app.post("/payments/create_order")
+async def create_payment_order(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    try:
+        data = await request.json()
+        item_type = data.get("item_type", "single_meeting")
+        meeting_id = data.get("meeting_id")
+        
+        order_data = razorpay_service.create_order(user['email'], item_type, meeting_id)
+        return JSONResponse(order_data)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/payments/verify")
+async def verify_payment(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    try:
+        data = await request.json()
+        success, message = razorpay_service.verify_payment(
+            data['razorpay_order_id'],
+            data['razorpay_payment_id'],
+            data['razorpay_signature'],
+            user['email'],
+            data.get('item_type'),
+            data.get('meeting_id')
+        )
+        
+        if success:
+            return JSONResponse({"status": "success", "message": message})
+        else:
+            return JSONResponse({"status": "error", "message": message}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 # ============================================================
 # REPORTS / HISTORY
