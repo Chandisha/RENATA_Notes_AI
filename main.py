@@ -436,7 +436,8 @@ async def dashboard_data(request: Request):
         "user": {
             "name": profile.get("name", user["name"]),
             "email": email,
-            "picture": profile.get("picture", user.get("picture", "https://api.dicebear.com/7.x/avataaars/svg?seed="+email))
+            "picture": profile.get("picture", user.get("picture", "https://api.dicebear.com/7.x/avataaars/svg?seed="+email)),
+            "plan": "Basic" if profile.get("subscription_plan", "Basic") in ["Free", "Basic"] else "Pro"
         },
         "stats": {
             "total_meetings": stats.get('total_meetings', 0),
@@ -794,6 +795,15 @@ async def settings_api_save(request: Request):
         
     return {"success": True}
 
+@app.post("/upgrade_account", response_class=JSONResponse)
+async def upgrade_account(request: Request):
+    user = require_user(request)
+    try:
+        db.update_user_profile(user["email"], {"subscription_plan": "Pro"})
+        return {"success": True, "message": "Upgraded to Pro successfully!"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page_spa(request: Request):
     if not get_current_user(request):
@@ -855,6 +865,34 @@ async def download_pdf(filename: str, request: Request):
             raise HTTPException(status_code=500, detail="Error retrieving PDF from cloud storage.")
             
     raise HTTPException(status_code=404, detail="PDF Not Found. If you just finished the meeting, wait 10 seconds for the cloud sync.")
+
+@app.get("/download/transcripts_pdf/{filename}")
+async def download_transcripts_pdf(filename: str, request: Request):
+    user = get_current_user(request)
+    if not user: raise HTTPException(status_code=401)
+    
+    # 1. Check Local Disk (for local dev)
+    path = Path("meeting_outputs") / filename
+    if path.exists():
+        return FileResponse(path, media_type="application/pdf", filename=filename)
+        
+    # 2. Check Database Blob (for Cloud/Vercel)
+    meeting = db.fetch_one("SELECT transcripts_pdf_blob FROM meetings WHERE transcripts_pdf_path LIKE ? AND user_email = ?", 
+                           (f"%{filename}%", user['email']))
+    
+    if meeting and meeting.get('transcripts_pdf_blob'):
+        try:
+            pdf_bytes = base64.b64decode(meeting['transcripts_pdf_blob'])
+            return StreamingResponse(
+                io.BytesIO(pdf_bytes),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"inline; filename={filename}"}
+            )
+        except Exception as e:
+            print(f"Error serving Transcripts PDF from DB: {e}")
+            raise HTTPException(status_code=500, detail="Error retrieving Transcripts PDF from cloud storage.")
+            
+    raise HTTPException(status_code=404, detail="Transcripts PDF Not Found.")
 
 @app.get("/download/json/{filename}")
 async def download_json(filename: str, request: Request):

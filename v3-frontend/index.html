@@ -57,7 +57,8 @@
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Renata" class="avatar" alt="User">
                     <div class="user-info">
                         <span class="user-name">User</span>
-                        <span class="user-status">Online</span>
+                        <span class="user-account" style="font-size: 0.75rem; font-weight: 600; color: var(--accent-purple); display: block; margin-top: 2px;">Account: Basic</span>
+                        <span class="user-status" style="margin-top:2px;">Online</span>
                     </div>
                 </div>
             </div>
@@ -431,6 +432,22 @@
             <div class="modal-actions">
                 <button class="secondary-btn" onclick="closeModal()">Cancel</button>
                 <button class="primary-btn" id="confirm-join">Launch Bot</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <h3 style="color: var(--accent-purple); margin-bottom: 12px;">Upgrade to Pro</h3>
+            <p style="margin-bottom: 24px; color: var(--text-secondary);">Unlock full PDF reports with AI summaries and Action Items. Transcripts are always free!</p>
+            <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+                <h2 style="font-size: 2rem; color: var(--text-main); margin-bottom: 8px;">$9.99<span style="font-size: 1rem; color: var(--text-secondary);">/mo</span></h2>
+                <p style="font-size: 0.9rem; color: var(--text-secondary);">Cancel anytime</p>
+            </div>
+            <div class="modal-actions" style="justify-content: center; gap: 16px;">
+                <button class="secondary-btn" onclick="closePaymentModal()">Not Now</button>
+                <button class="primary-btn" id="confirm-upgrade-btn" onclick="processUpgrade()" style="background: var(--accent-purple);">Pay & Upgrade</button>
             </div>
         </div>
     </div>

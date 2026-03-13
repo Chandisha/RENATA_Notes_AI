@@ -118,6 +118,8 @@ def init_database():
             bot_joined_at TEXT,
             bot_status_note TEXT,
             pdf_blob TEXT,
+            transcripts_pdf_path TEXT,
+            transcripts_pdf_blob TEXT,
             is_summarized_paid INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

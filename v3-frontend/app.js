@@ -97,8 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.user) {
                 const userNameEl = document.querySelector('.user-name');
                 const userAvatarEl = document.querySelector('.avatar');
+                const userAccountEl = document.querySelector('.user-account');
                 if (userNameEl) userNameEl.textContent = data.user.name;
                 if (userAvatarEl && data.user.picture) userAvatarEl.src = data.user.picture;
+                if (userAccountEl && data.user.plan) {
+                    userAccountEl.textContent = `Account: ${data.user.plan}`;
+                    window.currentUserPlan = data.user.plan;
+                }
                 
                 const pName = document.getElementById('pref-user-name');
                 const pEmail = document.getElementById('pref-user-email');
@@ -224,6 +229,16 @@ document.addEventListener('DOMContentLoaded', () => {
             pdfMeetings.forEach((m, index) => {
                 const pdfName = m.pdf_path.split(/[\\/]/).pop();
                 const pdfLink = `${API_BASE}/download/pdf/${pdfName}`;
+                
+                let transcriptsName = null;
+                if (m.transcripts_pdf_path) {
+                    transcriptsName = m.transcripts_pdf_path.split(/[\\/]/).pop();
+                } else {
+                    // Fallback for demo if transcripts_pdf_path is empty 
+                    // (since I just added it to the schema, old rows might be empty)
+                    transcriptsName = pdfName.replace("Report_", "Transcripts_");
+                }
+
                 const generatedTime = timeAgo(m.updated_at || m.created_at);
                 
                 const card = document.createElement('div');
@@ -242,9 +257,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                     <div style="display:flex; gap:12px; align-items:center;">
-                        <a href="${pdfLink}" target="_blank" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
+                        <a href="javascript:void(0);" onclick="handleViewPdf('${pdfLink}')" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
                             <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> View PDF
                         </a>
+                        ${transcriptsName ? `<a href="${API_BASE}/download/transcripts_pdf/${transcriptsName}" target="_blank" class="secondary-btn" style="text-decoration:none; padding: 10px 20px;">
+                            <i data-feather="align-left" style="width:16px; margin-right:8px;"></i> View Transcripts
+                        </a>` : ''}
                         <button class="delete-btn" onclick="deleteReport('${m.meeting_id}')" title="Delete Permanentely">
                             <i data-feather="trash-2" style="width:16px;"></i>
                         </button>
@@ -277,6 +295,54 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error(err);
         }
     }
+
+    // Payment & Upgrade Logic
+    window.handleViewPdf = function(pdfUrl) {
+        if (window.currentUserPlan === 'Pro') {
+            window.open(pdfUrl, '_blank');
+        } else {
+            const modal = document.getElementById('payment-modal');
+            if (modal) modal.classList.add('active');
+        }
+    };
+
+    window.closePaymentModal = function() {
+        const modal = document.getElementById('payment-modal');
+        if (modal) modal.classList.remove('active');
+    };
+
+    window.processUpgrade = async function() {
+        const btn = document.getElementById('confirm-upgrade-btn');
+        if (btn) {
+            btn.innerHTML = '<i data-feather="loader" class="spin" style="width:16px; margin-right:8px;"></i> Processing...';
+            btn.disabled = true;
+            feather.replace();
+        }
+
+        try {
+            const res = await apiFetch('/upgrade_account', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert("Payment Successful! Your account has been upgraded to Pro. You can now unlock and view all PDFs.");
+                window.currentUserPlan = 'Pro';
+                
+                // Update UI instantly
+                const userAccountEl = document.querySelector('.user-account');
+                if (userAccountEl) userAccountEl.textContent = `Account: Pro`;
+                
+                closePaymentModal();
+            } else {
+                alert("Payment Failed: " + (data.error || "Unknown error"));
+            }
+        } catch (err) {
+            alert("Error connecting to payment gateway.");
+        } finally {
+            if (btn) {
+                btn.innerHTML = 'Pay & Upgrade';
+                btn.disabled = false;
+            }
+        }
+    };
 
     async function loadAnalyticsData() {
         try {

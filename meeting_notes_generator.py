@@ -107,6 +107,7 @@ class AdaptiveMeetingNotesGenerator:
         }
         self.gemini_file = None
         self.last_pdf_path = None
+        self.last_transcripts_pdf_path = None
         self.last_json_path = None
 
     def _generate_with_fallback(self, content, prompt_text=None):
@@ -352,6 +353,77 @@ Output format:
         except Exception as e:
             logger.error(f"PDF Export failed: {e}")
 
+    def export_transcripts_pdf(self):
+        stem = Path(self.audio_path).stem if self.audio_path else "Meeting"
+        filename = f"{stem}_Renata_Transcripts_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        pdf_path = OUTPUT_DIR / filename
+        self.last_transcripts_pdf_path = str(pdf_path)
+
+        def safe_text(txt):
+            if not txt: return ""
+            result = []
+            for c in str(txt):
+                if ord(c) < 128:
+                    result.append(c)
+                else:
+                    result.append(' ')
+            return ''.join(result).strip()
+
+        try:
+            PAGE_W, PAGE_H = letter
+            MARGIN = 0.75 * inch
+            CONTENT_W = PAGE_W - 2 * MARGIN
+            doc = SimpleDocTemplate(str(pdf_path), pagesize=letter, leftMargin=MARGIN, rightMargin=MARGIN, topMargin=MARGIN, bottomMargin=MARGIN)
+            styles = getSampleStyleSheet()
+
+            title_style = ParagraphStyle('RTitle', parent=styles['Heading1'], alignment=1, fontSize=22, spaceAfter=8, textColor=colors.HexColor("#2563eb"))
+            h2_style = ParagraphStyle('RH2', parent=styles['Heading2'], fontSize=14, spaceBefore=20, spaceAfter=8, textColor=colors.HexColor("#1e40af"), borderPadding=4, borderSide="bottom", borderWidth=0.5, borderColor=colors.HexColor("#bfdbfe"))
+            normal_style = ParagraphStyle('RNormal', parent=styles['Normal'], fontSize=10, leading=15, textColor=colors.HexColor("#334155"))
+            cell_style = ParagraphStyle('RCell', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.HexColor("#475569"))
+
+            elements = []
+            header_table_data = [[
+                Paragraph(safe_text(self.bot_name.upper()), ParagraphStyle('BName', parent=title_style, alignment=0, fontSize=20)),
+                Paragraph(f"Transcripts Report<br/>{datetime.now().strftime('%B %d, %Y')}", ParagraphStyle('RDate', parent=normal_style, alignment=2, fontSize=9))
+            ]]
+            header_table = Table(header_table_data, colWidths=[CONTENT_W*0.7, CONTENT_W*0.3])
+            header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'BOTTOM'), ('BOTTOMPADDING', (0,0), (-1,-1), 12)]))
+            elements.append(header_table)
+            
+            elements.append(Table([[""]], colWidths=[CONTENT_W], rowHeights=[2], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#2563eb"))])))
+            elements.append(Spacer(1, 18))
+
+            if self.structured_transcript:
+                elements.append(Paragraph("Full Transcript (Hinglish - Roman Script)", h2_style))
+                elements.append(Paragraph(
+                    "Hindi words are written in Roman transliteration. English words appear as spoken.",
+                    ParagraphStyle('note', parent=styles['Normal'], fontSize=8, textColor=colors.grey, spaceAfter=8)
+                ))
+                trans_data = [["Time", "Speaker", "Text"]]
+                for s in self.structured_transcript:
+                    trans_data.append([
+                        Paragraph(safe_text(s.get('timestamp','')), cell_style),
+                        Paragraph(safe_text(s.get('speaker','')), ParagraphStyle('RSpeak', parent=cell_style, fontName='Helvetica-Bold')),
+                        Paragraph(safe_text(s.get('text','')), normal_style)
+                    ])
+                t = Table(trans_data, colWidths=[CONTENT_W*0.12, CONTENT_W*0.18, CONTENT_W*0.7])
+                t.setStyle(TableStyle([
+                    ('BACKGROUND',(0,0),(-1,0),colors.HexColor("#f8fafc")), 
+                    ('TEXTCOLOR',(0,0),(-1,0),colors.HexColor("#475569")),
+                    ('GRID',(0,0),(-1,-1),0.1,colors.HexColor("#e2e8f0")),
+                    ('VALIGN',(0,0),(-1,-1),'TOP'),
+                    ('TOPPADDING', (0,0), (-1,-1), 4),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+                ]))
+                elements.append(t)
+            else:
+                elements.append(Paragraph("No transcripts available.", normal_style))
+
+            doc.build(elements)
+            logger.info(f"Transcripts PDF Exported: {pdf_path}")
+        except Exception as e:
+            logger.error(f"Transcripts PDF Export failed: {e}")
+
     def calculate_analytics(self):
         if not self.structured_transcript: return
         spks = {}
@@ -373,6 +445,7 @@ Output format:
         self.calculate_analytics()
         self.generate_summary()
         self.export_to_pdf()
+        self.export_transcripts_pdf()
         
         # Save JSON
         data = {"intelligence": self.intel, "transcript": self.structured_transcript}
@@ -399,6 +472,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
             speaker_stats=json.dumps(generator.intel.get("speaker_analytics", {})),
             engagement=json.dumps(generator.intel.get("engagement_metrics", {})),
             pdf_path=generator.last_pdf_path,
+            transcripts_pdf_path=generator.last_transcripts_pdf_path,
             json_path=generator.last_json_path
         )
         logger.info(f"Pipeline results saved to DB for {meeting_id}")
