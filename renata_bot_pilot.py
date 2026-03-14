@@ -313,7 +313,7 @@ class RenaMeetingBot:
                 
                 # Monitor Loop — wait for meeting to end or everyone leaves
                 alone_since = None
-                ALONE_TIMEOUT_SECS = 60
+                ALONE_TIMEOUT_SECS = 30
                 while True:
                     try:
                         if page.is_closed():
@@ -330,7 +330,7 @@ class RenaMeetingBot:
                         if not has_leave:
                             if alone_since is None:
                                 alone_since = time.time()
-                                print("[Zoom Bot] Leave button gone. Will exit in 60s if not restored...")
+                                print("[Zoom Bot] Leave button gone. Will exit in 30s if not restored...")
                             elif (time.time() - alone_since) > ALONE_TIMEOUT_SECS:
                                 break
                         else:
@@ -420,7 +420,7 @@ class RenaMeetingBot:
                     
                 # Monitor Loop — wait for meeting to end
                 alone_since = None
-                ALONE_TIMEOUT_SECS = 60  # Leave 60 seconds after everyone else leaves
+                ALONE_TIMEOUT_SECS = 30  # Leave 30 seconds after everyone else leaves
                 CHECK_INTERVAL = 10
 
                 while True:
