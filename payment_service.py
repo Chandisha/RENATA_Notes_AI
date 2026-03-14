@@ -11,7 +11,14 @@ RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 class RazorpayService:
     def __init__(self):
         print(f">>> RAZORPAY INIT: KEY_ID={'Present' if RAZORPAY_KEY_ID else 'MISSING'}")
-        self.client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+        if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
+            try:
+                self.client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+            except Exception as e:
+                print(f">>> RAZORPAY CLIENT INIT FAILED: {e}")
+                self.client = None
+        else:
+            self.client = None
         self.pricing = {
             "single_meeting": 100,  # 1 INR in Paise = 100
             "pro_monthly": 100,     # TEST PRICE: 1 INR in Paise = 100
@@ -33,6 +40,9 @@ class RazorpayService:
             }
         }
         
+        if not self.client:
+            return {"status": "error", "message": "Razorpay client not initialized. Check API keys."}
+
         try:
             order = self.client.order.create(data=data)
             return {
@@ -42,7 +52,8 @@ class RazorpayService:
                 "key": RAZORPAY_KEY_ID
             }
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            print(f">>> RAZORPAY ORDER CREATE FAILED: {e}")
+            return {"status": "error", "message": f"Razorpay API error: {str(e)}"}
 
     def verify_payment(self, razorpay_order_id, razorpay_payment_id, razorpay_signature, email, item_type, meeting_id=None):
         """Verify the signature and update the database"""
