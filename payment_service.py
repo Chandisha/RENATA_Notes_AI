@@ -29,10 +29,12 @@ class RazorpayService:
         """Create a real Razorpay Order"""
         amount = self.pricing.get(item_type, 100) # Default to 1 INR if not found
         
+        # Razorpay receipt must be <= 40 chars
+        receipt_id = f"rcpt_{email[:15]}_{item_type[:15]}_{db.datetime.now().strftime('%M%S')}"
         data = {
             "amount": amount,
             "currency": "INR",
-            "receipt": f"receipt_{email}_{item_type}",
+            "receipt": receipt_id[:40],
             "notes": {
                 "email": email,
                 "item_type": item_type,
