@@ -318,6 +318,13 @@ class RenaMeetingBot:
                     try:
                         if page.is_closed():
                             break
+                        # Check for user cancellation
+                        if db_module and meeting_id:
+                            status_data = db_module.fetch_one("SELECT bot_status FROM meetings WHERE meeting_id = ?", (meeting_id,))
+                            if status_data and status_data.get('bot_status') == 'CANCELED':
+                                print(f"[Zoom Bot] Cancellation requested for {meeting_id}. Leaving...")
+                                break
+                        
                         # If Leave button gone, meeting likely ended
                         has_leave = page.locator('button:has-text("Leave")').count() > 0
                         if not has_leave:
@@ -423,6 +430,13 @@ class RenaMeetingBot:
                             break
                         if page.locator('text="You left the meeting"').count() > 0:
                             break
+                        
+                        # Check for user cancellation
+                        if db_module and meeting_id:
+                            status_data = db_module.fetch_one("SELECT bot_status FROM meetings WHERE meeting_id = ?", (meeting_id,))
+                            if status_data and status_data.get('bot_status') == 'CANCELED':
+                                print(f"[Google Meet Bot] Cancellation requested for {meeting_id}. Leaving...")
+                                break
 
                         # ── Participant count ──────────────────────────────────────────
                         # Try multiple selectors that Google Meet uses across versions
@@ -616,13 +630,15 @@ def run_auto_pilot(operator_email):
                     _active_jobs[(m_id, u_email)] = t
                     t.start()
 
-            # 2. CALENDAR SCAN (DISABLED AS PER USER REQUEST - ONLY JOIN ON DISPATCH)
-            """
-            all_users = db.fetch_all("SELECT email FROM users WHERE google_token IS NOT NULL AND google_token != ''")
+            # 2. CALENDAR SCAN (Auto-join if enabled by user)
+            all_users = db.fetch_all("SELECT email, bot_auto_join FROM users WHERE (google_token IS NOT NULL AND google_token != '')")
             now = datetime.now(timezone.utc)
             
             for user_row in all_users:
-                cal_email = user_row['email'] if isinstance(user_row, dict) else user_row[0]
+                cal_email = user_row['email']
+                # Respect auto-join setting
+                if not user_row.get('bot_auto_join', 1):
+                    continue
                 
                 if gmail_scanner: 
                     try:
@@ -637,7 +653,7 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        timeMin=now.isoformat().replace('+00:00','Z'), 
+                        timeMin=(now - timedelta(minutes=5)).isoformat().replace('+00:00','Z'), 
                         maxResults=5, 
                         singleEvents=True, 
                         orderBy='startTime'
@@ -691,7 +707,6 @@ def run_auto_pilot(operator_email):
                                     t.start()
                 except Exception as ex:
                     print(f"Calendar Error for user {cal_email}: {ex}")
-            """
             
             time.sleep(5)
             

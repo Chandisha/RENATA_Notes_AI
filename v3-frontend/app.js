@@ -111,6 +111,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pEmail) pEmail.value = data.user.email;
             }
 
+            // Preferences Initialization
+            if (data.preferences) {
+                const autoJoinCheck = document.getElementById('pref-auto-join');
+                if (autoJoinCheck) autoJoinCheck.checked = !!data.preferences.auto_join;
+            }
+
             // Dashboard Stats
             const statsArr = document.querySelectorAll('#dashboard-page .stat-value');
             if (data.stats && statsArr.length >= 4) {
@@ -968,15 +974,13 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = true;
 
             const autoJoin = document.getElementById('pref-auto-join').checked;
-            const recording = document.getElementById('pref-recording').checked;
 
             try {
                 const res = await apiFetch('/api/profile/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        auto_join: autoJoin,
-                        recording: recording
+                        auto_join: autoJoin
                     })
                 });
                 if (!res.ok) {

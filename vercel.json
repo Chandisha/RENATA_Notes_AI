@@ -20,6 +20,10 @@
             "dest": "/static/$1"
         },
         {
+            "src": "/api/(.*)",
+            "dest": "api/main.py"
+        },
+        {
             "src": "/v3-frontend/(.*)",
             "dest": "/v3-frontend/$1"
         },
