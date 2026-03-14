@@ -10,6 +10,7 @@ RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
 class RazorpayService:
     def __init__(self):
+        print(f">>> RAZORPAY INIT: KEY_ID={'Present' if RAZORPAY_KEY_ID else 'MISSING'}")
         self.client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         self.pricing = {
             "single_meeting": 100,  # 1 INR in Paise = 100
