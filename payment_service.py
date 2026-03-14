@@ -20,8 +20,8 @@ class RazorpayService:
         else:
             self.client = None
         self.pricing = {
-            "single_meeting": 100,  # 1 INR in Paise = 100
-            "pro_monthly": 100,     # TEST PRICE: 1 INR in Paise = 100
+            "single_meeting": 200,  # 2 INR for testing
+            "pro_monthly": 200,     # TEST PRICE: 2 INR = 200 Paise
             "enterprise": 249900    # 2499 INR = 249900
         }
 
@@ -30,11 +30,14 @@ class RazorpayService:
         amount = self.pricing.get(item_type, 100) # Default to 1 INR if not found
         
         # Razorpay receipt must be <= 40 chars
-        receipt_id = f"rcpt_{email[:15]}_{item_type[:15]}_{db.datetime.now().strftime('%M%S')}"
+        # Format: rcpt_TIME_TYPE
+        timestamp = db.datetime.now().strftime('%H%M%S')
+        receipt_id = f"rcpt_{timestamp}_{item_type[:10]}"
+        
         data = {
             "amount": amount,
             "currency": "INR",
-            "receipt": receipt_id[:40],
+            "receipt": receipt_id,
             "notes": {
                 "email": email,
                 "item_type": item_type,
@@ -46,6 +49,8 @@ class RazorpayService:
             return {"status": "error", "message": "Razorpay client not initialized. Check API keys."}
 
         try:
+            is_live = RAZORPAY_KEY_ID.startswith("rzp_live")
+            print(f">>> RAZORPAY: Creating order for {email} ({'LIVE' if is_live else 'TEST'} MODE)")
             order = self.client.order.create(data=data)
             return {
                 "status": "success",
@@ -54,7 +59,7 @@ class RazorpayService:
                 "key": RAZORPAY_KEY_ID
             }
         except Exception as e:
-            print(f">>> RAZORPAY ORDER CREATE FAILED: {e}")
+            print(f">>> RAZORPAY ORDER CREATE FAILED for {email}: {e}")
             return {"status": "error", "message": f"Razorpay API error: {str(e)}"}
 
     def verify_payment(self, razorpay_order_id, razorpay_payment_id, razorpay_signature, email, item_type, meeting_id=None):
