@@ -228,6 +228,7 @@ Output format:
         try:
             prompt = """
             Analyze the following meeting transcript and return a JSON object with:
+            - title: A short, descriptive title for the meeting (max 6-8 words).
             - summary_en: Professional executive summary in English.
             - summary_hi: Careful Hindi version of the summary (Devanagari).
             - mom: List of key discussion points in English.
@@ -245,6 +246,10 @@ Output format:
             json_match = re.search(r'\{.*\}', raw, re.DOTALL)
             if json_match:
                 self.intel = json.loads(json_match.group())
+                
+                # Update database title if AI generated a better one
+                if self.intel.get('title'):
+                    logger.info(f"AI Project Title: {self.intel['title']}")
                 logger.info("Gemini Analysis Complete")
         except Exception as e:
             logger.error(f"Gemini Summary failed: {e}")
@@ -502,8 +507,12 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
             mtg = db.get_meeting(meeting_id)
             if mtg and mtg.get('user_email'):
                 user_email = mtg['user_email']
-                title = mtg.get('title', 'Live Meeting')
-                meeting_date = datetime.now().strftime("%B %d, %Y @ %I:%M %p")
+                # Use AI generated title if available, otherwise fallback to database title
+                title = generator.intel.get('title') or mtg.get('title') or 'Live Meeting'
+                meeting_date = datetime.now().strftime("%B %d, %Y")
+                meeting_time = datetime.now().strftime("%I:%M %p")
+                full_timestamp = f"{meeting_date} @ {meeting_time}"
+                
                 summary_text = generator.intel.get("summary_en", "Processing complete. Please find the attached report.")
                 
                 import smtplib
@@ -511,8 +520,8 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 from email.utils import formataddr
                 
                 msg = EmailMessage()
-                # Professional subject like the screenshot: [Topic] on [Date] | Renata Meeting Report
-                msg['Subject'] = f"{title} on {meeting_date} | Renata Meeting Report"
+                # Professional subject like the screenshot: [Dynamic Title] on [Date] @ [Time] | Meeting Report
+                msg['Subject'] = f"{title.upper()} on {full_timestamp} | Read Meeting Report"
                 msg['From'] = formataddr(("Renata Assistant", "daschandisha@gmail.com"))
                 msg['To'] = user_email
                 
@@ -561,8 +570,8 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                         
                         <div style="text-align: center;">
                             <span class="status-pill">MEETING COMPLETE</span>
-                            <h1 class="meeting-title">{title}</h1>
-                            <div class="meeting-date">{meeting_date}</div>
+                            <h1 class="meeting-title">{title.upper()}</h1>
+                            <div class="meeting-date">{full_timestamp}</div>
                         </div>
                         
                         <div class="summary-section">
