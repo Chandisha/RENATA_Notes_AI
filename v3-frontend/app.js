@@ -932,7 +932,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const newName = document.getElementById('pref-user-name').value;
             try {
-                const res = await apiFetch('/settings/api/save', {
+                const res = await apiFetch('/api/profile/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ name: newName })
@@ -945,9 +945,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.success) {
                     btn.textContent = 'Saved!';
                     setTimeout(() => { btn.textContent = originalText; btn.disabled = false; }, 2000);
-                    // Update Sidebar Name
-                    const userNameEl = document.querySelector('.user-name');
-                    if (userNameEl) userNameEl.textContent = newName;
+                    // Update ALL Sidebar/Profile Name elements
+                    document.querySelectorAll('.user-name').forEach(el => el.textContent = newName);
                 } else {
                     throw new Error(data.error || 'Failed to save');
                 }
@@ -972,7 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const recording = document.getElementById('pref-recording').checked;
 
             try {
-                const res = await apiFetch('/settings/api/save', {
+                const res = await apiFetch('/api/profile/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

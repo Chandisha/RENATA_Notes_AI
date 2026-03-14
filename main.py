@@ -829,7 +829,7 @@ async def live_cancel(request: Request, meeting_id: str = Form(...)):
     db.exec_commit("UPDATE meetings SET bot_status = 'CANCELED', bot_status_note = 'Canceled by user' WHERE meeting_id = ? AND user_email = ?", (meeting_id, user['email']))
     return {"success": True, "message": "Dispatch canceled successfully."}
 
-@app.post("/settings/api/save", response_class=JSONResponse)
+@app.post("/api/profile/save", response_class=JSONResponse)
 async def settings_api_save(request: Request):
     user = require_user(request)
     data = await request.json()
