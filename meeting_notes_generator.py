@@ -401,11 +401,7 @@ Output format:
             elements.append(Spacer(1, 18))
 
             if self.structured_transcript:
-                elements.append(Paragraph("Full Transcript (Hinglish - Roman Script)", h2_style))
-                elements.append(Paragraph(
-                    "Hindi words are written in Roman transliteration. English words appear as spoken.",
-                    ParagraphStyle('note', parent=styles['Normal'], fontSize=8, textColor=colors.grey, spaceAfter=8)
-                ))
+                elements.append(Paragraph("Full Transcript", h2_style))
                 trans_data = [["Time", "Speaker", "Text"]]
                 for s in self.structured_transcript:
                     trans_data.append([
