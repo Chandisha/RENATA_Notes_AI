@@ -599,9 +599,9 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 const res = await apiFetch('/live/status');
                 const data = await res.json();
-                if (data.meeting && data.status && data.status !== 'IDLE') {
+                if (data.active && data.status && data.status !== 'IDLE') {
                     _botActive = true;
-                    showBotActive(data.status, data.meeting.bot_status_note);
+                    showBotActive(data.status, data.note);
                     if (data.status === 'COMPLETED' || data.status === 'FAILED') {
                         _stopBotPolling();
                         // After a finished session, show idle after 6 seconds
@@ -731,9 +731,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await apiFetch("/live/status");
             const data = await res.json();
-            if (data.meeting && data.status && data.status !== 'IDLE') {
+            if (data.active && data.status && data.status !== 'IDLE') {
                 _botActive = true;
-                showBotActive(data.status, data.meeting.bot_status_note);
+                showBotActive(data.status, data.note);
                 // Ensure polling is running whenever we detect an active bot
                 _startBotPolling();
             } else if (!_botActive) {
