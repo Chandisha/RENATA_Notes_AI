@@ -519,7 +519,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 
                 logger.info(f"Sending transcript email from bot to {user_email}...")
                 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-                    smtp.login("daschandisha@gmail.com", "123disha@das")
+                    smtp.login("daschandisha@gmail.com", "bejh mcgq aibo zpfg")
                     smtp.send_message(msg)
                 
                 logger.info(f"Successfully emailed transcript to {user_email}")
