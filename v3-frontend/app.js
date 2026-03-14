@@ -516,6 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let analyticsInterval = null;
     function startAnalyticsAutoRefresh() {
         if (analyticsInterval) clearInterval(analyticsInterval);
+        // Refresh every 10 seconds for real-time feel
         analyticsInterval = setInterval(() => {
             if (window.location.hash === '#analytics') {
                 loadAnalyticsData();
@@ -523,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(analyticsInterval);
                 analyticsInterval = null;
             }
-        }, 30000); // 30 seconds
+        }, 10000); 
     }
 
     async function loadSearchStats() {
@@ -1035,10 +1036,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // page load / navigation (does NOT override an active dispatch).
     setInterval(() => {
         const currentHash = window.location.hash.replace('#', '');
-        if (currentHash === 'analytics') loadAnalyticsData();
+        if (currentHash === 'analytics') {
+            loadAnalyticsData();
+            startAnalyticsAutoRefresh();
+        }
         // Only probe live status if no dedicated polling loop is already running
         if ((currentHash === 'live' || currentHash === 'dashboard') && !_botPollingInterval) {
             loadLiveStatus();
         }
     }, 5000);
+
+    // Initial load priorities
+    loadUserProfile();
+    loadDashboardData();
+    loadAnalyticsData(); // Load analytics fast on startup
+    loadLiveStatus();
 });
