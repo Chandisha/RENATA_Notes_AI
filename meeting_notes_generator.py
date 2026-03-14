@@ -508,7 +508,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 
                 msg = EmailMessage()
                 msg['Subject'] = f"Meeting Transcript: {title}"
-                msg['From'] = "chandisha.das.fit.cse22@teamfuture.in"
+                msg['From'] = "daschandisha@gmail.com"
                 msg['To'] = user_email
                 msg.set_content(f"Hi there,\n\nRenata has finished processing your meeting '{title}'.\n\nPlease find the attached transcript PDF directly generated from the recording.\n\nBest,\nRenata AI")
                 
@@ -519,7 +519,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 
                 logger.info(f"Sending transcript email from bot to {user_email}...")
                 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-                    smtp.login("chandisha.das.fit.cse22@teamfuture.in", "123Chandisha#")
+                    smtp.login("daschandisha@gmail.com", "123disha@das")
                     smtp.send_message(msg)
                 
                 logger.info(f"Successfully emailed transcript to {user_email}")
