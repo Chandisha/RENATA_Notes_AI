@@ -27,10 +27,11 @@ except ImportError:
     gmail_scanner = None
 
 # --- HELPERS ---
+MEET_RE = re.compile(r"meet\.google\.com")
 def is_meet_url(text: str) -> bool:
-    if not isinstance(text, str): 
+    if not isinstance(text, str):
         return False
-    return "meet.google.com/" in text
+    return bool(MEET_RE.search(text))
 
 def is_zoom_url(text: str) -> bool:
     if not isinstance(text, str): 
@@ -203,7 +204,14 @@ class RenaMeetingBot:
 
     def start_audio_recording(self, filename):
         self.recording_path = self.output_dir / f"{filename}.wav"
-        cmd = ["ffmpeg", "-y", "-f", "dshow", "-i", self.audio_device, str(self.recording_path)]
+        cmd = [
+    "ffmpeg",
+    "-threads", "1",
+    "-loglevel", "quiet",
+    "-y",
+    "-f", "dshow",
+    "-i", self.audio_device,
+    str(self.recording_path)]
         # Use subprocess.CREATE_NEW_PROCESS_GROUP for Windows CTRL+C emulation
         try:
             from subprocess import CREATE_NEW_PROCESS_GROUP
@@ -248,13 +256,26 @@ class RenaMeetingBot:
         try:
             with sync_playwright() as p:
                 context = p.chromium.launch_persistent_context(
-                    self.session_dir, 
-                    headless=False, 
+                    self.session_dir,
+                    headless=False,
+                    viewport=None,
                     args=[
                         "--use-fake-ui-for-media-stream",
                         "--use-fake-device-for-media-stream",
                         "--autoplay-policy=no-user-gesture-required",
-                        "--start-maximized"
+                        "--start-maximized",
+
+                        # Optimization flags
+                        "--disable-extensions",
+                        "--disable-sync",
+                        "--disable-background-networking",
+                        "--disable-background-timer-throttling",
+                        "--disable-renderer-backgrounding",
+                        "--disable-component-update",
+                        "--disable-default-apps",
+                        "--mute-audio",
+                        "--no-first-run",
+                        "--disable-infobars"
                     ]
                 )
                 page = context.pages[0]
@@ -349,8 +370,8 @@ class RenaMeetingBot:
                 if db_module and meeting_id: 
                     db_module.update_bot_status(meeting_id, "FETCHING", "Navigating to Google Meet...", user_email=user_email)
                 
-                page.goto(meet_url, wait_until="networkidle")
-                time.sleep(5)
+                page.goto(meet_url)
+                page.wait_for_load_state("domcontentloaded")
                 
                 if db_module and meeting_id: 
                     db_module.update_bot_status(meeting_id, "CONNECTING", "Entering lobby...", user_email=user_email)
@@ -370,12 +391,14 @@ class RenaMeetingBot:
                 time.sleep(1)
                 
                 # Click Join Button explicitly
-                for _ in range(3):
-                    btn = page.locator('button:has-text("Join now"), button:has-text("Ask to join"), [aria-label="Join now"], [aria-label="Ask to join"]').first
-                    if btn.count() > 0: 
-                        btn.click(force=True)
-                        break
-                    time.sleep(2)
+                try:
+                    btn = page.locator(
+                        'button:has-text("Join now"), button:has-text("Ask to join")'
+                    ).first
+                    btn.wait_for(timeout=8000)
+                    btn.click(force=True)
+                except:
+                    print("Join button not found")
                 
                 # Wait for Admission
                 while True:
@@ -391,8 +414,10 @@ class RenaMeetingBot:
                 # Monitor Loop — wait for meeting to end
                 alone_since = None
                 ALONE_TIMEOUT_SECS = 60  # Leave 60 seconds after everyone else leaves
+                CHECK_INTERVAL = 10
+
                 while True:
-                    time.sleep(5)
+                    page.wait_for_timeout(CHECK_INTERVAL * 1000)
                     try:
                         if page.is_closed():
                             break
@@ -668,7 +693,7 @@ def run_auto_pilot(operator_email):
                     print(f"Calendar Error for user {cal_email}: {ex}")
             """
             
-            time.sleep(15) 
+            time.sleep(5)
             
         except Exception as e:
             if "database" in str(e).lower() or "address" in str(e).lower():

@@ -327,10 +327,10 @@ def update_bot_status(meeting_id, status, note="", user_email=None):
 def get_active_joining_meeting(user_email):
     """STRICTLY SCOPED: Only get the current user's active meeting."""
     return fetch_one("""
-        SELECT meeting_id, bot_status, bot_status_note 
+        SELECT meeting_id, bot_status, bot_status_note, updated_at 
         FROM meetings 
-        WHERE user_email = ? AND bot_status IN ('JOIN_PENDING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'LIVE', 'CONNECTED')
-        ORDER BY created_at DESC LIMIT 1
+        WHERE user_email = ? AND bot_status IN ('JOIN_PENDING', 'DISPATCHING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'LIVE', 'CONNECTED', 'PROCESSING', 'COMPLETED', 'FAILED')
+        ORDER BY updated_at DESC LIMIT 1
     """, (user_email,))
 
 def get_meeting(meeting_id, user_email=None):

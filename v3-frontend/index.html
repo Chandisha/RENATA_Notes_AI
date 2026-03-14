@@ -262,43 +262,6 @@
 
                         <!-- PROGRESS STATE (hidden until dispatched) -->
                         <div id="bot-tracker" style="display:none;">
-                            <!-- tqdm-style Progress Bar -->
-                            <div style="margin-bottom:22px;">
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.78rem; color:var(--text-secondary);">
-                                    <span id="progress-label">Initializing...</span>
-                                    <span id="progress-percent">0%</span>
-                                </div>
-                                <div style="width:100%; height:10px; background:#f1f5f9; border-radius:10px; overflow:hidden; border:1px solid #e2e8f0;">
-                                    <div id="live-progress-bar" style="height:100%; width:0%; border-radius:10px; background:linear-gradient(90deg,#f27121,#e94057); transition:width 0.8s cubic-bezier(0.4,0,0.2,1); position:relative;">
-                                        <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.35),transparent);animation:shimmer 1.5s infinite;"></div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Phase Steps -->
-                            <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:20px;">
-                                <div class="bot-phase" id="phase-dispatching">
-                                    <div class="bot-phase-icon"><i data-feather="cpu" style="width:18px;height:18px;"></i></div>
-                                    <span>Dispatching</span>
-                                </div>
-                                <div class="bot-phase" id="phase-navigating">
-                                    <div class="bot-phase-icon"><i data-feather="compass" style="width:18px;height:18px;"></i></div>
-                                    <span>Navigating</span>
-                                </div>
-                                <div class="bot-phase" id="phase-lobby">
-                                    <div class="bot-phase-icon"><i data-feather="clock" style="width:18px;height:18px;"></i></div>
-                                    <span>In Lobby</span>
-                                </div>
-                                <div class="bot-phase" id="phase-live">
-                                    <div class="bot-phase-icon"><i data-feather="mic" style="width:18px;height:18px;"></i></div>
-                                    <span>Bot Active</span>
-                                </div>
-                                <div class="bot-phase" id="phase-processing">
-                                    <div class="bot-phase-icon"><i data-feather="file-text" style="width:18px;height:18px;"></i></div>
-                                    <span>Processing</span>
-                                </div>
-                            </div>
-
                             <!-- Live Log / Note -->
                             <div id="bot-log" style="background:#f8fafc; border-radius:12px; padding:14px 16px; font-size:0.83rem; color:var(--text-secondary); border:1px solid var(--border-color); font-family: monospace; min-height:40px; line-height:1.7;">
                                 <span id="bot-log-text">» Sending join request to pilot...</span>

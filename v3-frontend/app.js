@@ -189,7 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function timeAgo(date) {
         if (!date) return "recently";
-        const d = typeof date === 'string' ? new Date(date.replace(' ', 'T')) : new Date(date);
+        let parsedStr = typeof date === 'string' ? date.replace(' ', 'T') : date;
+        // SQLite/Postgres TIMESTAMP CURRENT_TIMESTAMP is UTC. Ensure browser parses it as UTC.
+        if (typeof parsedStr === 'string' && !parsedStr.endsWith('Z') && !parsedStr.includes('+')) {
+            parsedStr += 'Z';
+        }
+        const d = new Date(parsedStr);
         if (isNaN(d.getTime())) return "recently";
         
         const seconds = Math.floor((new Date() - d) / 1000);
@@ -643,31 +648,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.style.display = 'none';
     }
 
-    // ─── Phase helpers ───
-    const PHASES = ['dispatching','navigating','lobby','live','processing'];
-
-    function _setPhase(activePhase, completeUpTo) {
-        PHASES.forEach((ph, idx) => {
-            const el = document.getElementById(`phase-${ph}`);
-            if (!el) return;
-            el.classList.remove('active','complete');
-            if (completeUpTo !== undefined && idx < completeUpTo) el.classList.add('complete');
-            else if (ph === activePhase) el.classList.add('active');
-        });
-    }
-
+    // ─── Simplified Status Helpers ───
     function _setLog(msg) {
         const el = document.getElementById('bot-log-text');
         if (el) el.innerHTML = '» ' + msg;
-    }
-
-    function _setProgress(pct, label) {
-        const bar = document.getElementById('live-progress-bar');
-        const lbl = document.getElementById('progress-label');
-        const pct_el = document.getElementById('progress-percent');
-        if (bar) bar.style.width = pct + '%';
-        if (lbl) lbl.textContent = label || '';
-        if (pct_el) pct_el.textContent = pct + '%';
     }
 
     function _setBadge(text, color) {
@@ -683,48 +667,52 @@ document.addEventListener('DOMContentLoaded', () => {
         if (idle) idle.style.display = 'none';
         if (tracker) tracker.style.display = 'block';
 
-        const logMsg = note || status;
+        let logMsg = note || status;
+        let badgeText = status;
+        let badgeColor = '#f27121';
+        let animated = true;
 
         if (status === 'JOIN_PENDING' || status === 'DISPATCHING') {
-            pulse.style.background = '#f27121'; pulse.style.animation = 'pulse 1.5s infinite';
-            _setPhase('dispatching', 0); _setProgress(12, 'Sending request to bot pilot...'); _setBadge('Dispatching…', '#f27121');
-            _setLog('Request queued — waiting for bot pilot to pick up the job...');
+            badgeText = 'Dispatching...';
+            badgeColor = '#f27121';
+            logMsg = logMsg !== status ? logMsg : 'Sending request to bot pilot...';
             _stopLiveTimer();
-        } else if (status === 'JOINING' || status === 'FETCHING') {
-            pulse.style.background = '#f27121';
-            _setPhase('navigating', 1); _setProgress(35, 'Bot is launching browser...'); _setBadge('Launching Browser', '#f27121');
-            _setLog(logMsg || 'Playwright browser is starting and navigating to the meeting URL...');
-            _stopLiveTimer();
-        } else if (status === 'CONNECTING' || status.includes('LOBBY') || status.includes('LOGIN')) {
-            pulse.style.background = '#f59e0b';
-            _setPhase('lobby', 2); _setProgress(62, 'Waiting in meeting lobby...'); _setBadge('In Lobby', '#f59e0b');
-            _setLog(logMsg || 'Bot is in the waiting room — waiting for host to admit Renata...');
+        } else if (status === 'JOINING' || status === 'FETCHING' || status === 'CONNECTING' || status.includes('LOBBY') || status.includes('LOGIN')) {
+            badgeText = 'Connecting...';
+            badgeColor = '#f59e0b';
             _stopLiveTimer();
         } else if (status === 'CONNECTED' || status.includes('LIVE')) {
-            pulse.style.background = '#10b981'; pulse.style.animation = 'pulse 1.5s infinite';
-            _setPhase('live', 4); _setProgress(85, 'Bot is LIVE in the meeting!'); _setBadge('🟢 Bot Joined Successfully — Recording', '#10b981');
-            _setLog('🎉 <b>Bot Joined Successfully!</b> Renata is now live in the meeting and capturing intelligence. Recording in progress...');
+            badgeText = 'Joined Successfully';
+            badgeColor = '#10b981';
+            logMsg = logMsg !== status ? logMsg : 'Bot is LIVE in the meeting and capturing intelligence.';
             _startLiveTimer();
         } else if (status === 'PROCESSING') {
-            pulse.style.background = '#8b5cf6'; pulse.style.animation = 'pulse 1.5s infinite';
-            _setPhase('processing', 4); _setProgress(95, 'Generating AI report...'); _setBadge('Processing Report', '#8b5cf6');
-            _setLog('Meeting ended. Gemini AI is transcribing and generating your intelligence report...');
+            badgeText = 'Processing...';
+            badgeColor = '#8b5cf6';
+            logMsg = logMsg !== status ? logMsg : 'Meeting ended. Generating your intelligence report...';
             _stopLiveTimer();
         } else if (status === 'COMPLETED') {
-            pulse.style.background = '#10b981'; pulse.style.animation = 'none';
-            PHASES.forEach(ph => { const el = document.getElementById(`phase-${ph}`); if(el) { el.classList.remove('active'); el.classList.add('complete'); } });
-            _setProgress(100, 'Report ready! ✅'); _setBadge('✅ Completed', '#10b981');
-            _setLog('All done! Your meeting report is now available in the <b>Reports</b> tab.');
+            badgeText = 'Completed';
+            badgeColor = '#10b981';
+            animated = false;
+            logMsg = logMsg !== status ? logMsg : 'Report ready! Your meeting report is now available in the Reports tab.';
             _stopLiveTimer();
-            // Auto-refresh reports data if visible
             if (window.location.hash === '#reports') loadReportsData();
             if (window.location.hash === '#dashboard') loadDashboardData();
-        } else if (status === 'FAILED') {
-            pulse.style.background = '#ef4444'; pulse.style.animation = 'none';
-            _setProgress(100, 'Failed'); _setBadge('❌ Failed', '#ef4444');
-            _setLog('⚠️ ' + (logMsg || 'An error occurred. The bot could not join the meeting.'));
+        } else if (status === 'FAILED' || status === 'ERROR') {
+            badgeText = 'Failed';
+            badgeColor = '#ef4444';
+            animated = false;
             _stopLiveTimer();
         }
+
+        if (pulse) {
+            pulse.style.background = badgeColor;
+            pulse.style.animation = animated ? 'pulse 1.5s infinite' : 'none';
+        }
+
+        _setBadge(badgeText, badgeColor);
+        _setLog(logMsg);
     }
 
     function showBotIdle() {

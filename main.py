@@ -538,9 +538,24 @@ async def live_status(request: Request):
     if not user: return {"active": False, "status": "IDLE"}
     meeting = db.get_active_joining_meeting(user['email'])
     if meeting:
+        status = meeting.get("bot_status", "UNKNOWN")
+        
+        if status in ['COMPLETED', 'FAILED']:
+            updated_at = meeting.get("updated_at")
+            if updated_at:
+                try:
+                    # SQLite stores updated_at as string, mostly ISO format
+                    dt = datetime.fromisoformat(str(updated_at).replace('Z', '+00:00'))
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=timezone.utc)
+                    if (datetime.now(timezone.utc) - dt).total_seconds() > 120:
+                        return {"active": False, "status": "IDLE"}
+                except Exception as e:
+                    pass
+                    
         return {
             "active": True,
-            "status": meeting.get("bot_status", "UNKNOWN"),
+            "status": status,
             "note": meeting.get("bot_status_note", ""),
             "meeting_id": meeting.get("meeting_id")
         }
