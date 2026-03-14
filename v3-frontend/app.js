@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showPage(pageId) {
         if (!pageId) pageId = 'dashboard';
+        
+        // Always refresh user plan to ensure the UI stays updated (Pro status etc)
+        loadUserProfile();
 
         navItems.forEach(i => {
             i.classList.toggle('active', i.getAttribute('data-page') === pageId);
@@ -88,20 +91,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadDashboardData() {
+    async function loadUserProfile() {
         try {
             const res = await apiFetch("/dashboard_data");
             const data = await res.json();
-
-            // Profile
             if (data.user) {
                 const userNameEl = document.querySelector('.user-name');
                 const userAvatarEl = document.querySelector('.avatar');
                 const userAccountEl = document.querySelector('.user-account');
+                
                 if (userNameEl) userNameEl.textContent = data.user.name;
                 if (userAvatarEl && data.user.picture) userAvatarEl.src = data.user.picture;
+                
                 if (userAccountEl && data.user.plan) {
-                    userAccountEl.textContent = `Account: ${data.user.plan}`;
+                    const plan = data.user.plan.toUpperCase();
+                    userAccountEl.textContent = `ACCOUNT: ${plan}`;
+                    userAccountEl.style.color = plan === 'PRO' ? 'var(--accent-green)' : 'var(--accent-purple)';
                     window.currentUserPlan = data.user.plan;
                 }
                 
@@ -110,6 +115,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pName) pName.value = data.user.name;
                 if (pEmail) pEmail.value = data.user.email;
             }
+            return data;
+        } catch (err) {
+            console.error("Failed to load user profile:", err);
+            return null;
+        }
+    }
+
+    async function loadDashboardData() {
+        try {
+            const data = await loadUserProfile();
+            if (!data) return;
+
 
             // Preferences Initialization
             if (data.preferences) {
@@ -381,9 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (verifyData.status === 'success') {
                         alert("Upgrade Successful! Welcome to RENATA Pro.");
-                        window.currentUserPlan = 'Pro';
-                        const userAccountEl = document.querySelector('.user-account');
-                        if (userAccountEl) userAccountEl.textContent = `Account: Pro`;
+                        await loadUserProfile(); // This updates window.currentUserPlan and Sidebar
                         closePaymentModal();
                         loadReportsData();
                     } else {
