@@ -14,7 +14,7 @@ class RazorpayService:
         self.client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
         self.pricing = {
             "single_meeting": 100,  # 1 INR in Paise = 100
-            "pro_monthly": 49900,   # 499 INR in Paise = 49900
+            "pro_monthly": 100,     # TEST PRICE: 1 INR in Paise = 100
             "enterprise": 249900    # 2499 INR = 249900
         }
 
