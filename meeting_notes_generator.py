@@ -495,6 +495,37 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
             json_path=generator.last_json_path
         )
         logger.info(f"Pipeline results saved to DB for {meeting_id}")
+        
+        # Email the transcript explicitly
+        try:
+            mtg = db.get_meeting(meeting_id)
+            if mtg and mtg.get('user_email') and generator.last_transcripts_pdf_path:
+                user_email = mtg['user_email']
+                title = mtg.get('title', 'Live Meeting')
+                
+                import smtplib
+                from email.message import EmailMessage
+                
+                msg = EmailMessage()
+                msg['Subject'] = f"Meeting Transcript: {title}"
+                msg['From'] = "chandisha.das.fit.cse22@teamfuture.in"
+                msg['To'] = user_email
+                msg.set_content(f"Hi there,\n\nRenata has finished processing your meeting '{title}'.\n\nPlease find the attached transcript PDF directly generated from the recording.\n\nBest,\nRenata AI")
+                
+                with open(generator.last_transcripts_pdf_path, 'rb') as f:
+                    pdf_data = f.read()
+                    
+                msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=os.path.basename(generator.last_transcripts_pdf_path))
+                
+                logger.info(f"Sending transcript email from bot to {user_email}...")
+                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                    smtp.login("chandisha.das.fit.cse22@teamfuture.in", "123Chandisha#")
+                    smtp.send_message(msg)
+                
+                logger.info(f"Successfully emailed transcript to {user_email}")
+        except Exception as e:
+            logger.error(f"Failed to email transcript to user: {e}")
+            
     except Exception as e:
         logger.error(f"Pipeline failed for {meeting_id}: {e}")
         traceback.print_exc()
