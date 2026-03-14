@@ -357,10 +357,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('confirm-upgrade-btn');
         const origHTML = btn.innerHTML;
         btn.innerHTML = '<i data-feather="loader" class="spin" style="width:16px; margin-right:8px;"></i> Initializing Gateway...';
-        btn.disabled = true;
-        feather.replace();
-
         try {
+            // Check if Razorpay script is loaded
+            if (typeof Razorpay === 'undefined') {
+                console.log("Razorpay script not found, attempting to load...");
+                const script = document.createElement('script');
+                script.src = "https://checkout.razorpay.com/v1/checkout.js";
+                script.async = true;
+                const scriptLoaded = new Promise((resolve, reject) => {
+                    script.onload = resolve;
+                    script.onerror = () => reject(new Error("Failed to load Razorpay script. Please check your internet connection or disable AdBlockers."));
+                });
+                document.head.appendChild(script);
+                await scriptLoaded;
+            }
+
             // 1. Create Order on Backend
             const res = await apiFetch("/payments/create_order", {
                 method: 'POST',
@@ -431,7 +442,8 @@ document.addEventListener('DOMContentLoaded', () => {
             rzp.open();
 
         } catch (err) {
-            alert("Payment Error: " + err.message);
+            console.error("Payment Error:", err);
+            alert("Payment Error: " + err.message + "\n\nTry refreshing the page or checking if an AdBlocker is blocking Razorpay.");
             btn.innerHTML = origHTML;
             btn.disabled = false;
             feather.replace();
