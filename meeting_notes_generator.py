@@ -497,34 +497,117 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
         logger.info(f"Pipeline results saved to DB for {meeting_id}")
         
         # Email the transcript explicitly
+        # Email the meeting report (HTML version)
         try:
             mtg = db.get_meeting(meeting_id)
-            if mtg and mtg.get('user_email') and generator.last_transcripts_pdf_path:
+            if mtg and mtg.get('user_email'):
                 user_email = mtg['user_email']
                 title = mtg.get('title', 'Live Meeting')
+                meeting_date = datetime.now().strftime("%B %d, %Y @ %I:%M %p")
+                summary_text = generator.intel.get("summary_en", "Processing complete. Please find the attached report.")
                 
                 import smtplib
                 from email.message import EmailMessage
+                from email.utils import formataddr
                 
                 msg = EmailMessage()
-                msg['Subject'] = f"Meeting Transcript: {title}"
-                msg['From'] = "daschandisha@gmail.com"
+                # Professional subject like the screenshot: [Topic] on [Date] | Renata Meeting Report
+                msg['Subject'] = f"{title} on {meeting_date} | Renata Meeting Report"
+                msg['From'] = formataddr(("Renata Assistant", "daschandisha@gmail.com"))
                 msg['To'] = user_email
-                msg.set_content(f"Hi there,\n\nRenata has finished processing your meeting '{title}'.\n\nPlease find the attached transcript PDF directly generated from the recording.\n\nBest,\nRenata AI")
                 
-                with open(generator.last_transcripts_pdf_path, 'rb') as f:
-                    pdf_data = f.read()
-                    
-                msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=os.path.basename(generator.last_transcripts_pdf_path))
+                # Plain text version
+                msg.set_content(f"Hi there,\n\nRenata has finished processing your meeting '{title}'.\n\nSUMMARY:\n{summary_text}\n\nPlease find the attached reports for details.\n\nBest,\nRenata AI")
                 
-                logger.info(f"Sending transcript email from bot to {user_email}...")
+                # Professional HTML version (Read AI style)
+                action_items = generator.intel.get("actions", [])
+                actions_html = ""
+                if action_items:
+                    actions_html = "<h3>Action Items</h3><ul>"
+                    for item in action_items:
+                        actions_html += f"<li>{item}</li>"
+                    actions_html += "</ul>"
+
+                html_content = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; }}
+                        .container {{ max-width: 600px; margin: 20px auto; padding: 30px; border: 1px solid #e2e8f0; border-radius: 16px; background: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }}
+                        .header {{ text-align: center; margin-bottom: 25px; }}
+                        .logo {{ width: 60px; height: 60px; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }}
+                        .brand {{ font-size: 14px; font-weight: 700; color: #8b5cf6; margin-top: 8px; text-transform: uppercase; letter-spacing: 1px; }}
+                        .status-pill {{ display: inline-block; padding: 4px 12px; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; border-radius: 20px; font-size: 11px; font-weight: 700; margin-bottom: 10px; }}
+                        .meeting-title {{ font-size: 28px; font-weight: 800; color: #0f172a; margin: 5px 0 5px 0; text-align: center; }}
+                        .meeting-date {{ font-size: 16px; color: #64748b; margin-bottom: 30px; text-align: center; }}
+                        .summary-section {{ background: #f8fafc; padding: 25px; border-radius: 12px; border-left: 4px solid #8b5cf6; margin-bottom: 25px; }}
+                        .summary-text {{ font-size: 15px; color: #334155; white-space: pre-wrap; }}
+                        .actions-section {{ margin-bottom: 25px; }}
+                        .actions-section h3 {{ font-size: 18px; color: #0f172a; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px; margin-bottom: 15px; }}
+                        .actions-section ul {{ padding-left: 20px; }}
+                        .actions-section li {{ margin-bottom: 8px; font-size: 14px; color: #475569; }}
+                        .button-container {{ margin-top: 30px; text-align: center; }}
+                        .button {{ background: #8b5cf6; color: white !important; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: 600; display: inline-block; }}
+                        .footer {{ margin-top: 40px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <img src="https://renata-notes-ai.vercel.app/static/renataiot_logo.jpg" class="logo" alt="Renata Logo">
+                            <div class="brand">Renata AI</div>
+                        </div>
+                        
+                        <div style="text-align: center;">
+                            <span class="status-pill">MEETING COMPLETE</span>
+                            <h1 class="meeting-title">{title}</h1>
+                            <div class="meeting-date">{meeting_date}</div>
+                        </div>
+                        
+                        <div class="summary-section">
+                            <div class="summary-text">{summary_text}</div>
+                        </div>
+
+                        <div class="actions-section">
+                            {actions_html}
+                        </div>
+                        
+                        <div class="button-container">
+                            <a href="https://renata-notes-ai.vercel.app/#dashboard" class="button">View Fully Categorized PDF Report</a>
+                        </div>
+                        
+                        <div class="footer">
+                            Powered by Renata Meeting Intelligence • Google Gemini 1.5 Flash<br>
+                            You received this because Renata Assistant joined your meeting.
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+                msg.add_alternative(html_content, subtype='html')
+                
+                # Attach Main Report PDF
+                if generator.last_pdf_path and os.path.exists(generator.last_pdf_path):
+                    with open(generator.last_pdf_path, 'rb') as f:
+                        msg.add_attachment(f.read(), maintype='application', subtype='pdf', 
+                                         filename=os.path.basename(generator.last_pdf_path))
+                                         
+                # Attach Transcript PDF
+                if generator.last_transcripts_pdf_path and os.path.exists(generator.last_transcripts_pdf_path):
+                    with open(generator.last_transcripts_pdf_path, 'rb') as f:
+                        msg.add_attachment(f.read(), maintype='application', subtype='pdf', 
+                                         filename=os.path.basename(generator.last_transcripts_pdf_path))
+                
+                logger.info(f"Sending professional report email to {user_email}...")
                 with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
                     smtp.login("daschandisha@gmail.com", "bejh mcgq aibo zpfg")
                     smtp.send_message(msg)
                 
-                logger.info(f"Successfully emailed transcript to {user_email}")
+                logger.info(f"Successfully emailed report to {user_email}")
         except Exception as e:
             logger.error(f"Failed to email transcript to user: {e}")
+            traceback.print_exc()
             
     except Exception as e:
         logger.error(f"Pipeline failed for {meeting_id}: {e}")
