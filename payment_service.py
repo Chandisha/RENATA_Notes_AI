@@ -20,8 +20,8 @@ class RazorpayService:
         else:
             self.client = None
         self.pricing = {
-            "single_meeting": 200,  # 2 INR for testing
-            "pro_monthly": 200,     # TEST PRICE: 2 INR = 200 Paise
+            "single_meeting": 500,  # 5 INR
+            "pro_monthly": 1000,     # TEST PRICE: 10 INR = 1000 Paise
             "enterprise": 249900    # 2499 INR = 249900
         }
 
@@ -41,7 +41,7 @@ class RazorpayService:
             "notes": {
                 "email": email,
                 "item_type": item_type,
-                "meeting_id": meeting_id
+                "meeting_id": str(meeting_id) if meeting_id else "direct_upgrade"
             }
         }
         

@@ -38,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showPage(pageId) {
         if (!pageId) pageId = 'dashboard';
-        
+
         // Always refresh user plan to ensure the UI stays updated (Pro status etc)
         loadUserProfile();
 
@@ -99,17 +99,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userNameEl = document.querySelector('.user-name');
                 const userAvatarEl = document.querySelector('.avatar');
                 const userAccountEl = document.querySelector('.user-account');
-                
+
                 if (userNameEl) userNameEl.textContent = data.user.name;
                 if (userAvatarEl && data.user.picture) userAvatarEl.src = data.user.picture;
-                
+
                 if (userAccountEl && data.user.plan) {
                     const plan = data.user.plan.toUpperCase();
                     userAccountEl.textContent = `ACCOUNT: ${plan}`;
                     userAccountEl.style.color = plan === 'PRO' ? 'var(--accent-green)' : 'var(--accent-purple)';
                     window.currentUserPlan = data.user.plan;
                 }
-                
+
                 const pName = document.getElementById('pref-user-name');
                 const pEmail = document.getElementById('pref-user-email');
                 if (pName) pName.value = data.user.name;
@@ -148,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (recentList) {
                 recentList.innerHTML = '';
                 const recentAll = (data.recent_meetings || []).slice(0, 5);
-                
+
                 if (recentAll.length === 0) {
                     recentList.innerHTML = '<p class="muted" style="padding:10px;">No meetings yet.</p>';
                 } else {
@@ -219,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const d = new Date(parsedStr);
         if (isNaN(d.getTime())) return "recently";
-        
+
         const seconds = Math.floor((new Date() - d) / 1000);
         if (seconds < 60) return "just now";
         let interval = seconds / 31536000;
@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isProcessing = !pdfPath || m.bot_status === 'PROCESSING';
                 const pdfName = pdfPath ? pdfPath.split(/[\\/]/).pop() : null;
                 const pdfLink = pdfName ? `${API_BASE}/download/pdf/${pdfName}` : null;
-                
+
                 let transcriptsName = null;
                 if (m.transcripts_pdf_path) {
                     transcriptsName = m.transcripts_pdf_path.split(/[\\/]/).pop();
@@ -271,14 +271,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const generatedTime = timeAgo(m.updated_at || m.created_at);
-                
+
                 const card = document.createElement('div');
                 card.className = 'report-card';
                 card.style.display = 'flex';
                 card.style.alignItems = 'center';
                 card.style.justifyContent = 'space-between';
                 card.style.padding = '20px';
-                
+
                 card.innerHTML = `
                     <div style="display:flex; align-items:center; gap:20px;">
                         <div class="report-number" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-purple); opacity: 0.5;">#${allMeetings.length - index}</div>
@@ -308,8 +308,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 grid.appendChild(card);
             });
             feather.replace();
-        } catch (err) { 
-            console.error(err); 
+        } catch (err) {
+            console.error(err);
         } finally {
             if (refreshIcon) {
                 // Keep spinning for at least 500ms for visual feedback
@@ -318,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    window.deleteReport = async function(mId) {
+    window.deleteReport = async function (mId) {
         if (!confirm("Are you sure? This will permanently delete the PDF and all meeting data from the database.")) return;
         try {
             const res = await apiFetch(`/reports/${mId}`, { method: 'DELETE' });
@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMeetingToUnlock = null;
     let currentPdfToOpen = null;
 
-    window.handleViewPdf = function(pdfUrl, meetingId, isPaid) {
+    window.handleViewPdf = function (pdfUrl, meetingId, isPaid) {
         if (window.currentUserPlan === 'Pro' || isPaid) {
             window.open(pdfUrl, '_blank');
         } else {
@@ -348,12 +348,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    window.closePaymentModal = function() {
+    window.closePaymentModal = function () {
         const modal = document.getElementById('payment-modal');
         if (modal) modal.classList.remove('active');
     };
 
-    window.processUpgrade = async function() {
+    window.processUpgrade = async function () {
         const btn = document.getElementById('confirm-upgrade-btn');
         const origHTML = btn.innerHTML;
         btn.innerHTML = '<i data-feather="loader" class="spin" style="width:16px; margin-right:8px;"></i> Initializing Gateway...';
@@ -415,13 +415,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         alert("Verification Failed: " + verifyData.message);
                     }
-                    
+
                     btn.innerHTML = origHTML;
                     btn.disabled = false;
                     feather.replace();
                 },
                 "modal": {
-                    "ondismiss": function() {
+                    "ondismiss": function () {
                         btn.innerHTML = origHTML;
                         btn.disabled = false;
                         feather.replace();
@@ -433,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 "theme": { "color": "#8b5cf6" }
             };
             const rzp = new Razorpay(options);
-            rzp.on('payment.failed', function (response){
+            rzp.on('payment.failed', function (response) {
                 alert("Payment Failed: " + response.error.description);
                 btn.innerHTML = origHTML;
                 btn.disabled = false;
@@ -485,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
-                        plugins: { 
+                        plugins: {
                             legend: { display: false },
                             tooltip: {
                                 backgroundColor: '#1e293b',
@@ -495,9 +495,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                 borderWidth: 1
                             }
                         },
-                        scales: { 
-                            y: { 
-                                beginAtZero: true, 
+                        scales: {
+                            y: {
+                                beginAtZero: true,
                                 max: 100,
                                 grid: { color: 'rgba(255,255,255,0.05)' },
                                 ticks: { color: '#94a3b8' }
@@ -524,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clearInterval(analyticsInterval);
                 analyticsInterval = null;
             }
-        }, 10000); 
+        }, 10000);
     }
 
     async function loadSearchStats() {
@@ -826,9 +826,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 showBotActive('JOIN_PENDING', data.message);
                 _stopBotPolling();          // Reset any old poll
                 _startBotPolling();         // Start fresh dedicated polling loop
-                
+
                 if (window.closeModal) window.closeModal();
-                
+
                 if (btn) {
                     btn.setAttribute('data-mode', 'cancel');
                     btn.style.background = '#ef4444';
@@ -840,7 +840,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Error: ' + (data.message || 'Failed to dispatch.'));
                 if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata'; feather.replace(); }
             }
-        } catch (err) { 
+        } catch (err) {
             alert('Server error. Is your pilot script running?');
             if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata'; feather.replace(); }
         }
@@ -880,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
             syncBtn.innerHTML = '<i data-feather="loader" style="width:14px;height:14px;"></i> Syncing...';
             syncBtn.disabled = true;
             feather.replace();
-            
+
             try {
                 const res = await apiFetch("/search/index", { method: 'POST' });
                 const data = await res.json();
@@ -935,13 +935,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const r = await apiFetch("/search/ask", { method: 'POST', body: fd });
             const d = await r.json();
-            
+
             const aM = document.createElement('div');
             aM.className = 'message assistant';
             aM.innerHTML = `<p>${d.answer}</p>`;
             box.appendChild(aM);
             box.scrollTop = box.scrollHeight;
-            
+
             // Refresh history text if it's the first message
             loadChatSessions();
         } catch (err) {
@@ -984,7 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     throw new Error(data.error || 'Failed to save');
                 }
-            } catch(err) {
+            } catch (err) {
                 alert('Error updating profile: ' + err.message);
                 btn.textContent = originalText;
                 btn.disabled = false;
@@ -1022,7 +1022,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     throw new Error(data.error || 'Failed to save');
                 }
-            } catch(err) {
+            } catch (err) {
                 alert('Error submitting preferences: ' + err.message);
                 btn.textContent = originalText;
                 btn.disabled = false;
