@@ -195,7 +195,7 @@ def create_google_flow(request: Request):
     
     # Use the new professional domain for production
     if os.getenv("VERCEL_ENV"):
-        redirect_uri = "https://renata.nexren.ai/auth/callback"
+        redirect_uri = "https://meet.nexren.ai/auth/callback"
     else:
         redirect_uri = f"{request.url.scheme}://{request.url.netloc}/auth/callback"
     
@@ -227,8 +227,8 @@ async def root(request: Request):
     # FORCE Production Domain to avoid session loss on Previews
     host = request.headers.get("host", "")
     # Update for new domain
-    if "vercel.app" in host and host != "renata.nexren.ai" and not host.startswith("localhost"):
-        return RedirectResponse("https://renata.nexren.ai/")
+    if "vercel.app" in host and host != "meet.nexren.ai" and not host.startswith("localhost"):
+        return RedirectResponse("https://meet.nexren.ai/")
 
     print(">>> ACCESSING ROOT /")
     user = get_current_user(request)
@@ -245,8 +245,8 @@ async def logout(request: Request):
 async def login_page(request: Request):
     # FORCE Production Domain
     host = request.headers.get("host", "")
-    if "vercel.app" in host and host != "renata.nexren.ai" and not host.startswith("localhost"):
-        return RedirectResponse("https://renata.nexren.ai/login")
+    if "vercel.app" in host and host != "meet.nexren.ai" and not host.startswith("localhost"):
+        return RedirectResponse("https://meet.nexren.ai/login")
 
     print(">>> ACCESSING LOGIN PAGE")
     user = get_current_user(request)
