@@ -255,6 +255,21 @@ async def login_page(request: Request):
     error = request.query_params.get("error")
     return templates.TemplateResponse("login.html", {"request": request, "error": error})
 
+@app.get("/privacy")
+async def privacy_page(request: Request):
+    """Simple privacy policy for Google Verification."""
+    return HTMLResponse("""
+    <html>
+        <head><title>Privacy Policy - RENATA AI</title></head>
+        <body style="font-family: sans-serif; padding: 50px;">
+            <h1>Privacy Policy</h1>
+            <p>RENATA AI respects your privacy. We only access your Google and Zoom data to help you manage your meetings and generate notes.</p>
+            <p>We do not sell your data to third parties.</p>
+            <a href="/">Back to Home</a>
+        </body>
+    </html>
+    """)
+
 @app.get("/auth/google")
 async def trigger_google_auth(request: Request):
     """Initiate Google OAuth flow (Multi-User)"""
