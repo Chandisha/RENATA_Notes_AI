@@ -560,7 +560,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 <body>
                     <div class="container">
                         <div class="header">
-                            <img src="https://renata-notes-ai.vercel.app/static/renataiot_logo.jpg" class="logo" alt="Renata Logo">
+                            <img src="https://renata.nexren.ai/static/renataiot_logo.jpg" class="logo" alt="Renata Logo">
                             <div class="brand">Renata AI</div>
                         </div>
                         
@@ -579,7 +579,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                         </div>
                         
                         <div class="button-container">
-                            <a href="https://renata-notes-ai.vercel.app/#dashboard" class="button">View Fully Categorized PDF Report</a>
+                            <a href="https://renata.nexren.ai/#dashboard" class="button">View Fully Categorized PDF Report</a>
                         </div>
                         
                         <div class="footer">

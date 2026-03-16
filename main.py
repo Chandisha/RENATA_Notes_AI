@@ -33,8 +33,8 @@ from google.oauth2.credentials import Credentials
 import googleapiclient.discovery
 
 # --- Zoom OAuth Constants ---
-ZOOM_CLIENT_ID = os.getenv("ZOOM_CLIENT_ID")
-ZOOM_CLIENT_SECRET = os.getenv("ZOOM_CLIENT_SECRET")
+ZOOM_CLIENT_ID = (os.getenv("ZOOM_CLIENT_ID") or "").strip()
+ZOOM_CLIENT_SECRET = (os.getenv("ZOOM_CLIENT_SECRET") or "").strip()
 ZOOM_AUTH_URL = "https://zoom.us/oauth/authorize"
 ZOOM_TOKEN_URL = "https://zoom.us/oauth/token"
 
@@ -193,9 +193,9 @@ def create_google_flow(request: Request):
     """Create a Flow object from credentials.json or GOOGLE_CREDENTIALS_JSON env var."""
     creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
     
-    # FORCE the production URL as the callback for stability on Vercel
+    # Use the new professional domain for production
     if os.getenv("VERCEL_ENV"):
-        redirect_uri = "https://renata-notes-ai.vercel.app/auth/callback"
+        redirect_uri = "https://renata.nexren.ai/auth/callback"
     else:
         redirect_uri = f"{request.url.scheme}://{request.url.netloc}/auth/callback"
     
@@ -226,8 +226,9 @@ def create_google_flow(request: Request):
 async def root(request: Request):
     # FORCE Production Domain to avoid session loss on Previews
     host = request.headers.get("host", "")
-    if "vercel.app" in host and host != "renata-notes-ai.vercel.app" and not host.startswith("localhost"):
-        return RedirectResponse("https://renata-notes-ai.vercel.app/")
+    # Update for new domain
+    if "vercel.app" in host and host != "renata.nexren.ai" and not host.startswith("localhost"):
+        return RedirectResponse("https://renata.nexren.ai/")
 
     print(">>> ACCESSING ROOT /")
     user = get_current_user(request)
@@ -244,8 +245,8 @@ async def logout(request: Request):
 async def login_page(request: Request):
     # FORCE Production Domain
     host = request.headers.get("host", "")
-    if "vercel.app" in host and host != "renata-notes-ai.vercel.app" and not host.startswith("localhost"):
-        return RedirectResponse("https://renata-notes-ai.vercel.app/login")
+    if "vercel.app" in host and host != "renata.nexren.ai" and not host.startswith("localhost"):
+        return RedirectResponse("https://renata.nexren.ai/login")
 
     print(">>> ACCESSING LOGIN PAGE")
     user = get_current_user(request)
