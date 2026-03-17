@@ -482,12 +482,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const mVal = document.getElementById('ana-total-meetings');
             const rVal = document.getElementById('ana-total-reports');
-            const eVal = document.getElementById('ana-total-engagement');
             const uVal = document.getElementById('ana-upcoming');
 
             if (mVal) mVal.textContent = stats.total_meetings || 0;
             if (rVal) rVal.textContent = stats.total_reports || 0;
-            if (eVal) eVal.textContent = (stats.engagement_score || 0) + '%';
             if (uVal) uVal.textContent = stats.upcoming_count || 0;
 
             // Analytics Trends Chart (Dynamic)

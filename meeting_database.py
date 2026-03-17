@@ -413,7 +413,7 @@ def get_meeting_stats(user_email, upcoming_count=0):
         if not day_rows:
             usage = 0
         else:
-            usage = 1 # Mark today as active usage
+            usage = 100 # Mark today as active usage (Full bar)
             
         chart_data.append(usage)
         chart_labels.append(label)
