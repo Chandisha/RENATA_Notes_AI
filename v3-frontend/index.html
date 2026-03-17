@@ -163,14 +163,16 @@
 
                 <!-- Other pages are hidden by default and managed by JS -->
                 <section id="reports-page" class="page">
-                    <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
+                    <div class="page-header">
+                        <div class="header-main">
                             <h1>Meeting Archive</h1>
-                            <p class="subtitle" style="margin-bottom: 0;">Access your past and newly generated reports.</p>
+                            <p class="subtitle">Access your past and newly generated reports.</p>
                         </div>
-                        <button id="refresh-reports-btn" title="Refresh Reports" style="background: none; border: 1px solid #e5e7eb; padding: 8px; border-radius: 50%; color: #f97316; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: all 0.2s;">
-                            <i data-feather="refresh-cw" style="width: 18px; height: 18px;"></i>
-                        </button>
+                        <div class="page-header-actions">
+                            <button id="refresh-reports-btn" title="Refresh Reports" class="refresh-btn">
+                                <i data-feather="refresh-cw"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="reports-container" id="reports-grid">
                         <!-- Dynamic Grid -->
@@ -181,13 +183,13 @@
                     <div class="page-header">
                         <div class="header-main">
                             <h1>AI Assistant</h1>
-                            <p>Search across all your meetings with natural language.</p>
+                            <p class="subtitle">Search across all your meetings with natural language.</p>
                         </div>
-                        <div class="search-stats-container" style="display: flex; gap: 12px; align-items: center;">
-                            <button id="sync-pdf-btn" class="secondary-btn" style="padding: 6px 12px; font-size: 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 8px;" title="Re-sync meeting reports for AI Search">
-                                <i data-feather="database" style="width: 14px; height: 14px;"></i> Sync PDF
+                        <div class="page-header-actions search-stats-container">
+                            <button id="sync-pdf-btn" class="secondary-btn sync-btn">
+                                <i data-feather="database"></i> Sync PDF
                             </button>
-                            <div class="kb-stats" id="kb-stats-area">
+                            <div class="kb-stats">
                                 <span class="badge"><b id="report-count">0</b> Reports</span>
                             </div>
                         </div>

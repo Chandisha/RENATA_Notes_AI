@@ -558,7 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await apiFetch("/search/status");
             const data = await res.json();
             const pc = document.getElementById("report-count");
-            if (pc) pc.textContent = (data.pdf_count || 0) + " Reports";
+            if (pc) pc.textContent = (data.pdf_count || 0);
         } catch (err) { }
     }
 
