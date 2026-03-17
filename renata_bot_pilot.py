@@ -577,7 +577,7 @@ def run_auto_pilot(operator_email):
     print("| Renata AUTO-PILOT: Concurrent multi-user active  |")
     print(f"| Operator: {operator_email:<38} |")
     print("+--------------------------------------------------+")
-    
+    PILOT_BOOT_TIME = datetime.now(timezone.utc)
     session_handled_ids = set()
     
     while True:
@@ -605,10 +605,14 @@ def run_auto_pilot(operator_email):
                             c_dt = datetime.strptime(created_at_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
                         
                         age_mins = (datetime.now(timezone.utc) - c_dt).total_seconds() / 60
-                        if age_mins > 20: 
+                        
+                        # IGNORE STALE REQUESTS: Skip if older than 5 mins OR created before this bot instance started
+                        if age_mins > 5 or c_dt < (PILOT_BOOT_TIME - timedelta(seconds=10)): 
                             session_handled_ids.add((m_id, u_email))
                             session_handled_ids.add((meet_url, u_email))
-                            db.update_bot_status(m_id, "FAILED", note="Skipped: Stale request.", user_email=u_email)
+                            # Don't mark as FAILED if it was just an old one from a previous run
+                            if age_mins > 30:
+                                db.update_bot_status(m_id, "FAILED", note="Skipped: Stale request.", user_email=u_email)
                             continue
                 except: pass
 
@@ -681,8 +685,8 @@ def run_auto_pilot(operator_email):
                             
                         diff = (now - parsed_dt).total_seconds() / 60
                         
-                        # Real-time window: started up to 10 mins ago, or starting in next 2 mins
-                        if -2 <= diff <= 10:
+                        # Real-time window: started up to 5 mins ago, or starting in next 2 mins
+                        if -2 <= diff <= 5:
                             if url:
                                 url = normalize_url(url)
                                 if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs or url in _active_urls:
