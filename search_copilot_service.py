@@ -77,10 +77,18 @@ class SearchAssistant:
                 return "Error: GEMINI_API_KEY not set in .env"
             
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.5-flash")
             
-            response = model.generate_content(prompt)
-            return response.text.strip()
+            last_err = "No models responded."
+            for model_id in ["gemini-3-flash-preview", "gemini-2.5-flash"]:
+                try:
+                    model = genai.GenerativeModel(model_id)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        return response.text.strip()
+                except Exception as e:
+                    last_err = str(e)
+                    continue
+            return f"Search Assistant Error: {last_err}"
         except Exception as e:
             return f"Search Assistant Error: {str(e)}"
 

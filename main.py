@@ -750,7 +750,7 @@ PREVIOUS CONVERSATION:
         prompt = f"{system_instruction}\n\nUSER QUESTION: {question}\n\nDETAILED ANSWER:"
 
         last_err = "No models responded."
-        requested_models = ["gemini-1.5-flash", "gemini-1.5-pro"]
+        requested_models = ["gemini-3-flash-preview", "gemini-2.5-flash"]
         
         final_response = None
         for model_name in requested_models:
@@ -771,7 +771,7 @@ PREVIOUS CONVERSATION:
                 # If first message, generate a dynamic title
                 if is_first_message:
                     try:
-                        title_model = genai.GenerativeModel("gemini-1.5-flash")
+                        title_model = genai.GenerativeModel("gemini-3-flash-preview")
                         title_prompt = f"Given the user question: '{question}', generate a very short 2-4 word topic-based title for this chat session. Just output the title, nothing else. If it is a greeting, say 'Greeting'."
                         title_resp = title_model.generate_content(title_prompt)
                         if title_resp and title_resp.text:
