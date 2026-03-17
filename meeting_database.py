@@ -351,10 +351,15 @@ def get_meeting(meeting_id, user_email=None):
         return fetch_one("SELECT * FROM meetings WHERE meeting_id = ? AND user_email = ?", (meeting_id, user_email))
     return fetch_one("SELECT * FROM meetings WHERE meeting_id = ?", (meeting_id,))
 
-def get_all_meetings(user_email, limit=50, offset=0, order_by='start_time DESC'):
+def get_all_meetings(user_email, limit=50, offset=0, order_by='start_time DESC', reports_only=False):
     """STRICTLY SCOPED: user_email is REQUIRED."""
     if not user_email: return []
-    query = f"SELECT * FROM meetings WHERE user_email = ? ORDER BY {order_by} LIMIT ? OFFSET ?"
+    
+    where_clause = "WHERE user_email = ?"
+    if reports_only:
+        where_clause += " AND (pdf_path IS NOT NULL OR transcript_text IS NOT NULL OR transcripts_pdf_path IS NOT NULL)"
+    
+    query = f"SELECT * FROM meetings {where_clause} ORDER BY {order_by} LIMIT ? OFFSET ?"
     return fetch_all(query, (user_email, limit, offset))
 
 def get_meeting_stats(user_email, upcoming_count=0):
@@ -365,12 +370,23 @@ def get_meeting_stats(user_email, upcoming_count=0):
     params = (user_email.lower(),)
     
     # 1. Core Totals - Use LOWER() for case-insensitive matching
-    row = fetch_one("SELECT COUNT(*) as count FROM meetings WHERE LOWER(user_email) = LOWER(?) AND (is_skipped = 0 OR is_skipped IS NULL)", params)
-    stats['total_meetings'] = row['count'] if row else 0
+    # 1. Core Totals
+    # Only count meetings that are either completed (have content) OR are currently processing
+    row = fetch_one("""
+        SELECT COUNT(*) as count FROM meetings 
+        WHERE LOWER(user_email) = LOWER(?) 
+        AND (
+            pdf_path IS NOT NULL 
+            OR transcript_text IS NOT NULL 
+            OR transcripts_pdf_path IS NOT NULL
+            OR bot_status = 'PROCESSING'
+            OR bot_status = 'LIVE'
+        )
+    """, params)
     
-    # Total Reports (Meetings with transcripts/summaries are considered reports)
-    row = fetch_one("SELECT COUNT(*) as count FROM meetings WHERE LOWER(user_email) = LOWER(?) AND (pdf_path IS NOT NULL OR transcript_text IS NOT NULL OR summary_text IS NOT NULL)", params)
-    stats['total_reports'] = row['count'] if row else 0
+    count = row['count'] if row else 0
+    stats['total_meetings'] = count
+    stats['total_reports'] = count
     
     # Duration - if duration is NULL, estimate 30 mins for older sessions to show engagement
     row = fetch_one("SELECT SUM(CASE WHEN duration_minutes IS NULL THEN 30 ELSE duration_minutes END) as sum FROM meetings WHERE LOWER(user_email) = LOWER(?)", params)

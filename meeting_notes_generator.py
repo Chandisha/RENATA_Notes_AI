@@ -30,7 +30,7 @@ if os.name == 'nt':
     os.environ["TMP"] = os.path.join(MODELS_DIR, "temp")
     os.makedirs(os.environ["TEMP"], exist_ok=True)
 
-load_dotenv()
+load_dotenv(override=True)
 
 # AI & Transcription Engine Imports
 import google.generativeai as genai
@@ -508,8 +508,13 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 meeting_date = datetime.now().strftime("%B %d, %Y")
                 meeting_time = datetime.now().strftime("%I:%M %p")
                 full_timestamp = f"{meeting_date} @ {meeting_time}"
+
+                db_user = db.get_user_profile(user_email)
+                user_plan = db_user.get('subscription_plan', 'Basic') if db_user else 'Basic'
                 
                 summary_text = generator.intel.get("summary_en", "Processing complete. Please find the attached report.")
+                if user_plan != 'Pro':
+                    summary_text = "Your meeting transcript is ready! Upgrade to Pro to unlock AI summaries, Action Items, and Executive Insights."
                 
                 import smtplib
                 from email.message import EmailMessage
@@ -574,12 +579,12 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                             <div class="summary-text">{summary_text}</div>
                         </div>
 
-                        <div class="actions-section">
-                            {actions_html}
-                        </div>
+                        {actions_html if user_plan == 'Pro' else ''}
                         
                         <div class="button-container">
-                            <a href="https://meet.nexren.ai/#dashboard" class="button">View Fully Categorized PDF Report</a>
+                            <a href="https://meet.nexren.ai/#dashboard" class="button">
+                                { 'View Full AI Report' if user_plan == 'Pro' else 'Upgrade to Pro' }
+                            </a>
                         </div>
                         
                         <div class="footer">
@@ -592,13 +597,14 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 """
                 msg.add_alternative(html_content, subtype='html')
                 
-                # Attach Main Report PDF
-                if generator.last_pdf_path and os.path.exists(generator.last_pdf_path):
-                    with open(generator.last_pdf_path, 'rb') as f:
-                        msg.add_attachment(f.read(), maintype='application', subtype='pdf', 
-                                         filename=os.path.basename(generator.last_pdf_path))
+                # Attach Main Report PDF (ONLY FOR PRO)
+                if user_plan == 'Pro':
+                    if generator.last_pdf_path and os.path.exists(generator.last_pdf_path):
+                        with open(generator.last_pdf_path, 'rb') as f:
+                            msg.add_attachment(f.read(), maintype='application', subtype='pdf', 
+                                             filename=os.path.basename(generator.last_pdf_path))
                                          
-                # Attach Transcript PDF
+                # Attach Transcript PDF (FOR ALL)
                 if generator.last_transcripts_pdf_path and os.path.exists(generator.last_transcripts_pdf_path):
                     with open(generator.last_transcripts_pdf_path, 'rb') as f:
                         msg.add_attachment(f.read(), maintype='application', subtype='pdf', 

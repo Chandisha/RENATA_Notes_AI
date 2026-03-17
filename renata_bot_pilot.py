@@ -12,6 +12,9 @@ from pathlib import Path
 import sqlite3
 from datetime import datetime, timezone, timedelta
 from dateutil import parser as dt_parser
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 from playwright.sync_api import sync_playwright
 from playwright_stealth import Stealth
@@ -341,10 +344,20 @@ class RenaMeetingBot:
                 
                 if record: 
                     self.stop_audio_recording()
+                
                 if db_module and meeting_id: 
-                    db_module.set_meeting_bot_status(meeting_id, "COMPLETED")
+                    db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
+                    try:
+                        from meeting_notes_generator import process_meeting_audio
+                        process_meeting_audio(str(self.recording_path), meeting_id)
+                        db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready")
+                    except Exception as ex:
+                        print(f"Zoom Pipeline Fail: {ex}")
+                        db_module.update_bot_status(meeting_id, "FAILED", note="Processing error")
         except Exception as e: 
             print(f"Zoom Error: {e}")
+            if db_module and meeting_id:
+                db_module.update_bot_status(meeting_id, "FAILED", note=f"Zoom error: {str(e)[:100]}")
 
     def join_google_meet(self, meet_url, record=True, db_module=None, meeting_id=None, user_email=None):
         if not meeting_id: 
@@ -573,9 +586,17 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
 
 # --- AUTOPILOT LOOP ---
 def run_auto_pilot(operator_email):
+    # Fetch all users with active integrations
+    integrated_users = db.fetch_all("SELECT email FROM users WHERE google_token IS NOT NULL OR zoom_token IS NOT NULL")
+    user_emails = [u['email'] for u in integrated_users]
+    if not user_emails:
+        user_emails = [operator_email]
+    
     print("+--------------------------------------------------+")
     print("| Renata AUTO-PILOT: Concurrent multi-user active  |")
-    print(f"| Operator: {operator_email:<38} |")
+    print(f"| Integrated Users:                                |")
+    for email in user_emails:
+        print(f"| - {email:<46} |")
     print("+--------------------------------------------------+")
     PILOT_BOOT_TIME = datetime.now(timezone.utc)
     session_handled_ids = set()

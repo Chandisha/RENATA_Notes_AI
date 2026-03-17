@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 from fastapi import FastAPI, Request, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, FileResponse, StreamingResponse
@@ -537,10 +537,24 @@ async def reports_data_api(request: Request):
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     
-    meetings = db.get_all_meetings(user_email=user['email'], limit=50)
+    # Only show meetings that are actual reports (have content) or are currently processing
+    meetings = db.get_all_meetings(user_email=user['email'], limit=50, reports_only=True)
+    
+    # Also include ones that are currently processing as they are "live" reports
+    processing = db.fetch_all("SELECT * FROM meetings WHERE user_email = ? AND bot_status = 'PROCESSING'", (user['email'],))
+    # Avoid duplicates if they already have a pdf_path (unlikely but safe)
+    existing_ids = {m['meeting_id'] for m in meetings}
+    for pm in processing:
+        if pm['meeting_id'] not in existing_ids:
+            meetings.insert(0, pm) # Add to top
+
+    stats = db.get_meeting_stats(user['email'])
+    total_count = stats.get('total_reports', 0)
+    
     for m in meetings:
         m['start_time'] = fmt_time(m['start_time'])
-    return {"meetings": meetings}
+        
+    return {"meetings": meetings, "total_count": total_count}
 
 @app.delete("/reports/{meeting_id}")
 async def delete_meeting_report(meeting_id: str, request: Request):
@@ -649,20 +663,12 @@ async def search_page_spa(request: Request):
 def _get_kb_stats(user_email=None, plan='Free'):
     """Return stats about indexed meetings from the database based on account type."""
     try:
-        meetings = db.get_all_meetings(user_email=user_email, limit=500)
-        
-        # Determine valid meetings based on plan
-        if plan == 'Pro':
-            # Pro users index based on Major Reports (Summaries)
-            valid_meetings = [m for m in meetings if m.get('summary_text')]
-        else:
-            # Basic/Free users index based on transcripts
-            valid_meetings = [m for m in meetings if m.get('transcript_text')]
-            
+        stats = db.get_meeting_stats(user_email=user_email)
+        total = stats.get('total_reports', 0)
         return {
-            "pdf_count": len(valid_meetings),
-            "indexed_segments": len(valid_meetings),
-            "status": "ready" if valid_meetings else "empty"
+            "pdf_count": total,
+            "indexed_segments": total,
+            "status": "ready" if total > 0 else "empty"
         }
     except Exception as e:
         return {"pdf_count": 0, "indexed_segments": 0, "status": "error"}

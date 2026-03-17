@@ -276,6 +276,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Show all meetings (completed and processing)
             const allMeetings = (data.meetings || []);
+            const totalReports = data.total_count || allMeetings.length;
 
             if (allMeetings.length === 0) {
                 grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No meetings yet. Reports will appear here once meeting processing is complete.</p></div>';
@@ -292,9 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 let transcriptsName = null;
                 if (m.transcripts_pdf_path) {
                     transcriptsName = m.transcripts_pdf_path.split(/[\\/]/).pop();
-                } else {
-                    // Fallback for demo if transcripts_pdf_path is empty 
-                    // (since I just added it to the schema, old rows might be empty)
+                } else if (pdfName) {
                     transcriptsName = pdfName.replace("Report_", "Transcripts_");
                 }
 
@@ -309,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 card.innerHTML = `
                     <div style="display:flex; align-items:center; gap:20px;">
-                        <div class="report-number" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-purple); opacity: 0.5;">#${allMeetings.length - index}</div>
+                        <div class="report-number" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-purple); opacity: 0.5;">#${totalReports - index}</div>
                         <div>
                             <h3 class="report-title" style="margin:0; font-size:1.1rem;">${m.title || 'Meeting Report'}</h3>
                             <span class="muted" style="font-size:0.85rem;">${isProcessing ? '🔄 AI Processing in progress...' : 'Generated ' + generatedTime}</span>
