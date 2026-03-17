@@ -29,6 +29,8 @@ body {
 .app-container {
     display: flex;
     height: 100vh;
+    max-width: 100vw;
+    overflow-x: hidden;
 }
 
 /* Sidebar Styling */
@@ -44,6 +46,7 @@ body {
 
 .sidebar-header {
     padding: 0 24px 32px;
+    flex-shrink: 0;
 }
 
 .logo {
@@ -372,6 +375,7 @@ body {
 .subtitle {
     color: var(--text-secondary);
     margin-top: 4px;
+    max-width: 100%;
 }
 
 /* Dashboard Grid */
@@ -1272,15 +1276,27 @@ input:checked+.slider:before {
         width: 280px;
         background: #ffffff;
         z-index: 1001;
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 10px 0 30px rgba(0,0,0,0.1);
         padding-top: 20px;
-        height: 100vh;
+        height: 100dvh;
         overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        -webkit-overflow-scrolling: touch;
     }
 
     .sidebar.active {
         transform: translateX(300px);
+    }
+    
+    .sidebar-nav {
+        flex: none; /* Let it grow naturally for scrolling the whole sidebar */
+    }
+
+    .sidebar-footer {
+        flex-shrink: 0;
+        margin-top: auto;
     }
 
     .sidebar-overlay {
@@ -1305,11 +1321,41 @@ input:checked+.slider:before {
         width: 100%;
         height: 100vh;
         overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .page {
+        padding: 24px 16px;
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
     }
 
     .top-bar {
         height: 70px;
-        padding: 0 20px;
+        padding: 0 15px;
+        width: 100%;
+    }
+
+    .top-bar-actions {
+        gap: 8px;
+    }
+
+    .chart-container {
+        height: 280px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .stats-grid, #analytics-stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 12px !important;
+        width: 100% !important;
+    }
+
+    .stat-card {
+        padding: 12px;
+        gap: 8px;
     }
 
     .mobile-menu-toggle {
@@ -1331,18 +1377,6 @@ input:checked+.slider:before {
         color: var(--text-primary);
     }
 
-    .top-bar-actions {
-        gap: 12px;
-    }
-
-    .status-badge {
-        padding: 4px 10px;
-    }
-
-    .status-text {
-        font-size: 0.7rem;
-    }
-
     #header-live-btn span {
         display: none;
     }
@@ -1350,53 +1384,9 @@ input:checked+.slider:before {
     #header-live-btn {
         padding: 10px;
     }
-}
-
-@media screen and (max-width: 768px) {
-    .page {
-        padding: 24px 16px;
-    }
-
-    .page-header h1 {
-        font-size: 1.5rem;
-    }
-
-    .stats-grid {
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-    }
 
     .dashboard-secondary {
         grid-template-columns: 1fr;
-    }
-
-    .stat-card {
-        padding: 16px;
-        gap: 12px;
-    }
-
-    .stat-icon {
-        width: 40px;
-        height: 40px;
-        padding: 8px;
-    }
-
-    .stat-value {
-        font-size: 1.2rem;
-    }
-
-    .card-header h2 {
-        font-size: 1.1rem;
-    }
-
-    .live-dispatch .input-group {
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .live-dispatch .input-group button {
-        width: 100%;
-        justify-content: center;
     }
 
     .report-card {
@@ -1427,23 +1417,42 @@ input:checked+.slider:before {
         flex: 1;
     }
 
-    .integrations-grid {
-        grid-template-columns: 1fr;
+    .sidebar {
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-color) transparent;
+    }
+
+    .sidebar::-webkit-scrollbar {
+        width: 4px;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 10px;
     }
 }
 
 @media screen and (max-width: 480px) {
-    .stats-grid {
-        grid-template-columns: 1fr;
+    .stats-grid, #analytics-stats-grid {
+        grid-template-columns: 1fr !important;
     }
 
-    .top-bar-actions .status-badge {
-        display: none;
+    #analytics-page .page-header {
+        margin-bottom: 20px;
+    }
+
+    .stat-card {
+        padding: 16px;
+        gap: 16px;
+    }
+
+    .status-badge {
+        display: none !important;
     }
 
     .modal-content {
         width: calc(100% - 32px);
         padding: 24px;
+        margin: 0 16px;
     }
 }
 
