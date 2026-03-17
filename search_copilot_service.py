@@ -34,7 +34,7 @@ class SearchAssistant:
         conn.close()
         return [dict(row) for row in rows]
 
-    def ask(self, question):
+    def ask(self, question, plan='Free'):
         """
         Hyper-Intelligence Assistant (RAG + General AI).
         Behaves like ChatGPT/Gemini but with meeting-specific knowledge.
@@ -46,8 +46,20 @@ class SearchAssistant:
         if relevant_data:
             for meeting in relevant_data:
                 part = f"--- MEETING: {meeting['title']} ({meeting['start_time']}) ---\n"
-                part += f"Summary: {meeting['summary_text'][:500]}...\n"
-                part += f"Transcript Snippet: {meeting['transcript_text'][:1500]}...\n"
+                
+                # Plan-aware context: Pro uses summaries (Major Reports), Basic uses transcripts
+                if plan == 'Pro':
+                    content = meeting.get('summary_text', '')
+                    c_type = "MAJOR REPORT (SUMMARY)"
+                else:
+                    content = meeting.get('transcript_text', '')
+                    c_type = "TRANSCRIPT"
+
+                if not content: # Fallback if preferred content is missing
+                    content = meeting.get('summary_text') or meeting.get('transcript_text', '')
+                
+                part += f"Source Type: {c_type}\n"
+                part += f"Content: {content[:2000]}...\n"
                 context_parts.append(part)
         
         full_context = "\n\n".join(context_parts) if context_parts else "No specific matching meetings found in local history."
