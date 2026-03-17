@@ -583,7 +583,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                         </div>
                         
                         <div class="footer">
-                            Powered by Renata Meeting Intelligence • Google Gemini 1.5 Flash<br>
+                            Powered by Renata Meeting Intelligence • Google Gemini 3.0 Flash<br>
                             You received this because Renata Assistant joined your meeting.
                         </div>
                     </div>

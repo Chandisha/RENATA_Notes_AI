@@ -24,11 +24,10 @@ class LLMManager:
         
         genai.configure(api_key=api_key)
         
-        # Priority: 3.0 Flash -> 2.5 Flash -> 2.0 Flash (Final Safety)
+        # Priority: Gemini 3 Flash Preview -> 2.5 Flash (Fallback)
         model_names = [
-            "gemini-3.0-flash",
+            "gemini-3-flash-preview",
             "gemini-2.5-flash",
-            "gemini-2.0-flash",
         ]
         
         for model_name in model_names:
