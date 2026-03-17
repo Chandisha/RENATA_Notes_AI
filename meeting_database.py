@@ -411,19 +411,11 @@ def get_meeting_stats(user_email, upcoming_count=0):
         day_rows = fetch_all(query, params_day)
         
         if not day_rows:
-            score = 0
+            usage = 0
         else:
-            total_score = 0
-            for r in day_rows:
-                s = 0
-                if r.get('engagement_metrics'):
-                    try: s = json.loads(r['engagement_metrics']).get('score', 0)
-                    except: pass
-                if s == 0: s = 40 # Baseline for a meeting on that day
-                total_score += s
-            score = min(100, round(total_score / len(day_rows)) if day_rows else 0)
+            usage = 1 # Mark today as active usage
             
-        chart_data.append(score)
+        chart_data.append(usage)
         chart_labels.append(label)
 
     stats['chart_data'] = chart_data

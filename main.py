@@ -676,6 +676,12 @@ async def list_chat_messages(session_id: str, request: Request):
     messages = db.get_chat_messages(session_id)
     return {"messages": messages}
 
+@app.delete("/chat/sessions/{session_id}")
+async def delete_chat_session(session_id: str, request: Request):
+    user = require_user(request)
+    db.delete_chat_session(session_id, user['email'])
+    return {"success": True}
+
 
 @app.post("/search/ask", response_class=JSONResponse)
 async def search_ask(request: Request, question: str = Form(...), session_id: Optional[str] = Form(None)):
@@ -744,7 +750,7 @@ PREVIOUS CONVERSATION:
         prompt = f"{system_instruction}\n\nUSER QUESTION: {question}\n\nDETAILED ANSWER:"
 
         last_err = "No models responded."
-        requested_models = ["gemini-3-flash-preview", "gemini-2.5-flash"]
+        requested_models = ["gemini-1.5-flash", "gemini-1.5-pro"]
         
         final_response = None
         for model_name in requested_models:
@@ -765,8 +771,8 @@ PREVIOUS CONVERSATION:
                 # If first message, generate a dynamic title
                 if is_first_message:
                     try:
-                        title_model = genai.GenerativeModel("gemini-2.5-flash")
-                        title_prompt = f"Given the user question: '{question}', generate a very short 3-5 word title for this chat session. Just output the title, nothing else."
+                        title_model = genai.GenerativeModel("gemini-1.5-flash")
+                        title_prompt = f"Given the user question: '{question}', generate a very short 2-4 word topic-based title for this chat session. Just output the title, nothing else. If it is a greeting, say 'Greeting'."
                         title_resp = title_model.generate_content(title_prompt)
                         if title_resp and title_resp.text:
                             new_title = title_resp.text.strip().replace('"', '').replace("'", "")

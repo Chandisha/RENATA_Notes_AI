@@ -587,19 +587,45 @@ document.addEventListener('DOMContentLoaded', () => {
                 const item = document.createElement('div');
                 item.className = `history-item ${s.session_id === currentSessionId ? 'active' : ''}`;
                 item.setAttribute('data-session', s.session_id);
-                item.innerHTML = `<i data-feather="message-square"></i> <span>${s.title || 'Conversation'}</span>`;
-                item.onclick = () => selectSession(s.session_id);
+                
+                item.innerHTML = `
+                    <div class="history-item-content" onclick="app.selectSession('${s.session_id}')">
+                        <i data-feather="message-square"></i>
+                        <span>${s.title || 'Conversation'}</span>
+                    </div>
+                    <button class="delete-chat-btn" onclick="app.deleteSession(event, '${s.session_id}')" title="Delete Chat">
+                        <i data-feather="trash-2" style="width:14px;height:14px;"></i>
+                    </button>
+                `;
                 list.appendChild(item);
             });
-
-            // Auto-load messages for current session if not already loaded
-            if (currentSessionId && document.getElementById('chat-box')?.children.length <= 1) {
-                selectSession(currentSessionId);
-            }
 
             feather.replace();
         } catch (err) { console.error(err); }
     }
+
+    async function deleteSession(event, sessionId) {
+        event.stopPropagation();
+        if (!confirm("Are you sure you want to delete this chat?")) return;
+        
+        try {
+            const res = await apiFetch(`/chat/sessions/${sessionId}`, { method: 'DELETE' });
+            if (res.ok) {
+                if (currentSessionId === sessionId) {
+                    currentSessionId = null;
+                    localStorage.removeItem('renata_chat_session');
+                    const box = document.getElementById('chat-box');
+                    if (box) box.innerHTML = '<div class="message assistant"><p>How can I help you today?</p></div>';
+                }
+                loadChatSessions();
+            }
+        } catch (err) { console.error("Delete failed:", err); }
+    }
+
+    // Expose to global for onclick
+    window.app = window.app || {};
+    window.app.selectSession = selectSession;
+    window.app.deleteSession = deleteSession;
 
     async function selectSession(sessionId) {
         currentSessionId = sessionId;
@@ -628,7 +654,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             box.scrollTop = box.scrollHeight;
         } catch (err) { console.error(err); }
-        loadChatSessions(); // Update UI
     }
 
     async function createNewChat() {
