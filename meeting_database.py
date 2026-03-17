@@ -169,9 +169,9 @@ def init_database():
     ''')
 
     # Help Tickets Table
-    cursor.execute('''
+    cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS help_tickets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id {pk_def},
             user_email TEXT,
             subject TEXT,
             query TEXT,

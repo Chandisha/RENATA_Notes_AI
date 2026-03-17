@@ -774,7 +774,11 @@ async def search_ask(request: Request, question: str = Form(...), session_id: Op
         # Sort by start_time DESC to help with "last report" queries
         meetings = db.get_all_meetings(user['email'], limit=30, order_by="start_time DESC")
         context_parts = []
-        user_plan = user.get('subscription_plan', 'Free')
+        
+        # Get actual user record for plan info to ensure accuracy
+        db_user = db.get_user_profile(user['email'])
+        user_plan = db_user.get('subscription_plan', 'Free') if db_user else 'Free'
+        
         for i, m in enumerate(meetings):
             if m.get('transcript_text') or m.get('summary_text'):
                 title = m.get('title', 'Untitled')
@@ -851,7 +855,7 @@ async def search_index(request: Request):
     if not user: raise HTTPException(status_code=401)
     
     # Get actual user record for plan info
-    db_user = db.get_user(user['email'])
+    db_user = db.get_user_profile(user['email'])
     plan = db_user.get('subscription_plan', 'Free') if db_user else 'Free'
     
     stats = _get_kb_stats(user_email=user['email'], plan=plan)
