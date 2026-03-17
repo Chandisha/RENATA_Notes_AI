@@ -13,6 +13,8 @@ import base64
 import time
 import io
 from pathlib import Path
+import smtplib
+from email.message import EmailMessage
 from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -644,15 +646,23 @@ async def search_page_spa(request: Request):
         return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
-def _get_kb_stats(user_email=None):
-    """Return stats about indexed meetings from the database."""
+def _get_kb_stats(user_email=None, plan='Free'):
+    """Return stats about indexed meetings from the database based on account type."""
     try:
         meetings = db.get_all_meetings(user_email=user_email, limit=500)
-        meetings_with_transcript = [m for m in meetings if m.get('transcript_text') or m.get('summary_text')]
+        
+        # Determine valid meetings based on plan
+        if plan == 'Pro':
+            # Pro users index based on Major Reports (Summaries)
+            valid_meetings = [m for m in meetings if m.get('summary_text')]
+        else:
+            # Basic/Free users index based on transcripts
+            valid_meetings = [m for m in meetings if m.get('transcript_text')]
+            
         return {
-            "pdf_count": len(meetings_with_transcript),
-            "indexed_segments": len(meetings_with_transcript),
-            "status": "ready" if meetings_with_transcript else "empty"
+            "pdf_count": len(valid_meetings),
+            "indexed_segments": len(valid_meetings),
+            "status": "ready" if valid_meetings else "empty"
         }
     except Exception as e:
         return {"pdf_count": 0, "indexed_segments": 0, "status": "error"}
@@ -681,6 +691,48 @@ async def delete_chat_session(session_id: str, request: Request):
     user = require_user(request)
     db.delete_chat_session(session_id, user['email'])
     return {"success": True}
+
+
+# ============================================================
+# HELP & SUPPORT TICKETS
+# ============================================================
+
+def _send_support_email(user_email, subject, query):
+    """Sends a support ticket email to the company from the bot mail."""
+    try:
+        msg = EmailMessage()
+        msg['Subject'] = f"SUPPORT TICKET: {subject}"
+        msg['From'] = "daschandisha@gmail.com"
+        msg['To'] = "daschandisha@gmail.com" # Company Email ID
+        
+        body = f"User: {user_email}\nSubject: {subject}\n\nQuery/Issue:\n{query}\n\n---\nSent from Renata Meeting Assistant Support System"
+        msg.set_content(body)
+        
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+            smtp.login("daschandisha@gmail.com", "bejh mcgq aibo zpfg")
+            smtp.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Failed to send support email: {e}")
+        return False
+
+@app.get("/help/tickets", response_class=JSONResponse)
+async def list_active_tickets(request: Request):
+    user = require_user(request)
+    tickets = db.get_active_tickets(user['email'])
+    return {"success": True, "tickets": tickets}
+
+@app.post("/help/tickets", response_class=JSONResponse)
+async def submit_help_ticket(request: Request, subject: str = Form(...), query: str = Form(...)):
+    user = require_user(request)
+    
+    # Save to database
+    db.create_ticket(user['email'], subject, query)
+    
+    # Send email
+    _send_support_email(user['email'], subject, query)
+    
+    return {"success": True, "message": "Your ticket has been raised. Our team will review it shortly."}
 
 
 @app.post("/search/ask", response_class=JSONResponse)
@@ -722,11 +774,18 @@ async def search_ask(request: Request, question: str = Form(...), session_id: Op
         # Sort by start_time DESC to help with "last report" queries
         meetings = db.get_all_meetings(user['email'], limit=30, order_by="start_time DESC")
         context_parts = []
+        user_plan = user.get('subscription_plan', 'Free')
         for i, m in enumerate(meetings):
             if m.get('transcript_text') or m.get('summary_text'):
                 title = m.get('title', 'Untitled')
                 date = m.get('start_time', '')[:19]
-                content = m.get('summary_text') or m.get('transcript_text', '')
+                
+                # Pro users get the full 'major' report (summary), others get transcripts
+                if user_plan == 'Pro':
+                    content = m.get('summary_text') or m.get('transcript_text', '')
+                else:
+                    content = m.get('transcript_text') or m.get('summary_text', '')
+                
                 # Specifically tag the most recent one
                 tag = " (MOST RECENT REPORT)" if i == 0 else ""
                 context_parts.append(f"--- REPORT {i+1}{tag}: {title} | DATE: {date} ---\n{content[:15000]}")
@@ -790,10 +849,15 @@ async def search_index(request: Request):
     """Re-sync knowledge base stats from database."""
     user = get_current_user(request)
     if not user: raise HTTPException(status_code=401)
-    stats = _get_kb_stats(user_email=user['email'])
+    
+    # Get actual user record for plan info
+    db_user = db.get_user(user['email'])
+    plan = db_user.get('subscription_plan', 'Free') if db_user else 'Free'
+    
+    stats = _get_kb_stats(user_email=user['email'], plan=plan)
     return {
         "success": True,
-        "message": f"Knowledge base ready. {stats['indexed_segments']} meeting reports indexed.",
+        "message": f"Knowledge base ready. {stats['indexed_segments']} meeting reports indexed ({plan} Account).",
         "indexed_segments": stats["indexed_segments"]
     }
 
@@ -801,7 +865,11 @@ async def search_index(request: Request):
 async def search_status(request: Request):
     user = get_current_user(request)
     if not user: raise HTTPException(status_code=401)
-    return _get_kb_stats(user_email=user['email'])
+    
+    db_user = db.get_user(user['email'])
+    plan = db_user.get('subscription_plan', 'Free') if db_user else 'Free'
+    
+    return _get_kb_stats(user_email=user['email'], plan=plan)
 
 
 # ============================================================

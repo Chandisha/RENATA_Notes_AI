@@ -167,7 +167,20 @@ def init_database():
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
+
+    # Help Tickets Table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS help_tickets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email TEXT,
+            subject TEXT,
+            query TEXT,
+            status TEXT DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     # Gmail Intelligence Table
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS gmail_intelligence (
@@ -523,3 +536,32 @@ def update_user_plan(email, plan):
 
 # Initialize database on import
 init_database()
+
+# -----------------------------
+# HELP TICKETS
+# -----------------------------
+
+def create_ticket(user_email, subject, query):
+    return exec_commit('''
+        INSERT INTO help_tickets (user_email, subject, query)
+        VALUES (?, ?, ?)
+    ''', (user_email, subject, query))
+
+def get_active_tickets(user_email):
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT * FROM help_tickets 
+        WHERE user_email = ? AND status != 'resolved' 
+        ORDER BY created_at DESC
+    ''', (user_email,))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def resolve_ticket(ticket_id):
+    return exec_commit('''
+        UPDATE help_tickets SET status = 'resolved', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    ''', (ticket_id,))

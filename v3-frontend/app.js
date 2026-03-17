@@ -113,6 +113,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 await loadIntegrationsData();
                 await loadDashboardData();
                 break;
+            case 'help':
+                await loadHelpData();
+                break;
         }
     }
 
@@ -1099,4 +1102,99 @@ document.addEventListener('DOMContentLoaded', () => {
     loadDashboardData();
     loadAnalyticsData(); // Load analytics fast on startup
     loadLiveStatus();
+
+    // --- HELP & SUPPORT TICKETS ---
+
+    async function loadHelpData() {
+        const list = document.getElementById('active-tickets-list');
+        if (!list) return;
+
+        try {
+            const res = await apiFetch("/help/tickets");
+            const data = await res.json();
+            
+            if (data.success && data.tickets && data.tickets.length > 0) {
+                list.innerHTML = '';
+                data.tickets.forEach(ticket => {
+                    // Try to parse the date nicely
+                    let dateStr = "Recently";
+                    try {
+                        dateStr = new Date(ticket.created_at).toLocaleDateString(undefined, {
+                            month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                        });
+                    } catch(e) {}
+
+                    const item = document.createElement('div');
+                    item.className = 'card';
+                    item.style.padding = '16px';
+                    item.style.marginBottom = '12px';
+                    item.style.borderLeft = '4px solid var(--accent-purple)';
+                    item.style.background = 'rgba(139, 92, 246, 0.05)';
+                    item.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items: flex-start;">
+                            <strong style="color:var(--text-main); font-size: 1rem;">${ticket.subject}</strong>
+                            <span class="muted" style="font-size:0.75rem;">${dateStr}</span>
+                        </div>
+                        <p class="muted" style="font-size:0.9rem; margin:0; line-height: 1.5;">${ticket.query}</p>
+                        <div style="margin-top:12px; font-size:0.8rem; font-weight:600; color:#f59e0b; display: flex; align-items: center; gap: 8px;">
+                            <span class="status-dot pulse" style="background:#f59e0b; width: 8px; height: 8px;"></span> Open Ticket (Pending)
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+            } else {
+                list.innerHTML = `
+                    <div class="muted" style="text-align: center; padding: 40px;">
+                        <i data-feather="check-circle" style="width: 32px; height: 32px; margin-bottom: 12px; opacity: 0.5;"></i>
+                        <p>No active issues. You're all set!</p>
+                    </div>
+                `;
+            }
+            feather.replace();
+        } catch (e) {
+            console.error("Failed to load tickets:", e);
+        }
+    }
+
+    const helpForm = document.getElementById('help-ticket-form');
+    if (helpForm) {
+        helpForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submit-ticket-btn');
+            const subject = document.getElementById('ticket-subject').value;
+            const query = document.getElementById('ticket-query').value;
+
+            if (!subject || !query) return;
+
+            const origHTML = btn.innerHTML;
+            btn.innerHTML = '<i data-feather="loader" class="spin" style="width:16px; margin-right:8px;"></i> Submitting...';
+            btn.disabled = true;
+            feather.replace();
+
+            const formData = new FormData();
+            formData.append('subject', subject);
+            formData.append('query', query);
+
+            try {
+                const res = await apiFetch("/help/tickets", {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("Ticket raised successfully! Confirmation sent to team.");
+                    helpForm.reset();
+                    await loadHelpData();
+                } else {
+                    alert("Failed to raise ticket: " + (data.message || "Unknown error"));
+                }
+            } catch (err) {
+                alert("Network error submitting ticket: " + err.message);
+            } finally {
+                btn.innerHTML = origHTML;
+                btn.disabled = false;
+                feather.replace();
+            }
+        });
+    }
 });

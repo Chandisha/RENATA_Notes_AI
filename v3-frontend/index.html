@@ -48,6 +48,9 @@
             </nav>
 
             <div class="sidebar-footer">
+                <div class="nav-item" data-page="help" onclick="window.location.hash='#help'" style="padding: 10px 12px; margin-bottom: 4px;">
+                    <i data-feather="help-circle"></i> <span>Help & Support</span>
+                </div>
                 <div class="nav-item" data-page="settings">
                     <i data-feather="settings"></i> <span>Settings</span>
                 </div>
@@ -366,6 +369,51 @@
                                     style="background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; cursor: pointer;">Delete
                                     My Account</button>
                             </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Help & Support Page -->
+                <section id="help-page" class="page">
+                    <div class="page-header">
+                        <h1>Help & Support</h1>
+                        <p class="subtitle">Encountered an issue? Raise a ticket and our team will help you.</p>
+                    </div>
+
+                    <div class="help-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                        <!-- Raise Ticket Form -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Raise a Support Ticket</h2>
+                            </div>
+                            <form id="help-ticket-form" style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
+                                <div class="form-group">
+                                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Subject</label>
+                                    <input type="text" id="ticket-subject" placeholder="What's the issue about?" required 
+                                        style="width: 100%; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.2); padding: 12px; background: rgba(139, 92, 246, 0.05); color: var(--text-main);">
+                                </div>
+                                <div class="form-group">
+                                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Issue Details / Query</label>
+                                    <textarea id="ticket-query" placeholder="Describe your problem in detail..." required rows="5"
+                                        style="width: 100%; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.2); padding: 12px; background: rgba(139, 92, 246, 0.05); color: var(--text-main); resize: none;"></textarea>
+                                </div>
+                                <button type="submit" class="primary-btn" id="submit-ticket-btn" style="width: 100%; justify-content: center; height: 48px;">
+                                    <i data-feather="send" style="width: 16px; margin-right: 8px;"></i> Raise Ticket
+                                </button>
+                            </form>
+                        </div>
+
+                        <!-- Active Tickets -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h2>Active Logged Issues</h2>
+                            </div>
+                            <div id="active-tickets-list" style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding-right: 5px;">
+                                <div class="muted" style="text-align: center; padding: 40px;">
+                                    <i data-feather="check-circle" style="width: 32px; height: 32px; margin-bottom: 12px; opacity: 0.5;"></i>
+                                    <p>No active issues. You're all set!</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
