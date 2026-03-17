@@ -870,7 +870,7 @@ async def search_status(request: Request):
     user = get_current_user(request)
     if not user: raise HTTPException(status_code=401)
     
-    db_user = db.get_user(user['email'])
+    db_user = db.get_user_profile(user['email'])
     plan = db_user.get('subscription_plan', 'Free') if db_user else 'Free'
     
     return _get_kb_stats(user_email=user['email'], plan=plan)
