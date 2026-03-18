@@ -233,13 +233,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <div class="meeting-title">${ev.summary}</div>
                             <div class="meeting-actions" style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 15px;">
-                                <div class="note-taking-label" style="display: flex; align-items: center; gap: 8px;">
-                                    <i data-feather="edit-3" style="width: 14px; color: var(--accent-purple);"></i>
-                                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Note Taking</span>
+                                <div class="bot-join-label" style="display: flex; align-items: center; gap: 8px;">
+                                    <i data-feather="user-plus" style="width: 14px; color: var(--accent-orange);"></i>
+                                    <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">Auto-Join Bot</span>
                                 </div>
-                                <div class="toggle-buttons" style="display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
-                                    <button class="btn-toggle ${isEnabled ? 'active' : ''}" onclick="window.toggleMeetingBot('${ev.id}', true, this)" style="padding: 6px 12px; border-radius: 6px; border: none; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: 0.2s;">Enable</button>
-                                    <button class="btn-toggle ${!isEnabled ? 'active' : ''}" onclick="window.toggleMeetingBot('${ev.id}', false, this)" style="padding: 6px 12px; border-radius: 6px; border: none; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: 0.2s;">Disable</button>
+                                <div class="toggle-container" style="display: flex; align-items: center; gap: 10px;">
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: ${isEnabled ? 'var(--accent-green)' : 'var(--text-secondary)'}; text-transform: uppercase;">${isEnabled ? 'Active' : 'Skipped'}</span>
+                                    <label class="switch" style="width: 40px; height: 20px;">
+                                        <input type="checkbox" ${isEnabled ? 'checked' : ''} onchange="window.toggleMeetingBot('${ev.id}', this.checked, this)">
+                                        <span class="slider round"></span>
+                                    </label>
                                 </div>
                             </div>
                         `;
@@ -1251,17 +1254,19 @@ window.toggleGlobalBot = async function(el) {
     }
 };
 
-window.toggleMeetingBot = async function(meetingId, enabled, btn) {
+window.toggleMeetingBot = async function(meetingId, enabled, el) {
     console.log(`Setting bot for meeting ${meetingId}:`, enabled);
     
     // UI Update immediately
-    const parent = btn.parentElement;
-    parent.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    const parent = el.closest('.toggle-container');
+    const label = parent.querySelector('span');
+    if (label) {
+        label.textContent = enabled ? 'Active' : 'Skipped';
+        label.style.color = enabled ? 'var(--accent-green)' : 'var(--text-secondary)';
+    }
     
     try {
-        // Find meeting details from current view to pass to backend if creation is needed
-        const card = btn.closest('.meeting-card');
+        const card = el.closest('.meeting-card');
         const summary = card.querySelector('.meeting-title').textContent;
         const startTime = card.querySelector('.meeting-time').textContent;
 
