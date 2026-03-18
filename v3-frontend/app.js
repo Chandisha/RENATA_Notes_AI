@@ -514,9 +514,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rVal) rVal.textContent = stats.total_reports || 0;
             if (uVal) uVal.textContent = stats.upcoming_count || 0;
 
-            const eVal = document.getElementById('ana-total-engagement');
-            if (eVal) eVal.textContent = (stats.engagement_score || 0).toFixed(0) + '%';
-
             // Analytics Trends Chart (Dynamic)
             const ctx = document.getElementById('analyticsChart')?.getContext('2d');
             if (ctx) {
