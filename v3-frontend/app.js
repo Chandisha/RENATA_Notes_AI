@@ -165,6 +165,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.preferences) {
                 const autoJoinCheck = document.getElementById('pref-auto-join');
                 if (autoJoinCheck) autoJoinCheck.checked = !!data.preferences.auto_join;
+
+                // Sync Global Switch in Top Bar
+                const globalSwitch = document.getElementById('global-bot-switch');
+                if (globalSwitch) globalSwitch.checked = !!data.preferences.auto_join;
                 
                 const bName = document.getElementById('pref-bot-name');
                 const rec = document.getElementById('pref-recording');
@@ -219,14 +223,24 @@ document.addEventListener('DOMContentLoaded', () => {
                     data.events.forEach(ev => {
                         const card = document.createElement('div');
                         card.className = 'meeting-card';
+                        
+                        const isEnabled = ev.is_enabled !== false; // Default to true
+
                         card.innerHTML = `
                             <div class="meeting-card-top">
-                                <span class="status-badge">Calendar</span>
+                                <span class="status-badge">Calendar Event</span>
                                 <span class="meeting-time">${ev.start_time}</span>
                             </div>
                             <div class="meeting-title">${ev.summary}</div>
-                            <div class="meeting-actions">
-                                <button class="btn-sm primary-btn" onclick="dispatchRenata('${ev.link}')">Dispatch Renata</button>
+                            <div class="meeting-actions" style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 15px;">
+                                <div class="note-taking-label" style="display: flex; align-items: center; gap: 8px;">
+                                    <i data-feather="edit-3" style="width: 14px; color: var(--accent-purple);"></i>
+                                    <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">Note Taking</span>
+                                </div>
+                                <div class="toggle-buttons" style="display: flex; gap: 4px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
+                                    <button class="btn-toggle ${isEnabled ? 'active' : ''}" onclick="window.toggleMeetingBot('${ev.id}', true, this)" style="padding: 6px 12px; border-radius: 6px; border: none; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: 0.2s;">Enable</button>
+                                    <button class="btn-toggle ${!isEnabled ? 'active' : ''}" onclick="window.toggleMeetingBot('${ev.id}', false, this)" style="padding: 6px 12px; border-radius: 6px; border: none; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: 0.2s;">Disable</button>
+                                </div>
                             </div>
                         `;
                         calendarGrid.appendChild(card);
@@ -1207,3 +1221,65 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// --- NEW TOGGLE HANDLERS (Anil Sir Feedback) ---
+
+window.toggleGlobalBot = async function(el) {
+    const enabled = el.checked;
+    console.log("Setting global bot auto-join:", enabled);
+    try {
+        const res = await apiFetch("/settings/toggle_global_bot", {
+            method: 'POST',
+            body: JSON.stringify({ enabled })
+        });
+        const data = await res.json();
+        if (data.success) {
+            // Update the checkbox in Settings too
+            const settingsCheck = document.getElementById('pref-auto-join');
+            if (settingsCheck) settingsCheck.checked = enabled;
+            
+            // Re-load calendar to show updated enrollment if needed
+            // Actually, individual toggles should still show their state, 
+            // but functionally the global switch overrides them in the backend.
+        } else {
+            alert("Failed to update global switch");
+            el.checked = !enabled;
+        }
+    } catch (err) {
+        console.error(err);
+        el.checked = !enabled;
+    }
+};
+
+window.toggleMeetingBot = async function(meetingId, enabled, btn) {
+    console.log(`Setting bot for meeting ${meetingId}:`, enabled);
+    
+    // UI Update immediately
+    const parent = btn.parentElement;
+    parent.querySelectorAll('.btn-toggle').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    
+    try {
+        // Find meeting details from current view to pass to backend if creation is needed
+        const card = btn.closest('.meeting-card');
+        const summary = card.querySelector('.meeting-title').textContent;
+        const startTime = card.querySelector('.meeting-time').textContent;
+
+        const res = await apiFetch("/meetings/toggle_bot", {
+            method: 'POST',
+            body: JSON.stringify({ 
+                meeting_id: meetingId, 
+                enabled,
+                summary,
+                start_time: startTime
+            })
+        });
+        const data = await res.json();
+        if (!data.success) {
+            alert("Failed to update meeting preference");
+        }
+    } catch (err) {
+        console.error(err);
+    }
+};
+

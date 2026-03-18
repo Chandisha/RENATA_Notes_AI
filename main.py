@@ -456,10 +456,21 @@ async def dashboard_data(request: Request):
             upcoming_meetings_count = len(items)
             for item in items:
                 start_raw = item['start'].get('dateTime', item['start'].get('date'))
+                m_id = item.get("id")
+                link = item.get("hangoutLink", item.get("location", ""))
+                
+                # Use current user email to check meeting status
+                db_meeting = db.get_meeting(m_id, user_email=email)
+                is_enabled = True # Default to enabled once registered
+                if db_meeting:
+                    is_enabled = not bool(db_meeting.get('is_skipped', 0))
+                
                 calendar_events.append({
+                    "id": m_id,
                     "summary": item.get("summary", "Untitled"),
                     "start_time": fmt_time(start_raw),
-                    "link": item.get("hangoutLink", item.get("location", ""))
+                    "link": link,
+                    "is_enabled": is_enabled
                 })
     except Exception as e:
         print(f"Calendar error: {e}")
@@ -503,6 +514,33 @@ async def dashboard_data(request: Request):
             "recording": bool(profile.get("bot_recording_enabled", 1))
         }
     }
+
+@app.post("/settings/toggle_global_bot")
+async def toggle_global_bot_api(request: Request):
+    user = require_user(request)
+    data = await request.json()
+    enabled = data.get("enabled", True)
+    db.update_user_profile(user['email'], {"bot_auto_join": 1 if enabled else 0})
+    return {"success": True}
+
+@app.post("/meetings/toggle_bot")
+async def toggle_meeting_bot_api(request: Request):
+    user = require_user(request)
+    data = await request.json()
+    m_id = data.get("meeting_id")
+    enabled = data.get("enabled", True)
+    
+    # Check if meeting exists, if not create a minimal one
+    db_meeting = db.get_meeting(m_id, user_email=user['email'])
+    if not db_meeting:
+        db.exec_commit('''
+            INSERT INTO meetings (meeting_id, title, start_time, user_email, meet_url, is_skipped)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (m_id, data.get("summary", "Upcoming Session"), data.get("start_time", datetime.now().isoformat()), user['email'], data.get("link", ""), 0 if enabled else 1))
+    else:
+        db.update_meeting(m_id, {"is_skipped": 0 if enabled else 1}, user_email=user['email'])
+    
+    return {"success": True}
 
 # ============================================================
 # PAYMENTS (RAZORPAY)

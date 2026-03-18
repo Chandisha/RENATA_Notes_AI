@@ -1613,4 +1613,37 @@ input:checked+.slider:before {
     }
 }
 
+/* --- Toggle Button Styles (Anil Sir Feedback) --- */
+.btn-toggle {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.btn-toggle.active {
+    background: var(--accent-purple) !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
+.btn-toggle:hover:not(.active) {
+    background: rgba(139, 92, 246, 0.05);
+}
+
+/* Specific Master Switch adjustments */
+.global-bot-toggle .switch {
+    transform: scale(0.9);
+}
+
+.global-bot-toggle .slider:before {
+    height: 14px !important;
+    width: 14px !important;
+    left: 3px !important;
+    bottom: 3px !important;
+}
+
+.meeting-actions .note-taking-label i {
+    filter: drop-shadow(0 0 5px rgba(139, 92, 246, 0.2));
+}
+
+
 
