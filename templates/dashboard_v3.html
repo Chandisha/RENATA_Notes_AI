@@ -76,11 +76,12 @@
                         <span class="status-text">Server: Connected</span>
                     </div>
                     
-                    <div class="global-bot-toggle" style="display: flex; align-items: center; gap: 10px; background: rgba(242, 113, 33, 0.08); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(242, 113, 33, 0.15);">
-                        <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-orange); text-transform: uppercase; letter-spacing: 0.5px;">Master Switch</span>
-                        <label class="switch" style="width: 40px; height: 20px;">
+                    <div class="global-bot-toggle" 
+                         title="Master Switch: Turn ON to allow Renata to automatically join your scheduled meetings. Turn OFF to disable all automatic attendance."
+                         style="display: flex; align-items: center; background: rgba(242, 113, 33, 0.08); padding: 8px; border-radius: 50%; border: 1px solid rgba(242, 113, 33, 0.15); cursor: help;">
+                        <label class="switch" style="width: 40px; height: 20px; margin: 0;">
                             <input type="checkbox" id="global-bot-switch" checked onchange="toggleGlobalBot(this)">
-                            <span class="slider round" style="before { height: 14px; width: 14px; left: 3px; bottom: 3px; }"></span>
+                            <span class="slider round"></span>
                         </label>
                     </div>
 
