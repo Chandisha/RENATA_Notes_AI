@@ -1230,6 +1230,23 @@ document.addEventListener('DOMContentLoaded', () => {
 window.toggleGlobalBot = async function(el) {
     const enabled = el.checked;
     console.log("Setting global bot auto-join:", enabled);
+    
+    // UI Update for all meeting toggles if turning OFF
+    if (!enabled) {
+        document.querySelectorAll('#calendar-grid .switch input').forEach(inp => {
+            if (inp.checked) {
+                inp.checked = false;
+                // Trigger label update for consistency
+                const container = inp.closest('.toggle-container');
+                const label = container.querySelector('span');
+                if (label) {
+                    label.textContent = 'Skipped';
+                    label.style.color = 'var(--text-secondary)';
+                }
+            }
+        });
+    }
+
     try {
         const res = await apiFetch("/settings/toggle_global_bot", {
             method: 'POST',
@@ -1237,13 +1254,8 @@ window.toggleGlobalBot = async function(el) {
         });
         const data = await res.json();
         if (data.success) {
-            // Update the checkbox in Settings too
             const settingsCheck = document.getElementById('pref-auto-join');
             if (settingsCheck) settingsCheck.checked = enabled;
-            
-            // Re-load calendar to show updated enrollment if needed
-            // Actually, individual toggles should still show their state, 
-            // but functionally the global switch overrides them in the backend.
         } else {
             alert("Failed to update global switch");
             el.checked = !enabled;
