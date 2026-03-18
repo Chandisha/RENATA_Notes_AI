@@ -164,11 +164,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // Preferences Initialization
             if (data.preferences) {
                 const autoJoinCheck = document.getElementById('pref-auto-join');
-                if (autoJoinCheck) autoJoinCheck.checked = !!data.preferences.auto_join;
+                if (autoJoinCheck) autoJoinCheck.checked = (data.preferences.auto_join !== false);
 
                 // Sync Global Switch in Top Bar
                 const globalSwitch = document.getElementById('global-bot-switch');
-                if (globalSwitch) globalSwitch.checked = !!data.preferences.auto_join;
+                if (globalSwitch) globalSwitch.checked = (data.preferences.auto_join !== false);
                 
                 const bName = document.getElementById('pref-bot-name');
                 const rec = document.getElementById('pref-recording');

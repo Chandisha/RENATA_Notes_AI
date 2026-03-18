@@ -710,6 +710,15 @@ def run_auto_pilot(operator_email):
                         if -2 <= diff <= 5:
                             if url:
                                 url = normalize_url(url)
+                                
+                                # Check if user manually skipped this specific meeting
+                                db_meeting = db.fetch_one("SELECT is_skipped FROM meetings WHERE meeting_id = ? AND user_email = ?", (m_id, cal_email))
+                                if db_meeting and db_meeting.get('is_skipped', 0):
+                                    if (m_id, cal_email) not in session_handled_ids:
+                                        print(f"[Pilot] Meeting {m_id} skipped by user preference for {cal_email}")
+                                        session_handled_ids.add((m_id, cal_email))
+                                    continue
+
                                 if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs or url in _active_urls:
                                     continue
                                     
