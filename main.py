@@ -510,8 +510,8 @@ async def dashboard_data(request: Request):
         },
         "preferences": {
             "bot_name": profile.get("bot_name", "Renata AI | Assistant"),
-            "auto_join": bool(profile.get("bot_auto_join", 1)),
-            "recording": bool(profile.get("bot_recording_enabled", 1))
+            "auto_join": bool(profile.get("bot_auto_join", 1) if profile.get("bot_auto_join") is not None else 1),
+            "recording": bool(profile.get("bot_recording_enabled", 1) if profile.get("bot_recording_enabled") is not None else 1)
         }
     }
 
