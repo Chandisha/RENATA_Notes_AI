@@ -164,11 +164,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Preferences Initialization
             if (data.preferences) {
                 const autoJoinCheck = document.getElementById('pref-auto-join');
-                if (autoJoinCheck) autoJoinCheck.checked = (data.preferences.auto_join !== false);
+                if (autoJoinCheck) {
+                    autoJoinCheck.checked = (data.preferences.auto_join === true || data.preferences.auto_join === 1 || data.preferences.auto_join === "1" || data.preferences.auto_join === null || data.preferences.auto_join === undefined);
+                }
 
                 // Sync Global Switch in Top Bar
                 const globalSwitch = document.getElementById('global-bot-switch');
-                if (globalSwitch) globalSwitch.checked = (data.preferences.auto_join !== false);
+                if (globalSwitch) {
+                    globalSwitch.checked = (data.preferences.auto_join === true || data.preferences.auto_join === 1 || data.preferences.auto_join === "1" || data.preferences.auto_join === null || data.preferences.auto_join === undefined);
+                }
                 
                 const bName = document.getElementById('pref-bot-name');
                 const rec = document.getElementById('pref-recording');
