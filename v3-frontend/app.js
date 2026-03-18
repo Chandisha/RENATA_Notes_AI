@@ -23,6 +23,7 @@ async function apiFetch(endpoint, options = {}) {
 
 document.addEventListener('DOMContentLoaded', () => {
     feather.replace();
+    loadUserProfile();
 
     // Navigation Logic
     const navItems = document.querySelectorAll('.nav-item');
@@ -38,9 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showPage(pageId) {
         if (!pageId) pageId = 'dashboard';
-
-        // Always refresh user plan to ensure the UI stays updated (Pro status etc)
-        loadUserProfile();
 
         navItems.forEach(i => {
             i.classList.toggle('active', i.getAttribute('data-page') === pageId);
@@ -121,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadUserProfile() {
         try {
-            const res = await apiFetch("/dashboard_data");
+            const res = await apiFetch("/api/me");
             const data = await res.json();
             if (data.user) {
                 const userNameEl = document.querySelector('.user-name');
@@ -129,7 +127,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userAccountEl = document.querySelector('.user-account');
 
                 if (userNameEl) userNameEl.textContent = data.user.name;
-                if (userAvatarEl && data.user.picture) userAvatarEl.src = data.user.picture;
+                if (userAvatarEl && data.user.picture) {
+                    userAvatarEl.src = data.user.picture;
+                    userAvatarEl.style.display = 'block';
+                }
 
                 if (userAccountEl && data.user.plan) {
                     const plan = data.user.plan.toUpperCase();
@@ -152,14 +153,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadDashboardData() {
         try {
-            const data = await loadUserProfile();
-            if (!data) return;
+            // 1. Fast Profile Load
+            await loadUserProfile();
 
+            // 2. Heavier Dashboard Data (Calendar, Stats, Recent)
+            const res = await apiFetch("/dashboard_data");
+            const data = await res.json();
+            if (!data) return;
 
             // Preferences Initialization
             if (data.preferences) {
                 const autoJoinCheck = document.getElementById('pref-auto-join');
                 if (autoJoinCheck) autoJoinCheck.checked = !!data.preferences.auto_join;
+                
+                const bName = document.getElementById('pref-bot-name');
+                const rec = document.getElementById('pref-recording');
+                if (bName) bName.value = data.preferences.bot_name || '';
+                if (rec) rec.checked = !!data.preferences.recording;
             }
 
             // Dashboard Stats

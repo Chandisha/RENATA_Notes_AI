@@ -174,6 +174,30 @@ def get_current_user(request: Request):
     """Get logged-in user from session."""
     return request.session.get("user")
 
+@app.get("/api/me")
+async def get_me(request: Request):
+    """Fast endpoint for basic profile info."""
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    db_user = db.get_user_profile(user['email'])
+    if db_user:
+        return {
+            "user": {
+                "email": db_user['email'],
+                "name": db_user['name'],
+                "picture": db_user['picture'],
+                "plan": db_user.get('subscription_plan', 'Free')
+            },
+            "preferences": {
+                "bot_name": db_user.get('bot_name'),
+                "auto_join": db_user.get('bot_auto_join'),
+                "recording": db_user.get('bot_recording_enabled')
+            }
+        }
+    return {"user": user}
+
 def require_user(request: Request):
     user = get_current_user(request)
     if not user:
@@ -441,6 +465,14 @@ async def dashboard_data(request: Request):
         print(f"Calendar error: {e}")
         upcoming_meetings_count = 0
 
+    db_user = db.get_user_profile(email)
+    user_payload = {
+        "email": email,
+        "name": db_user['name'] if db_user else user.get('name'),
+        "picture": db_user['picture'] if db_user else user.get('picture'),
+        "plan": db_user.get('subscription_plan', 'Free') if db_user else 'Free'
+    }
+
     stats = db.get_meeting_stats(user_email=email, upcoming_count=upcoming_meetings_count)
     recent = db.get_all_meetings(user_email=email, limit=5)
     
@@ -452,12 +484,7 @@ async def dashboard_data(request: Request):
     profile = db.get_user_profile(email) or {}
 
     return {
-        "user": {
-            "name": profile.get("name", user["name"]),
-            "email": email,
-            "picture": profile.get("picture", user.get("picture", "https://api.dicebear.com/7.x/avataaars/svg?seed="+email)),
-            "plan": "Basic" if profile.get("subscription_plan", "Basic") in ["Free", "Basic"] else "Pro"
-        },
+        "user": user_payload,
         "stats": {
             "total_meetings": stats.get('total_meetings', 0),
             "total_hours": stats.get('total_duration_hours', 0),

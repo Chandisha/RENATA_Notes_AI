@@ -721,7 +721,7 @@ code {
   border-radius: var(--radius);
   padding: 0.8rem 1rem;
   color: var(--text-1);
-  font-size: 0.9rem;
+  font-size: 16px; /* Prevents iOS auto-zoom */
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
@@ -1028,7 +1028,7 @@ canvas {
   border-radius: 8px;
   padding: 0.7rem 0.9rem;
   color: var(--text-1);
-  font-size: 0.875rem;
+  font-size: 16px; /* Prevents iOS auto-zoom */
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
