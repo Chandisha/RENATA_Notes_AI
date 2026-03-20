@@ -95,6 +95,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'reports':
                 await loadReportsData();
                 break;
+            case 'notes':
+                await loadNotesData();
+                break;
             case 'analytics':
                 await loadAnalyticsData();
                 startAnalyticsAutoRefresh();
@@ -1006,6 +1009,63 @@ document.addEventListener('DOMContentLoaded', () => {
                 feather.replace();
             }, 3000);
         });
+    }
+
+    const refNotesBtn = document.getElementById('refresh-notes-btn');
+    if (refNotesBtn) refNotesBtn.onclick = () => loadNotesData();
+
+    async function loadNotesData() {
+        const grid = document.getElementById('notes-list');
+        if (!grid) return;
+        
+        const refreshIcon = document.getElementById('refresh-notes-btn')?.querySelector('i');
+        if (refreshIcon) refreshIcon.classList.add('spin');
+
+        try {
+            const res = await apiFetch("/reports_data");
+            const data = await res.json();
+            grid.innerHTML = '';
+
+            const allMeetings = (data.meetings || []);
+            if (allMeetings.length === 0) {
+                grid.innerHTML = '<div class="card" style="padding:40px; text-align:center;"><p class="muted">No meeting notes captured yet. They will appear here once you join a live meeting.</p></div>';
+                return;
+            }
+
+            allMeetings.forEach((m) => {
+                const note = m.bot_status_note || '';
+                const hasInsights = note.includes('LIVE_INSIGHTS:');
+                const insights = hasInsights ? note.replace('LIVE_INSIGHTS:', '').trim() : 'No live insights were captured for this session.';
+                const timeStr = m.start_time;
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.marginBottom = '16px';
+                card.style.padding = '20px';
+                card.style.borderLeft = hasInsights ? '4px solid var(--accent-orange)' : '4px solid var(--border-color)';
+                
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+                        <div>
+                            <h3 style="margin:0; font-size:1.1rem; color:var(--text-main);">${m.title || 'Untitled Meeting'}</h3>
+                            <span class="muted" style="font-size:0.85rem;">${timeStr}</span>
+                        </div>
+                        <span class="badge ${hasInsights ? 'orange' : 'gray'}" style="font-size:0.7rem;">
+                            ${hasInsights ? 'AI CAPTURED' : 'EMPTY'}
+                        </span>
+                    </div>
+                    <div style="background:rgba(242,113,33,0.03); padding:15px; border-radius:8px; font-size:0.92rem; line-height:1.6; color:#334155; border:1px dashed rgba(242,113,33,0.15);">
+                        ${insights.split('\n').map(line => `<div style="margin-bottom:4px;">${line}</div>`).join('')}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            feather.replace();
+        } catch (err) {
+            console.error("Notes Error:", err);
+        } finally {
+            if (refreshIcon) setTimeout(() => refreshIcon.classList.remove('spin'), 500);
+        }
     }
 
     const mJoin = document.getElementById('manual-join');

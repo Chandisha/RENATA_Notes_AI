@@ -33,6 +33,9 @@
                 <div class="nav-item" data-page="reports">
                     <i data-feather="file-text"></i> <span>Reports</span>
                 </div>
+                <div class="nav-item" data-page="notes">
+                    <i data-feather="edit-3"></i> <span>Note Taking</span>
+                </div>
                 <div class="nav-item" data-page="search">
                     <i data-feather="search"></i> <span>AI Search</span>
                 </div>
@@ -162,6 +165,28 @@
                         </div>
                         <div class="chart-container">
                             <canvas id="analyticsChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="notes-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Note Taking</h1>
+                            <p class="subtitle">Review live captured points and AI extracted decisions.</p>
+                        </div>
+                        <div class="page-header-actions">
+                            <button id="refresh-notes-btn" title="Refresh Notes" class="refresh-btn">
+                                <i data-feather="refresh-cw"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="notes-list" class="meeting-list">
+                        <!-- Meeting notes cards go here -->
+                        <div class="muted" style="text-align: center; padding: 100px;">
+                            <i data-feather="loading" class="spin" style="width: 48px; height: 48px; margin-bottom: 20px; opacity: 0.1;"></i>
+                            <p>Loading your meeting notes...</p>
                         </div>
                     </div>
                 </section>
