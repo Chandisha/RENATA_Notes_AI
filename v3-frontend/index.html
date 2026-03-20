@@ -442,9 +442,9 @@
                         <div class="page-header-actions"></div>
                     </div>
 
-                    <div class="help-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+                    <div class="help-grid" style="display: block; max-width: 650px; margin: 0 auto;">
                         <!-- Raise Ticket Form -->
-                        <div class="card">
+                        <div class="card" style="padding: 24px;">
                             <div class="card-header">
                                 <h2>Raise a Support Ticket</h2>
                             </div>
@@ -463,19 +463,6 @@
                                     <i data-feather="send" style="width: 16px; margin-right: 8px;"></i> Raise Ticket
                                 </button>
                             </form>
-                        </div>
-
-                        <!-- Active Tickets -->
-                        <div class="card">
-                            <div class="card-header">
-                                <h2>Active Logged Issues</h2>
-                            </div>
-                            <div id="active-tickets-list" style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; padding-right: 5px;">
-                                <div class="muted" style="text-align: center; padding: 40px;">
-                                    <i data-feather="check-circle" style="width: 32px; height: 32px; margin-bottom: 12px; opacity: 0.5;"></i>
-                                    <p>No active issues. You're all set!</p>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </section>
