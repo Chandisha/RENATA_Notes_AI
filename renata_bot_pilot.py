@@ -444,10 +444,56 @@ class RenaMeetingBot:
                         if page.locator('text="You left the meeting"').count() > 0:
                             break
                         
+                        # --- Live AI Note Taking Logic ---
+                        if not hasattr(self, '_last_notes_sync'):
+                            self._last_notes_sync = time.time()
+                            self._captured_lines = []
+                            # Enable Captions
+                            page.keyboard.press("c")
+                            print("[Live] AI Note-taking: Captions enabled.")
+
+                        # Scrape Live Captions (if visible)
+                        try:
+                            # Standard Google Meet caption selector
+                            elements = page.locator('div[jscontroller="p2V79"] div[role="log"] span, div.Vwo7of span').all_text_contents()
+                            if elements:
+                                chunk = " ".join(elements).strip()
+                                if chunk and (not self._captured_lines or chunk != self._captured_lines[-1]):
+                                    self._captured_lines.append(chunk)
+                        except: pass
+
+                        # Sync every 120 seconds
+                        if time.time() - self._last_notes_sync > 120:
+                            if len(self._captured_lines) > 3:
+                                try:
+                                    print("[Live] AI Note-taking: Synchronizing insights...")
+                                    full_text = "\n".join(self._captured_lines[-50:])
+                                    prompt = f"The following are live meeting transcripts. Extract 3-5 key points, decisions, or action items as of now. Be concise and professional. Reply with a simple bulleted list.\n\nTRANSCRIPT:\n{full_text}"
+                                    
+                                    # Use Gemini via process_meeting_audio's logic or internal helper
+                                    from meeting_notes_generator import summarize_text
+                                    insights = summarize_text(prompt) if 'prompt' in prompt else None
+                                    if not insights:
+                                        # Use a direct Gemini call if available
+                                        try:
+                                            import google.generativeai as genai
+                                            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+                                            model = genai.GenerativeModel('gemini-1.5-flash')
+                                            resp = model.generate_content(prompt)
+                                            insights = resp.text
+                                        except: pass
+                                    
+                                    if insights:
+                                        db_module.update_bot_status(meeting_id, "CONNECTED", note=f"LIVE_INSIGHTS:\n{insights}", user_email=user_email)
+                                except Exception as n_err:
+                                    print(f"[Live] Sync Error: {n_err}")
+                            self._last_notes_sync = time.time()
+
                         # Check for user cancellation
                         if db_module and meeting_id:
-                            status_data = db_module.fetch_one("SELECT bot_status FROM meetings WHERE meeting_id = ?", (meeting_id,))
-                            if status_data and status_data.get('bot_status') == 'CANCELED':
+                            # Re-fetch from DB directly since we need fresh status
+                            status_data = db_module.fetch_all("SELECT bot_status FROM meetings WHERE meeting_id = ?", (meeting_id,))
+                            if status_data and status_data[0].get('bot_status') == 'CANCELED':
                                 print(f"[Google Meet Bot] Cancellation requested for {meeting_id}. Leaving...")
                                 break
 

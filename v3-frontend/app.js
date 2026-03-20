@@ -828,14 +828,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         _setBadge(badgeText, badgeColor);
         _setLog(logMsg);
+
+        // Handle Live Notes (Option B)
+        if (note && (note.includes('LIVE_INSIGHTS:') || status === 'LIVE' || status === 'CONNECTED')) {
+            const notesCard = document.getElementById('live-notes-card');
+            const notesArea = document.getElementById('live-notes-area');
+            if (notesCard && notesArea) {
+                notesCard.style.display = 'block';
+                if (note.includes('LIVE_INSIGHTS:')) {
+                    const insights = note.replace('LIVE_INSIGHTS:', '').trim();
+                    // Basic formatting for the live feed
+                    notesArea.innerHTML = insights.split('\n')
+                        .map(line => `<div style="margin-bottom:8px;">${line}</div>`)
+                        .join('');
+                    const syncBadge = document.getElementById('notes-sync-status');
+                    if (syncBadge) syncBadge.textContent = 'UPDATED ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                }
+            }
+        }
     }
 
     function showBotIdle() {
         const idle = document.getElementById('bot-idle-msg');
         const tracker = document.getElementById('bot-tracker');
         const pulse = document.getElementById('bot-pulse');
+        const notesCard = document.getElementById('live-notes-card');
+
         if (idle) idle.style.display = 'block';
         if (tracker) tracker.style.display = 'none';
+        if (notesCard) notesCard.style.display = 'none';
+        
         if (pulse) { pulse.style.background = '#64748b'; pulse.style.animation = 'none'; }
         _setBadge('Idle', 'var(--text-secondary)');
         _stopLiveTimer();

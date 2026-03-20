@@ -249,6 +249,26 @@
                         </div>
                     </div>
 
+                    <!-- Live AI Captured Notes Section (ANIL SIR FEEDBACK: REAL-TIME NOTE TAKING) -->
+                    <div id="live-notes-card" class="card" style="display: none; margin-bottom: 24px; border: 2px solid var(--accent-orange); box-shadow: 0 10px 40px rgba(242, 113, 33, 0.1);">
+                        <div class="card-header" style="justify-content: space-between; display: flex; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
+                            <h3 style="font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
+                                <i data-feather="edit-3" style="width: 20px; color: var(--accent-orange);"></i>
+                                Live AI Note-Taking
+                            </h3>
+                            <span class="badge blue pulse" id="notes-sync-status" style="font-size: 0.75rem;">AI EXTRACTING...</span>
+                        </div>
+                        <div id="live-notes-area" style="margin-top: 16px; min-height: 180px; padding: 15px; background: #fffcf5; border-radius: 12px; line-height: 1.8; font-size: 0.95rem; color: #1e293b; overflow-y: auto; max-height: 400px; border: 1px dashed var(--accent-orange);">
+                            <div style="text-align: center; color: var(--text-secondary); padding: 40px;">
+                                <i data-feather="cpu" style="width: 30px; height: 30px; margin-bottom: 12px; opacity: 0.3;"></i>
+                                <p>Capturing live conversation points and action items...</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 12px; font-size: 0.75rem; color: var(--text-secondary); text-align: right; font-style: italic;">
+                            Points are captured in intervals from live transcripts. Final report will have full detail.
+                        </div>
+                    </div>
+
                     <!-- Live Bot Tracker Card -->
                     <div id="bot-live-status" class="card" style="padding: 28px;">
                         <!-- Header Row -->
