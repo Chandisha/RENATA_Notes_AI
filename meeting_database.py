@@ -578,17 +578,11 @@ def create_ticket(user_email, subject, query):
     ''', (user_email, subject, query))
 
 def get_active_tickets(user_email):
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    cursor.execute('''
+    return fetch_all('''
         SELECT * FROM help_tickets 
         WHERE user_email = ? AND status != 'resolved' 
         ORDER BY created_at DESC
     ''', (user_email,))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
 
 def resolve_ticket(ticket_id):
     return exec_commit('''
