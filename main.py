@@ -17,7 +17,7 @@ import smtplib
 from email.message import EmailMessage
 from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from dotenv import load_dotenv
 
@@ -1137,6 +1137,99 @@ async def download_json(filename: str, request: Request):
 # Duplicate routes at the end removed.
 
 # ============================================================
+
+# ============================================================
+# GMAIL INTELLIGENCE (Contextual Briefs)
+# ============================================================
+
+@app.get("/api/gmail_intelligence")
+async def get_gmail_intelligence(request: Request):
+    user = require_user(request)
+    email = user['email']
+    
+    try:
+        creds = get_user_credentials(email)
+        if not creds: return {"briefs": []}
+
+        from googleapiclient.discovery import build
+        cal_svc = build("calendar", "v3", credentials=creds)
+        gm_svc = build("gmail", "v1", credentials=creds)
+
+        # 1. Fetch upcoming meetings (next 24h)
+        now_dt = datetime.now(timezone.utc)
+        now = now_dt.isoformat().replace('+00:00', 'Z')
+        tomorrow = (now_dt + timedelta(days=1)).isoformat().replace('+00:00', 'Z')
+        
+        cal_res = cal_svc.events().list(
+            calendarId='primary', timeMin=now, timeMax=tomorrow,
+            singleEvents=True, orderBy='startTime'
+        ).execute()
+        events = cal_res.get('items', [])
+
+        briefs = []
+        for ev in events:
+            m_id = ev.get('id')
+            title = ev.get('summary', 'Untitled')
+            
+            # Check DB Cache (for this session/day)
+            cached = db.fetch_all("SELECT insights FROM gmail_briefs WHERE user_email = ? AND meeting_id = ?", (email, m_id))
+            if cached:
+                briefs.append({
+                    "meeting_id": m_id,
+                    "meeting_title": title,
+                    "insights": cached[0]['insights'],
+                    "start_time": fmt_time(ev['start'].get('dateTime', ev['start'].get('date')))
+                })
+                continue
+
+            # 2. Search Gmail
+            # Very basic search for demo: just the title
+            query = f'"{title}"'
+            gm_res = gm_svc.users().messages().list(userId='me', q=query, maxResults=5).execute()
+            messages = gm_res.get('messages', [])
+            
+            insights = "No previous email discussion found for this meeting."
+            if messages:
+                snippets = []
+                for msg in messages:
+                    m_data = gm_svc.users().messages().get(userId='me', id=msg['id'], format='minimal').execute()
+                    snippets.append(m_data.get('snippet', ''))
+
+                # 3. Summarize with Gemini
+                context_text = "\n\n".join(snippets)
+                prompt = (f"The following are snippets from previous emails related to an upcoming meeting called '{title}'. "
+                         "Extract 3 main background points or pending tasks to brief the participant. Be professional and concise.\n\n"
+                         f"EMAILS:\n{context_text}")
+                
+                api_key = os.getenv("GEMINI_API_KEY")
+                if api_key:
+                    try:
+                        import google.generativeai as genai
+                        genai.configure(api_key=api_key)
+                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        gen_res = model.generate_content(prompt)
+                        insights = gen_res.text
+                    except: insights = "Email context found but analysis failed."
+                else:
+                    insights = "Gemini Key missing - cannot analyze context."
+
+            # Save to storage (gmail_briefs)
+            db.exec_commit("INSERT INTO gmail_briefs (user_email, meeting_id, meeting_title, insights) VALUES (?, ?, ?, ?)",
+                           (email, m_id, title, insights))
+                
+            briefs.append({
+                "meeting_id": m_id,
+                "meeting_title": title,
+                "insights": insights,
+                "start_time": fmt_time(ev['start'].get('dateTime', ev['start'].get('date')))
+            })
+
+        return {"briefs": briefs}
+
+    except Exception as e:
+        print(f"Gmail Intel Error: {e}")
+        return {"briefs": [], "error": str(e)}
+
 # HEALTH CHECK (Railway uses this)
 # ============================================================
 

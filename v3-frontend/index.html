@@ -36,6 +36,9 @@
                 <div class="nav-item" data-page="notes">
                     <i data-feather="edit-3"></i> <span>Note Taking</span>
                 </div>
+                <div class="nav-item" data-page="gmail">
+                    <i data-feather="mail"></i> <span>Gmail Intelligence</span>
+                </div>
                 <div class="nav-item" data-page="search">
                     <i data-feather="search"></i> <span>AI Search</span>
                 </div>
@@ -187,6 +190,28 @@
                         <div class="muted" style="text-align: center; padding: 100px;">
                             <i data-feather="loading" class="spin" style="width: 48px; height: 48px; margin-bottom: 20px; opacity: 0.1;"></i>
                             <p>Loading your meeting notes...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="gmail-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Gmail Intelligence</h1>
+                            <p class="subtitle">AI-extracted briefs from previous emails related to upcoming meetings.</p>
+                        </div>
+                        <div class="page-header-actions">
+                            <button id="refresh-gmail-btn" title="Refresh Intelligence" class="refresh-btn">
+                                <i data-feather="refresh-cw"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="gmail-briefs-list" class="meeting-list">
+                        <!-- Gmail intelligence cards go here -->
+                        <div class="muted" style="text-align: center; padding: 100px;">
+                            <i data-feather="mail" style="width: 48px; height: 48px; margin-bottom: 20px; opacity: 0.1;"></i>
+                            <p>Analyzing your emails for upcoming meeting context...</p>
                         </div>
                     </div>
                 </section>

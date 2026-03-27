@@ -195,16 +195,14 @@ def init_database():
         )
     ''')
 
-    # Gmail Intelligence Table
+    # Pre-Meeting Gmail Briefs
     cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS gmail_intelligence (
+        CREATE TABLE IF NOT EXISTS gmail_briefs (
             id {pk_def},
             user_email TEXT NOT NULL,
-            message_id TEXT UNIQUE,
-            category TEXT,
-            subject TEXT,
-            snippet TEXT,
-            is_dismissed INTEGER DEFAULT 0,
+            meeting_id TEXT,
+            meeting_title TEXT,
+            insights TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')

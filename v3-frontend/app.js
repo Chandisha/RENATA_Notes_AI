@@ -98,6 +98,9 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'notes':
                 await loadNotesData();
                 break;
+            case 'gmail':
+                await loadGmailData();
+                break;
             case 'analytics':
                 await loadAnalyticsData();
                 startAnalyticsAutoRefresh();
@@ -1063,6 +1066,64 @@ document.addEventListener('DOMContentLoaded', () => {
             feather.replace();
         } catch (err) {
             console.error("Notes Error:", err);
+        } finally {
+            if (refreshIcon) setTimeout(() => refreshIcon.classList.remove('spin'), 500);
+        }
+    }
+
+    const refGmailBtn = document.getElementById('refresh-gmail-btn');
+    if (refGmailBtn) refGmailBtn.onclick = () => loadGmailData();
+
+    async function loadGmailData() {
+        const grid = document.getElementById('gmail-briefs-list');
+        if (!grid) return;
+        
+        const refreshIcon = document.getElementById('refresh-gmail-btn')?.querySelector('i');
+        if (refreshIcon) refreshIcon.classList.add('spin');
+
+        try {
+            const res = await apiFetch("/api/gmail_intelligence");
+            const data = await res.json();
+            grid.innerHTML = '';
+
+            const briefs = data.briefs || [];
+            if (briefs.length === 0) {
+                grid.innerHTML = '<div class="card" style="padding:40px; text-align:center;"><p class="muted">No upcoming meeting context found in your emails yet.</p></div>';
+                return;
+            }
+
+            briefs.forEach((b) => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.marginBottom = '20px';
+                card.style.padding = '24px';
+                card.style.borderLeft = '4px solid var(--accent-purple)';
+                card.style.background = 'linear-gradient(to right, rgba(139, 92, 246, 0.03), transparent)';
+                
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                        <div>
+                            <h3 style="margin:0; font-size:1.2rem; color:var(--text-main);">${b.meeting_title}</h3>
+                            <span class="muted" style="font-size:0.85rem; display:block; margin-top:4px;">
+                                <i data-feather="calendar" style="width:12px; height:12px; vertical-align:middle; margin-right:4px;"></i>
+                                Starts ${b.start_time}
+                            </span>
+                        </div>
+                        <span class="badge purple" style="font-size:0.7rem;">PRE-MEETING BRIEF</span>
+                    </div>
+                    <div style="background:white; padding:18px; border-radius:12px; font-size:0.95rem; line-height:1.7; color:#1e293b; border:1px solid rgba(139, 92, 246, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
+                        <div style="font-weight:600; color:var(--accent-purple); margin-bottom:8px; display:flex; align-items:center; gap:8px;">
+                            <i data-feather="cpu" style="width:14px;"></i> AI Context Insight:
+                        </div>
+                        ${b.insights.split('\n').map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('')}
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+            feather.replace();
+        } catch (err) {
+            console.error("Gmail Intel Error:", err);
+            grid.innerHTML = '<div class="card" style="padding:40px; text-align:center; color: #ef4444;"><p>Error loading intelligence: ' + err.message + '</p></div>';
         } finally {
             if (refreshIcon) setTimeout(() => refreshIcon.classList.remove('spin'), 500);
         }
