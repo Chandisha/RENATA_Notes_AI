@@ -1224,7 +1224,27 @@ async def get_gmail_intelligence(request: Request):
                 "start_time": fmt_time(ev['start'].get('dateTime', ev['start'].get('date')))
             })
 
-        return {"briefs": briefs}
+        # 4. Fetch general recent emails (Inbox activity)
+        recent_res = gm_svc.users().messages().list(userId='me', maxResults=10).execute()
+        recent_msgs = recent_res.get('messages', [])
+        
+        inbox_emails = []
+        for r_msg in recent_msgs:
+            # We fetch minimal format to get headers + snippet quickly
+            m_data = gm_svc.users().messages().get(userId='me', id=r_msg['id'], format='full').execute()
+            headers = m_data.get('payload', {}).get('headers', [])
+            
+            subj = next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'No Subject')
+            sender = next((h['value'] for h in headers if h['name'].lower() == 'from'), 'Unknown')
+            
+            inbox_emails.append({
+                "id": r_msg['id'],
+                "subject": subj,
+                "from": sender,
+                "snippet": m_data.get('snippet', '')
+            })
+
+        return {"briefs": briefs, "recent_emails": inbox_emails}
 
     except Exception as e:
         print(f"Gmail Intel Error: {e}")

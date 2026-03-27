@@ -1087,39 +1087,79 @@ document.addEventListener('DOMContentLoaded', () => {
             grid.innerHTML = '';
 
             const briefs = data.briefs || [];
-            if (briefs.length === 0) {
-                grid.innerHTML = '<div class="card" style="padding:40px; text-align:center;"><p class="muted">No upcoming meeting context found in your emails yet.</p></div>';
-                return;
+            const inbox = data.recent_emails || [];
+
+            // 1. SECTION: Meeting Briefs
+            if (briefs.length > 0) {
+                const head = document.createElement('h3');
+                head.innerHTML = '<i data-feather="zap" style="width:16px;"></i> Active Meeting Briefs';
+                head.style.margin = "0 0 16px 0";
+                head.style.color = "var(--accent-purple)";
+                grid.appendChild(head);
+
+                briefs.forEach((b) => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.style.marginBottom = '20px';
+                    card.style.padding = '24px';
+                    card.style.borderLeft = '4px solid var(--accent-purple)';
+                    card.style.background = 'linear-gradient(to right, rgba(139, 92, 246, 0.03), transparent)';
+                    
+                    card.innerHTML = `
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                            <div>
+                                <h3 style="margin:0; font-size:1.2rem; color:var(--text-main);">${b.meeting_title}</h3>
+                                <span class="muted" style="font-size:0.85rem; display:block; margin-top:4px;">
+                                    Starts ${b.start_time}
+                                </span>
+                            </div>
+                            <span class="badge purple">AI BRIEF</span>
+                        </div>
+                        <div style="background:white; padding:18px; border-radius:12px; font-size:0.95rem; line-height:1.7; color:#1e293b; border:1px solid rgba(139, 92, 246, 0.1);">
+                            ${b.insights.split('\n').map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('')}
+                        </div>
+                    `;
+                    grid.appendChild(card);
+                });
             }
 
-            briefs.forEach((b) => {
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.style.marginBottom = '20px';
-                card.style.padding = '24px';
-                card.style.borderLeft = '4px solid var(--accent-purple)';
-                card.style.background = 'linear-gradient(to right, rgba(139, 92, 246, 0.03), transparent)';
-                
-                card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
-                        <div>
-                            <h3 style="margin:0; font-size:1.2rem; color:var(--text-main);">${b.meeting_title}</h3>
-                            <span class="muted" style="font-size:0.85rem; display:block; margin-top:4px;">
-                                <i data-feather="calendar" style="width:12px; height:12px; vertical-align:middle; margin-right:4px;"></i>
-                                Starts ${b.start_time}
-                            </span>
+            // 2. SECTION: Recent Inbox (Always shown)
+            if (inbox.length > 0) {
+                const head = document.createElement('h3');
+                head.innerHTML = '<i data-feather="inbox" style="width:16px;"></i> Recent Inbox Updates';
+                head.style.margin = "32px 0 16px 0";
+                head.style.color = "var(--text-main)";
+                grid.appendChild(head);
+
+                inbox.forEach((em) => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.style.marginBottom = '12px';
+                    card.style.padding = '15px';
+                    card.style.display = 'flex';
+                    card.style.gap = '15px';
+                    card.style.alignItems = 'center';
+                    
+                    card.innerHTML = `
+                        <div style="width:40px; height:40px; border-radius:50%; background:rgba(0,0,0,0.03); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <i data-feather="mail" style="width:18px; color:#64748b;"></i>
                         </div>
-                        <span class="badge purple" style="font-size:0.7rem;">PRE-MEETING BRIEF</span>
-                    </div>
-                    <div style="background:white; padding:18px; border-radius:12px; font-size:0.95rem; line-height:1.7; color:#1e293b; border:1px solid rgba(139, 92, 246, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.02);">
-                        <div style="font-weight:600; color:var(--accent-purple); margin-bottom:8px; display:flex; align-items:center; gap:8px;">
-                            <i data-feather="cpu" style="width:14px;"></i> AI Context Insight:
+                        <div style="flex:1; overflow:hidden;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <strong style="font-size:0.95rem; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.subject}</strong>
+                                <span class="muted" style="font-size:0.75rem;">${em.from.split('<')[0].trim()}</span>
+                            </div>
+                            <p class="muted" style="font-size:0.85rem; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.snippet}</p>
                         </div>
-                        ${b.insights.split('\n').map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('')}
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+
+            if (briefs.length === 0 && inbox.length === 0) {
+                grid.innerHTML = '<div class="card" style="padding:40px; text-align:center;"><p class="muted">No recent emails found.</p></div>';
+            }
+
             feather.replace();
         } catch (err) {
             console.error("Gmail Intel Error:", err);
