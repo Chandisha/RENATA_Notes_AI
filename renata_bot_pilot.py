@@ -464,23 +464,29 @@ class RenaMeetingBot:
 
                         # Sync every 120 seconds
                         if time.time() - self._last_notes_sync > 120:
-                            if len(self._captured_lines) > 3:
+                                    if len(self._captured_lines) > 3:
                                 try:
-                                    print("[Live] AI Note-taking: Synchronizing insights...")
+                                    print("[Live] AI Note-taking: Synchronizing insights with Gemini 3.0...")
                                     full_text = "\n".join(self._captured_lines[-50:])
-                                    prompt = f"The following are live meeting transcripts. Extract 3-5 key points, decisions, or action items as of now. Be concise and professional. Reply with a simple bulleted list.\n\nTRANSCRIPT:\n{full_text}"
+                                    prompt = ("The following are live meeting transcripts. Extract Key Decisions, Action Items, and main Discussion Points as of now. "
+                                             "Be professional and use a structured bulleted format. Focus on 'Minutes of Meeting' style.\n\n"
+                                             f"TRANSCRIPT:\n{full_text}")
                                     
-                                    # Use Gemini via process_meeting_audio's logic or internal helper
-                                    from meeting_notes_generator import summarize_text
-                                    insights = summarize_text(prompt) if 'prompt' in prompt else None
-                                    if not insights:
-                                        # Use a direct Gemini call if available
+                                    # Use Gemini 3.0 Flash Priority
+                                    api_key = os.getenv("GEMINI_API_KEY")
+                                    insights = None
+                                    if api_key:
                                         try:
                                             import google.generativeai as genai
-                                            genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-                                            model = genai.GenerativeModel('gemini-1.5-flash')
-                                            resp = model.generate_content(prompt)
-                                            insights = resp.text
+                                            genai.configure(api_key=api_key)
+                                            # Priority: 3.0 -> 2.5
+                                            for model_id in ["gemini-3-flash-preview", "gemini-2.5-flash-preview"]:
+                                                try:
+                                                    model = genai.GenerativeModel(model_id)
+                                                    resp = model.generate_content(prompt)
+                                                    insights = resp.text
+                                                    if insights: break
+                                                except: continue
                                         except: pass
                                     
                                     if insights:

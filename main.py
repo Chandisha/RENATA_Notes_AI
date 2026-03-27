@@ -1206,9 +1206,14 @@ async def get_gmail_intelligence(request: Request):
                     try:
                         import google.generativeai as genai
                         genai.configure(api_key=api_key)
-                        model = genai.GenerativeModel('gemini-1.5-flash')
-                        gen_res = model.generate_content(prompt)
-                        insights = gen_res.text
+                        # Priority: 3.0 -> 2.5
+                        for model_id in ["gemini-3-flash-preview", "gemini-2.5-flash-preview"]:
+                            try:
+                                model = genai.GenerativeModel(model_id)
+                                gen_res = model.generate_content(prompt)
+                                insights = gen_res.text
+                                if insights: break
+                            except: continue
                     except: insights = "Email context found but analysis failed."
                 else:
                     insights = "Gemini Key missing - cannot analyze context."
