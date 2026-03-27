@@ -1074,6 +1074,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const refGmailBtn = document.getElementById('refresh-gmail-btn');
     if (refGmailBtn) refGmailBtn.onclick = () => loadGmailData();
 
+    // Tab Switching Logic
+    let currentGmailTab = "briefs";
+    document.querySelectorAll('.gmail-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.gmail-tab').forEach(t => {
+                t.classList.remove('active');
+                t.style.borderBottom = "none";
+                t.style.color = "#64748b";
+            });
+            tab.classList.add('active');
+            tab.style.borderBottom = "2px solid var(--accent-purple)";
+            tab.style.color = "var(--accent-purple)";
+            currentGmailTab = tab.dataset.tab;
+            loadGmailData();
+        });
+    });
+
     async function loadGmailData() {
         const grid = document.getElementById('gmail-briefs-list');
         if (!grid) return;
@@ -1089,75 +1106,71 @@ document.addEventListener('DOMContentLoaded', () => {
             const briefs = data.briefs || [];
             const inbox = data.recent_emails || [];
 
-            // 1. SECTION: Meeting Briefs
-            if (briefs.length > 0) {
-                const head = document.createElement('h3');
-                head.innerHTML = '<i data-feather="zap" style="width:16px;"></i> Active Meeting Briefs';
-                head.style.margin = "0 0 16px 0";
-                head.style.color = "var(--accent-purple)";
-                grid.appendChild(head);
-
-                briefs.forEach((b) => {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.style.marginBottom = '20px';
-                    card.style.padding = '24px';
-                    card.style.borderLeft = '4px solid var(--accent-purple)';
-                    card.style.background = 'linear-gradient(to right, rgba(139, 92, 246, 0.03), transparent)';
-                    
-                    card.innerHTML = `
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
-                            <div>
-                                <h3 style="margin:0; font-size:1.2rem; color:var(--text-main);">${b.meeting_title}</h3>
-                                <span class="muted" style="font-size:0.85rem; display:block; margin-top:4px;">
-                                    Starts ${b.start_time}
-                                </span>
+            if (currentGmailTab === "briefs") {
+                // 1. SECTION: Meeting Briefs
+                if (briefs.length > 0) {
+                    briefs.forEach((b) => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.style.marginBottom = '20px';
+                        card.style.padding = '24px';
+                        card.style.borderLeft = '4px solid var(--accent-purple)';
+                        card.style.background = 'linear-gradient(to right, rgba(139, 92, 246, 0.03), transparent)';
+                        
+                        card.innerHTML = `
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
+                                <div>
+                                    <h3 style="margin:0; font-size:1.2rem; color:var(--text-main);">${b.meeting_title}</h3>
+                                    <span class="muted" style="font-size:0.85rem; display:block; margin-top:4px;">
+                                        Starts ${b.start_time}
+                                    </span>
+                                </div>
+                                <span class="badge purple">AI REPORT READY</span>
                             </div>
-                            <span class="badge purple">AI BRIEF</span>
-                        </div>
-                        <div style="background:white; padding:18px; border-radius:12px; font-size:0.95rem; line-height:1.7; color:#1e293b; border:1px solid rgba(139, 92, 246, 0.1);">
-                            ${b.insights.split('\n').map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('')}
+                            <div style="background:white; padding:18px; border-radius:12px; font-size:0.95rem; line-height:1.7; color:#1e293b; border:1px solid rgba(139, 92, 246, 0.1);">
+                                ${b.insights.split('\n').map(line => `<div style="margin-bottom:6px;">${line}</div>`).join('')}
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+                } else {
+                    grid.innerHTML = `
+                        <div class="card" style="padding:60px; text-align:center;">
+                            <i data-feather="smile" style="width:48px; height:48px; color:var(--accent-purple); opacity:0.3; margin-bottom:16px;"></i>
+                            <h3>All Clear!</h3>
+                            <p class="muted">No complex context reports found for upcoming meetings today.</p>
                         </div>
                     `;
-                    grid.appendChild(card);
-                });
-            }
-
-            // 2. SECTION: Recent Inbox (Always shown)
-            if (inbox.length > 0) {
-                const head = document.createElement('h3');
-                head.innerHTML = '<i data-feather="inbox" style="width:16px;"></i> Recent Inbox Updates';
-                head.style.margin = "32px 0 16px 0";
-                head.style.color = "var(--text-main)";
-                grid.appendChild(head);
-
-                inbox.forEach((em) => {
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.style.marginBottom = '12px';
-                    card.style.padding = '15px';
-                    card.style.display = 'flex';
-                    card.style.gap = '15px';
-                    card.style.alignItems = 'center';
-                    
-                    card.innerHTML = `
-                        <div style="width:40px; height:40px; border-radius:50%; background:rgba(0,0,0,0.03); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-                            <i data-feather="mail" style="width:18px; color:#64748b;"></i>
-                        </div>
-                        <div style="flex:1; overflow:hidden;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
-                                <strong style="font-size:0.95rem; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.subject}</strong>
-                                <span class="muted" style="font-size:0.75rem;">${em.from.split('<')[0].trim()}</span>
+                }
+            } else {
+                // 2. SECTION: Recent Inbox
+                if (inbox.length > 0) {
+                    inbox.forEach((em) => {
+                        const card = document.createElement('div');
+                        card.className = 'card';
+                        card.style.marginBottom = '12px';
+                        card.style.padding = '15px';
+                        card.style.display = 'flex';
+                        card.style.gap = '15px';
+                        card.style.alignItems = 'center';
+                        
+                        card.innerHTML = `
+                            <div style="width:40px; height:40px; border-radius:50%; background:rgba(0,0,0,0.03); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <i data-feather="mail" style="width:18px; color:#64748b;"></i>
                             </div>
-                            <p class="muted" style="font-size:0.85rem; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.snippet}</p>
-                        </div>
-                    `;
-                    grid.appendChild(card);
-                });
-            }
-
-            if (briefs.length === 0 && inbox.length === 0) {
-                grid.innerHTML = '<div class="card" style="padding:40px; text-align:center;"><p class="muted">No recent emails found.</p></div>';
+                            <div style="flex:1; overflow:hidden;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                    <strong style="font-size:0.95rem; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.subject}</strong>
+                                    <span class="muted" style="font-size:0.75rem;">${em.from.split('<')[0].trim()}</span>
+                                </div>
+                                <p class="muted" style="font-size:0.85rem; margin:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${em.snippet}</p>
+                            </div>
+                        `;
+                        grid.appendChild(card);
+                    });
+                } else {
+                    grid.innerHTML = '<div class="card" style="padding:40px; text-align:center;"><p class="muted">Your inbox is empty or restricted.</p></div>';
+                }
             }
 
             feather.replace();
