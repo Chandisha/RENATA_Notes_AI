@@ -81,11 +81,17 @@ if (BASE_DIR / "logo_img").exists():
 if (BASE_DIR / "v3-frontend").exists():
     app.mount("/v3-frontend", StaticFiles(directory=str(BASE_DIR / "v3-frontend")), name="v3-frontend")
 
-if (BASE_DIR / "templates").exists():
-    templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+# Robust path detection for Vercel vs Local
+templates_dir = BASE_DIR / "templates"
+if not templates_dir.exists():
+    # Fallback to current working directory if BASE_DIR detection fails in serverless
+    templates_dir = Path("templates")
+    
+if templates_dir.exists():
+    templates = Jinja2Templates(directory=str(templates_dir))
+    print(f">>> TEMPLATES INITIALIZED FROM: {templates_dir.absolute()}")
 else:
-    print("WARNING: Templates directory not found!")
-    # Fallback to avoid crash during startup
+    print("WARNING: Templates directory not found anywhere!")
     templates = None
 
 # Custom Exception Handler for 500s
@@ -278,19 +284,88 @@ async def login_page(request: Request):
     user = get_current_user(request)
     if user:
         return RedirectResponse("/dashboard")
-    error = request.query_params.get("error")
-    return templates.TemplateResponse("login.html", {"request": request, "error": error})
+    if not templates:
+        return HTMLResponse("Templates not initialized. Check server logs.", status_code=500)
+    return templates.TemplateResponse(request=request, name="login.html", context={"error": error})
 
 @app.get("/privacy")
 async def privacy_page(request: Request):
-    """Simple privacy policy for Google Verification."""
+    """Professional Privacy Policy required for Google Oauth Verification."""
     return HTMLResponse("""
     <html>
-        <head><title>Privacy Policy - RENATA AI</title></head>
-        <body style="font-family: sans-serif; padding: 50px;">
-            <h1>Privacy Policy</h1>
-            <p>RENATA AI respects your privacy. We only access your Google and Zoom data to help you manage your meetings and generate notes.</p>
-            <p>We do not sell your data to third parties.</p>
+        <head>
+            <title>Privacy Policy - RENATA Meeting Intelligence</title>
+            <style>
+                body { font-family: sans-serif; line-height: 1.6; padding: 40px; max-width: 800px; margin: auto; color: #333; }
+                header { border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 40px; }
+                h1 { color: #1e3a8a; }
+                h2 { color: #1e40af; margin-top: 30px; }
+                .notice { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; font-style: italic; }
+                footer { margin-top: 50px; font-size: 0.8em; color: #666; border-top: 1px solid #ddd; padding-top: 20px; }
+            </style>
+        </head>
+        <body>
+            <header>
+                <h1>Privacy Policy</h1>
+                <p><strong>Effective Date: March 30, 2026</strong></p>
+                <p><strong>Entity: RENATA Meeting Intelligence (operated by Nexren)</strong></p>
+            </header>
+
+            <section>
+                <h2>1. Introduction</h2>
+                <p>RENATA ("we," "us," or "our") provides an AI-powered meeting assistant. This policy explains how we collect, use, and protect your information when you use our service, particularly regarding your Google and Zoom integrations.</p>
+            </section>
+
+            <section>
+                <h2>2. Data We Collect via Google APIs</h2>
+                <p>Our application requests access to the following <strong>Google User Data</strong> to provide its core service:</p>
+                <ul>
+                    <li><strong>Google Calendar:</strong> To identify upcoming meeting invitations and dispatch our transcription bot.</li>
+                    <li><strong>Gmail (Read-Only & Send):</strong> To detect meeting invites sent via email and provide contextual briefs to participants before meetings.</li>
+                    <li><strong>Google Drive Metadata:</strong> Only to identify meeting-related files to enhance the accuracy of generated summaries.</li>
+                </ul>
+            </section>
+
+            <section class="notice">
+                <h2>3. Limited Use Disclosure</h2>
+                <p><strong>RENATA's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements.</strong></p>
+            </section>
+
+            <section>
+                <h2>4. Data Storage and Security</h2>
+                <p>All data retrieved from your integrations (transcripts, calendars, and email snippets) is stored on our secure servers and is never shared with third-party advertisers. We use industry-standard encryption for data at rest and in transit.</p>
+            </section>
+
+            <section>
+                <h2>5. Data Deletion and Control</h2>
+                <p>You can revoke access to your Google or Zoom accounts at any time via the "Integrations" tab in the dashboard. You may also permanently delete your account and all associated meeting data via the "Settings" page.</p>
+            </section>
+
+            <footer>
+                <p>For privacy inquiries, contact us at: chandishadas410@gmail.com</p>
+                <p><a href="/terms">Terms of Service</a> | <a href="/">Back to Dashboard</a></p>
+            </footer>
+        </body>
+    </html>
+    """)
+
+@app.get("/terms")
+async def terms_page(request: Request):
+    """Basic Terms of Service for Google Verification."""
+    return HTMLResponse("""
+    <html>
+        <head>
+            <title>Terms of Service - RENATA Meeting Intelligence</title>
+            <style>
+                body { font-family: sans-serif; line-height: 1.6; padding: 40px; max-width: 800px; margin: auto; color: #333; }
+                h1 { color: #1e3a8a; }
+            </style>
+        </head>
+        <body>
+            <h1>Terms of Service</h1>
+            <p><strong>Last Updated: March 30, 2026</strong></p>
+            <p>By using RENATA Meeting Intelligence, you agree to allow our AI bot to join and record meetings you specify. We are not responsible for any misuse of the generated notes by the user.</p>
+            <p>The service is provided "as is" and you agree to comply with your organization's internal recording policies before using the bot.</p>
             <a href="/">Back to Home</a>
         </body>
     </html>
@@ -671,8 +746,10 @@ async def report_detail(request: Request, meeting_id: str):
         if meeting.get(field) and isinstance(meeting[field], str):
             try: meeting[field] = json.loads(meeting[field])
             except: pass
-    return templates.TemplateResponse("report_detail.html", {
-        "request": request,
+    if not templates:
+        raise HTTPException(status_code=500, detail="Templates not initialized")
+        
+    return templates.TemplateResponse(request=request, name="report_detail.html", context={
         "user": user,
         "meeting": meeting,
         "active_page": "reports"
