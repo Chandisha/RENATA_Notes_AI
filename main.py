@@ -284,6 +284,7 @@ async def login_page(request: Request):
     user = get_current_user(request)
     if user:
         return RedirectResponse("/dashboard")
+    error = request.query_params.get("error")
     if not templates:
         return HTMLResponse("Templates not initialized. Check server logs.", status_code=500)
     return templates.TemplateResponse(request=request, name="login.html", context={"error": error})
