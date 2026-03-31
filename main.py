@@ -253,41 +253,44 @@ def create_google_flow(request: Request):
 # ============================================================
 # AUTH ROUTES
 # ============================================================
-
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    # FORCE Production Domain to avoid session loss on Previews
+    """Entry point. Renders login or dashboard directly to avoid confuses redirects for bots."""
     host = request.headers.get("host", "")
-    # Update for new domain
     if "vercel.app" in host and host != "meet.nexren.ai" and not host.startswith("localhost"):
+        # For historical SEO/Redirect only
         return RedirectResponse("https://meet.nexren.ai/")
 
-    print(">>> ACCESSING ROOT /")
     user = get_current_user(request)
     if user:
         return RedirectResponse("/dashboard")
-    return RedirectResponse("/login")
+        
+    # Render login directly at the root for unauthenticated users
+    error = request.query_params.get("error")
+    if not templates:
+        return HTMLResponse("Templates not initialized. Check server logs.", status_code=500)
+    return templates.TemplateResponse(request=request, name="login.html", context={"error": error})
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Explicit login page. Renders same template as root."""
+    host = request.headers.get("host", "")
+    if "vercel.app" in host and host != "meet.nexren.ai" and not host.startswith("localhost"):
+        return RedirectResponse("https://meet.nexren.ai/login")
+
+    user = get_current_user(request)
+    if user:
+        return RedirectResponse("/dashboard")
+        
+    error = request.query_params.get("error")
+    if not templates:
+        return HTMLResponse("Templates not initialized. Check server logs.", status_code=500)
+    return templates.TemplateResponse(request=request, name="login.html", context={"error": error})
 
 @app.get("/logout")
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse(url="/login")
-
-@app.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    # FORCE Production Domain
-    host = request.headers.get("host", "")
-    if "vercel.app" in host and host != "meet.nexren.ai" and not host.startswith("localhost"):
-        return RedirectResponse("https://meet.nexren.ai/login")
-
-    print(">>> ACCESSING LOGIN PAGE")
-    user = get_current_user(request)
-    if user:
-        return RedirectResponse("/dashboard")
-    error = request.query_params.get("error")
-    if not templates:
-        return HTMLResponse("Templates not initialized. Check server logs.", status_code=500)
-    return templates.TemplateResponse(request=request, name="login.html", context={"error": error})
 
 @app.get("/privacy")
 async def privacy_page(request: Request):
