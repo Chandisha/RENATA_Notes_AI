@@ -40,6 +40,14 @@
             "dest": "api/main.py"
         },
         {
+            "src": "/privacy",
+            "dest": "api/main.py"
+        },
+        {
+            "src": "/terms",
+            "dest": "api/main.py"
+        },
+        {
             "src": "/analytics(.*)",
             "dest": "api/main.py"
         },
