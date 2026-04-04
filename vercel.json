@@ -96,6 +96,14 @@
             "dest": "api/main.py"
         },
         {
+            "src": "/robots.txt",
+            "dest": "api/main.py"
+        },
+        {
+            "src": "/sitemap.xml",
+            "dest": "api/main.py"
+        },
+        {
             "src": "/(.*)",
             "dest": "/v3-frontend/index.html"
         }

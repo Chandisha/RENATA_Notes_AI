@@ -464,7 +464,7 @@ class RenaMeetingBot:
 
                         # Sync every 120 seconds
                         if time.time() - self._last_notes_sync > 120:
-                                    if len(self._captured_lines) > 3:
+                            if len(self._captured_lines) > 3:
                                 try:
                                     print("[Live] AI Note-taking: Synchronizing insights with Gemini 3.0...")
                                     full_text = "\n".join(self._captured_lines[-50:])
