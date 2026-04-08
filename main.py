@@ -519,43 +519,60 @@ async def dashboard_data(request: Request):
         return JSONResponse({"error": "Unauthorized", "redirect": "/login"}, status_code=401)
     
     email = user['email']
-    calendar_events = []
-    try:
-        creds = get_user_credentials(email)
-        if creds:
-            from googleapiclient.discovery import build
-            svc = build("calendar", "v3", credentials=creds)
-            # RFC3339 compliant format
-            now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-            result = svc.events().list(
-                calendarId="primary", timeMin=now_iso,
-                maxResults=10, singleEvents=True, orderBy="startTime"
-            ).execute()
-            items = result.get("items", [])
-            upcoming_meetings_count = len(items)
-            for item in items:
-                start_raw = item['start'].get('dateTime', item['start'].get('date'))
-                m_id = item.get("id")
-                link = item.get("hangoutLink", item.get("location", ""))
-                
-                # Use current user email to check meeting status
-                db_meeting = db.get_meeting(m_id, user_email=email)
-                is_enabled = True # Default to enabled once registered
-                if db_meeting:
-                    is_enabled = not bool(db_meeting.get('is_skipped', 0))
-                
-                calendar_events.append({
-                    "id": m_id,
-                    "summary": item.get("summary", "Untitled"),
-                    "start_time": fmt_time(start_raw),
-                    "link": link,
-                    "is_enabled": is_enabled
-                })
-    except Exception as e:
-        print(f"Calendar error: {e}")
-        upcoming_meetings_count = 0
 
+    # ---- Run Calendar fetch + DB queries concurrently ----
+    import asyncio
+
+    async def fetch_calendar():
+        """Fetch Google Calendar events in a thread to avoid blocking."""
+        def _sync_fetch():
+            events = []
+            count = 0
+            try:
+                creds = get_user_credentials(email)
+                if creds:
+                    from googleapiclient.discovery import build
+                    svc = build("calendar", "v3", credentials=creds)
+                    now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+                    result = svc.events().list(
+                        calendarId="primary", timeMin=now_iso,
+                        maxResults=10, singleEvents=True, orderBy="startTime"
+                    ).execute()
+                    items = result.get("items", [])
+                    count = len(items)
+                    for item in items:
+                        start_raw = item['start'].get('dateTime', item['start'].get('date'))
+                        m_id = item.get("id")
+                        link = item.get("hangoutLink", item.get("location", ""))
+                        db_meeting = db.get_meeting(m_id, user_email=email)
+                        is_enabled = True
+                        if db_meeting:
+                            is_enabled = not bool(db_meeting.get('is_skipped', 0))
+                        events.append({
+                            "id": m_id,
+                            "summary": item.get("summary", "Untitled"),
+                            "start_time": fmt_time(start_raw),
+                            "link": link,
+                            "is_enabled": is_enabled
+                        })
+            except Exception as e:
+                print(f"Calendar fetch error: {e}")
+            return events, count
+        return await asyncio.to_thread(_sync_fetch)
+
+    # Run calendar fetch and DB reads in parallel
+    calendar_task = asyncio.create_task(fetch_calendar())
+
+    # These are all fast local DB calls - run immediately
     db_user = db.get_user_profile(email)
+    recent = db.get_all_meetings(user_email=email, limit=5)
+    profile = db.get_user_profile(email) or {}
+
+    # Now await calendar (it's been running in background while DB was queried)
+    calendar_events, upcoming_meetings_count = await calendar_task
+
+    stats = db.get_meeting_stats(user_email=email, upcoming_count=upcoming_meetings_count)
+
     user_payload = {
         "email": email,
         "name": db_user['name'] if db_user else user.get('name'),
@@ -563,15 +580,8 @@ async def dashboard_data(request: Request):
         "plan": db_user.get('subscription_plan', 'Free') if db_user else 'Free'
     }
 
-    stats = db.get_meeting_stats(user_email=email, upcoming_count=upcoming_meetings_count)
-    recent = db.get_all_meetings(user_email=email, limit=5)
-    
-    # Process recent meetings to include formatted time
     for m in recent:
         m['start_time'] = fmt_time(m['start_time'])
-
-    # Get profile for sidebar
-    profile = db.get_user_profile(email) or {}
 
     return {
         "user": user_payload,
@@ -585,7 +595,7 @@ async def dashboard_data(request: Request):
         "events": calendar_events,
         "integrations": {
             "google": True if db.get_user_token(email) else False,
-            "zoom": True if profile.get("zoom_token") else False 
+            "zoom": True if profile.get("zoom_token") else False
         },
         "preferences": {
             "bot_name": profile.get("bot_name", "Renata AI | Assistant"),

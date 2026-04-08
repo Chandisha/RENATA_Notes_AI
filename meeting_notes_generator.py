@@ -520,10 +520,12 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 from email.message import EmailMessage
                 from email.utils import formataddr
                 
+                bot_email = os.getenv("BOT_EMAIL", "renata@renataiot.com")
+                bot_pass  = os.getenv("BOT_PASSWORD", "")
+
                 msg = EmailMessage()
-                # Professional subject like the screenshot: [Dynamic Title] on [Date] @ [Time] | Meeting Report
                 msg['Subject'] = f"{title.upper()} on {full_timestamp} | Read Meeting Report"
-                msg['From'] = formataddr(("Renata Assistant", "daschandisha@gmail.com"))
+                msg['From'] = formataddr(("Renata Assistant", bot_email))
                 msg['To'] = user_email
                 
                 # Plain text version
@@ -611,9 +613,12 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                                          filename=os.path.basename(generator.last_transcripts_pdf_path))
                 
                 logger.info(f"Sending professional report email to {user_email}...")
-                with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-                    smtp.login("daschandisha@gmail.com", "bejh mcgq aibo zpfg")
-                    smtp.send_message(msg)
+                if not bot_email or not bot_pass:
+                    logger.warning("BOT_EMAIL or BOT_PASSWORD not set — skipping email send.")
+                else:
+                    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+                        smtp.login(bot_email, bot_pass)
+                        smtp.send_message(msg)
                 
                 logger.info(f"Successfully emailed report to {user_email}")
         except Exception as e:
