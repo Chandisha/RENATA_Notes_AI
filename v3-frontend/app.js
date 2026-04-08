@@ -280,19 +280,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let notebookAutoSaveTimeout = null;
 
     async function loadNotesData() {
+        // Bind events immediately so buttons work even if network is slow
+        bindNotebookEvents();
+        
         try {
             // 1. Load Personal Notes List
             const pNotesRes = await apiFetch("/api/notes/list");
-            const pNotesData = await pNotesRes.json();
-            renderPersonalNotesList(pNotesData.notes || []);
+            if (pNotesRes) {
+                const pNotesData = await pNotesRes.json();
+                renderPersonalNotesList(pNotesData.notes || []);
+            }
 
             // 2. Load AI Meetings List
             const aiNotesRes = await apiFetch("/api/notes/ai/list");
-            const aiNotesData = await aiNotesRes.json();
-            renderAiMeetingsSelector(aiNotesData.meetings || []);
-
-            // 3. Bind Global Events (once)
-            bindNotebookEvents();
+            if (aiNotesRes) {
+                const aiNotesData = await aiNotesRes.json();
+                renderAiMeetingsSelector(aiNotesData.meetings || []);
+            }
         } catch (err) { console.error("Notebook Load Error:", err); }
     }
 
@@ -309,7 +313,6 @@ document.addEventListener('DOMContentLoaded', () => {
         notes.forEach(n => {
             const item = document.createElement('div');
             item.className = `note-item ${currentNoteId == n.id ? 'active' : ''}`;
-            // Styling handled via classes or direct for speed
             item.style.padding = '10px 12px';
             item.style.borderRadius = '8px';
             item.style.cursor = 'pointer';
@@ -330,7 +333,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             item.textContent = n.title || 'Untitled Note';
-            item.onclick = () => selectPersonalNote(n.id);
+            item.onclick = (e) => {
+                e.preventDefault();
+                selectPersonalNote(n.id);
+            };
             listContainer.appendChild(item);
         });
     }
@@ -361,26 +367,33 @@ document.addEventListener('DOMContentLoaded', () => {
         const contentArea = document.getElementById('notebook-textarea');
 
         if (newBtn && !newBtn.dataset.bound) {
-            newBtn.onclick = createNewNote;
+            newBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                createNewNote();
+            });
             newBtn.dataset.bound = "true";
         }
         if (delBtn && !delBtn.dataset.bound) {
-            delBtn.onclick = deleteCurrentNote;
+            delBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                deleteCurrentNote();
+            });
             delBtn.dataset.bound = "true";
         }
         if (saveBtn && !saveBtn.dataset.bound) {
-            saveBtn.onclick = () => {
+            saveBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 updateNotebookSaveStatus('SAVING...');
                 saveCurrentNote();
-            };
+            });
             saveBtn.dataset.bound = "true";
         }
         if (subjectInput && !subjectInput.dataset.bound) {
-            subjectInput.oninput = triggerAutoSave;
+            subjectInput.addEventListener('input', triggerAutoSave);
             subjectInput.dataset.bound = "true";
         }
         if (contentArea && !contentArea.dataset.bound) {
-            contentArea.oninput = triggerAutoSave;
+            contentArea.addEventListener('input', triggerAutoSave);
             contentArea.dataset.bound = "true";
         }
     }
@@ -390,30 +403,32 @@ document.addEventListener('DOMContentLoaded', () => {
         currentNoteId = id;
         try {
             const res = await apiFetch(`/api/notes/personal/${id}`);
-            const data = await res.json();
-            document.getElementById('note-subject').value = data.title || '';
-            document.getElementById('notebook-textarea').value = data.content || '';
-            document.getElementById('delete-note-btn').style.opacity = '1';
-            updateNotebookSaveStatus('SAVED');
-            
-            // Highlight in list
-            const allItems = document.querySelectorAll('.note-item');
-            allItems.forEach(i => {
-                i.style.background = 'transparent';
-                i.style.color = 'var(--text-secondary)';
-            });
-            // Re-render list to ensure states are correct
-            const listRes = await apiFetch("/api/notes/list");
-            const listData = await listRes.json();
-            renderPersonalNotesList(listData.notes);
+            if (res) {
+                const data = await res.json();
+                document.getElementById('note-subject').value = data.title || '';
+                document.getElementById('notebook-textarea').value = data.content || '';
+                document.getElementById('delete-note-btn').style.opacity = '1';
+                updateNotebookSaveStatus('SAVED');
+                
+                // Re-render list to show active state
+                const listRes = await apiFetch("/api/notes/list");
+                if (listRes) {
+                    const listData = await listRes.json();
+                    renderPersonalNotesList(listData.notes);
+                }
+            }
         } catch (err) { console.error(err); }
     }
 
     function createNewNote() {
         currentNoteId = null;
-        document.getElementById('note-subject').value = '';
-        document.getElementById('notebook-textarea').value = '';
-        document.getElementById('delete-note-btn').style.opacity = '0.5';
+        const sub = document.getElementById('note-subject');
+        const count = document.getElementById('notebook-textarea');
+        if (sub) sub.value = '';
+        if (count) count.value = '';
+        
+        const delBtn = document.getElementById('delete-note-btn');
+        if (delBtn) delBtn.style.opacity = '0.5';
         
         // Remove active state from list items
         document.querySelectorAll('.note-item').forEach(item => {
@@ -422,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         updateNotebookSaveStatus('NEW DRAFT');
-        document.getElementById('note-subject').focus();
+        if (sub) sub.focus();
     }
 
     function triggerAutoSave() {
