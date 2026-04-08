@@ -275,6 +275,138 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.error(err); }
     }
 
+    async function loadNotesData() {
+        const refreshIcon = document.querySelector('#refresh-notes-btn i');
+        if (refreshIcon) refreshIcon.classList.add('spin');
+
+        try {
+            const res = await apiFetch("/api/notes/meetings");
+            const data = await res.json();
+            const selector = document.getElementById('meeting-notes-selector');
+            if (!selector) return;
+
+            // Save currently selected if any
+            const currentSelected = selector.value;
+
+            selector.innerHTML = '<option value="" disabled selected>Select a meeting...</option>';
+            
+            if (data.meetings && data.meetings.length > 0) {
+                data.meetings.forEach(m => {
+                    const option = document.createElement('option');
+                    option.value = m.meeting_id;
+                    const dateStr = new Date(m.start_time).toLocaleDateString(undefined, {month:'short', day:'numeric'});
+                    option.textContent = `${m.title} (${dateStr})`;
+                    selector.appendChild(option);
+                });
+            }
+
+            // Restore selection if existed
+            if (currentSelected) {
+                selector.value = currentSelected;
+            }
+
+            // Bind change event once
+            if (!selector.dataset.bound) {
+                selector.addEventListener('change', () => loadSpecificMeetingNotes(selector.value));
+                selector.dataset.bound = "true";
+            }
+
+            // Bind manual notes area for auto-save
+            const textarea = document.getElementById('manual-notes-area');
+            if (textarea && !textarea.dataset.bound) {
+                textarea.addEventListener('input', () => {
+                    updateSaveStatus('SAVING...');
+                    clearTimeout(window.autoSaveTimeout);
+                    window.autoSaveTimeout = setTimeout(() => saveManualNotes(selector.value, textarea.value), 1000);
+                });
+                textarea.dataset.bound = "true";
+            }
+            
+            // Bind refresh button
+            const refBtn = document.getElementById('refresh-notes-btn');
+            if (refBtn && !refBtn.dataset.bound) {
+                refBtn.onclick = () => {
+                    if (selector.value) loadSpecificMeetingNotes(selector.value);
+                    else loadNotesData();
+                };
+                refBtn.dataset.bound = "true";
+            }
+
+        } catch (err) {
+            console.error("Failed to load notes data:", err);
+        } finally {
+            if (refreshIcon) setTimeout(() => refreshIcon.classList.remove('spin'), 500);
+        }
+    }
+
+    async function loadSpecificMeetingNotes(meetingId) {
+        if (!meetingId) return;
+
+        const wrapper = document.getElementById('notes-content-wrapper');
+        const emptyState = document.getElementById('notes-empty-state');
+        const aiArea = document.getElementById('ai-notes-area');
+        const manualArea = document.getElementById('manual-notes-area');
+
+        if (wrapper) wrapper.style.display = 'grid';
+        if (emptyState) emptyState.style.display = 'none';
+
+        if (aiArea) aiArea.innerHTML = '<p class="muted">Loading insights...</p>';
+
+        try {
+            const res = await apiFetch(`/api/notes/${meetingId}`);
+            const data = await res.json();
+
+            if (manualArea) manualArea.value = data.manual_notes || '';
+            if (aiArea) {
+                // Simplified markdown preview for insights
+                const md = data.ai_notes || 'No insights available yet.';
+                aiArea.innerHTML = formatMarkdownToHTML(md);
+            }
+            updateSaveStatus('SAVED');
+        } catch (err) {
+            console.error("Error loading meeting notes:", err);
+            if (aiArea) aiArea.innerHTML = '<p class="muted" style="color:#ef4444;">Failed to load insights.</p>';
+        }
+    }
+
+    async function saveManualNotes(meetingId, notes) {
+        if (!meetingId) return;
+        try {
+            const res = await apiFetch(`/api/notes/${meetingId}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ notes })
+            });
+            if (res.ok) updateSaveStatus('SAVED');
+            else updateSaveStatus('ERROR');
+        } catch (err) {
+            updateSaveStatus('STILL SAVING...');
+        }
+    }
+
+    function updateSaveStatus(text) {
+        const statusEl = document.getElementById('save-status');
+        if (statusEl) {
+            statusEl.textContent = text;
+            statusEl.style.opacity = text === 'SAVED' ? '0.5' : '1';
+            statusEl.style.color = text === 'ERROR' ? '#ef4444' : 'var(--text-secondary)';
+        }
+    }
+
+    function formatMarkdownToHTML(text) {
+        if (!text) return '';
+        // Very basic markdown formatting for the preview
+        let html = text
+            .replace(/^### (.*$)/gim, '<h3 style="margin: 15px 0 10px; color: var(--accent-orange); font-size: 1.1rem; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 5px;">$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2 style="margin: 20px 0 10px; color: var(--accent-orange);">$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1 style="margin: 20px 0 10px;">$1</h1>')
+            .replace(/^\- (.*$)/gim, '<li style="margin-left: 15px; margin-bottom: 8px; list-style-type: disc;">$1</li>')
+            .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
+        
+        return `<div class="ai-md-content">${html}</div>`;
+    }
+
     function timeAgo(date) {
         if (!date) return "recently";
         let parsedStr = typeof date === 'string' ? date.replace(' ', 'T') : date;

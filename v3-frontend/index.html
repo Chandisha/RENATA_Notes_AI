@@ -176,21 +176,54 @@
                     <div class="page-header">
                         <div class="header-main">
                             <h1>Note Taking</h1>
-                            <p class="subtitle">Review live captured points and AI extracted decisions.</p>
+                            <p class="subtitle">Focus on the conversation—let Renata capture the insights.</p>
                         </div>
-                        <div class="page-header-actions">
+                        <div class="page-header-actions" style="gap:15px;">
+                            <div class="select-wrapper" style="position:relative; width: 280px;">
+                                <select id="meeting-notes-selector" style="width:100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-color); background: #ffffff; font-weight: 600; cursor:pointer; appearance: none; -webkit-appearance: none;">
+                                    <option value="" disabled selected>Select a meeting...</option>
+                                </select>
+                                <i data-feather="chevron-down" style="position:absolute; right:15px; top:50%; transform:translateY(-50%); pointer-events:none; width:16px; color:var(--text-secondary);"></i>
+                            </div>
                             <button id="refresh-notes-btn" title="Refresh Notes" class="refresh-btn">
                                 <i data-feather="refresh-cw"></i>
                             </button>
                         </div>
                     </div>
                     
-                    <div id="notes-list" class="meeting-list">
-                        <!-- Meeting notes cards go here -->
-                        <div class="muted" style="text-align: center; padding: 100px;">
-                            <i data-feather="loading" class="spin" style="width: 48px; height: 48px; margin-bottom: 20px; opacity: 0.1;"></i>
-                            <p>Loading your meeting notes...</p>
+                    <div class="notes-layout" id="notes-content-wrapper" style="display:none; grid-template-columns: 1fr 1fr; gap: 24px; height: calc(100vh - 280px);">
+                        <!-- Left Pane: Manual Notepad -->
+                        <div class="notepad-container card" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
+                            <div class="panel-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: rgba(242, 113, 33, 0.03);">
+                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                                    <i data-feather="edit-3" style="width:16px; color: var(--accent-orange);"></i>
+                                    Manual Notepad
+                                </h3>
+                                <span id="save-status" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7;">SAVED</span>
+                            </div>
+                            <textarea id="manual-notes-area" placeholder="Write your own notes here during or after the meeting... It auto-saves as you type." 
+                                style="flex: 1; padding: 25px; border: none; outline: none; font-size: 1.05rem; line-height: 1.8; color: #1e293b; resize: none; background: #fffcf5; font-family: 'Inter', sans-serif;"></textarea>
                         </div>
+
+                        <!-- Right Pane: AI Intelligence -->
+                        <div class="ai-notes-container card" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border-color);">
+                            <div class="panel-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: rgba(139, 92, 246, 0.03);">
+                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+                                    <i data-feather="cpu" style="width:16px; color: var(--accent-purple);"></i>
+                                    AI Generated Insights
+                                </h3>
+                            </div>
+                            <div id="ai-notes-area" class="markdown-body" style="flex: 1; padding: 25px; overflow-y: auto; font-size: 0.95rem; line-height: 1.7; color: #334155; height: 100%;">
+                                <!-- AI Content here -->
+                                <p class="muted">Summary and bullet points will appear here once the meeting ends and is processed by AI.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="notes-empty-state" style="text-align: center; padding: 100px; opacity: 0.6;">
+                        <i data-feather="edit" style="width: 48px; height: 48px; margin-bottom: 20px; color: var(--accent-orange);"></i>
+                        <h3>Select a meeting to start taking notes</h3>
+                        <p>You can manage personal notes alongside AI-generated intelligence.</p>
                     </div>
                 </section>
 

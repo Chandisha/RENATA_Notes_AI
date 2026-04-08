@@ -1017,15 +1017,69 @@ async def search_index(request: Request):
         "indexed_segments": stats["indexed_segments"]
     }
 
-@app.get("/search/status", response_class=JSONResponse)
-async def search_status(request: Request):
-    user = get_current_user(request)
-    if not user: raise HTTPException(status_code=401)
-    
-    db_user = db.get_user_profile(user['email'])
-    plan = db_user.get('subscription_plan', 'Free') if db_user else 'Free'
-    
     return _get_kb_stats(user_email=user['email'], plan=plan)
+
+# ============================================================
+# NOTES API
+# ============================================================
+
+@app.get("/api/notes/meetings", response_class=JSONResponse)
+async def api_notes_meetings(request: Request):
+    user = require_user(request)
+    # Get recent meetings to select from, sorted by time
+    meetings = db.fetch_all("""
+        SELECT meeting_id, title, start_time, bot_status 
+        FROM meetings 
+        WHERE user_email = ? 
+        ORDER BY created_at DESC LIMIT 50
+    """, (user['email'],))
+    return {"meetings": meetings}
+
+@app.get("/api/notes/{meeting_id}", response_class=JSONResponse)
+async def api_get_notes(request: Request, meeting_id: str):
+    user = require_user(request)
+    m = db.fetch_one("""
+        SELECT manual_notes, summary_text, action_items, title, status, bot_status, bot_status_note 
+        FROM meetings 
+        WHERE meeting_id = ? AND user_email = ?
+    """, (meeting_id, user['email']))
+    
+    if not m:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+        
+    # Construct AI Insights
+    ai_insights = ""
+    if m.get('summary_text'):
+        ai_insights += f"### Summary\n{m['summary_text']}\n\n"
+    if m.get('action_items'):
+        ai_insights += f"### Action Items\n{m['action_items']}\n\n"
+    
+    # Check if live notes are being captured
+    if m.get('bot_status_note') and "LIVE_INSIGHTS:" in m['bot_status_note']:
+        live_part = m['bot_status_note'].split("LIVE_INSIGHTS:")[1].strip()
+        ai_insights = f"### Live Captured Points\n{live_part}\n\n" + ai_insights
+
+    if not ai_insights:
+        if m.get('bot_status') in ['JOIN_PENDING', 'DISPATCHING', 'JOINING', 'CONNECTING', 'CONNECTED']:
+            ai_insights = "Renata is currently in the meeting. AI insights will start appearing shortly..."
+        elif m.get('status') == 'processing' or m.get('bot_status') == 'PROCESSING':
+            ai_insights = "Meeting ended. Renata is generating the final AI intelligence report..."
+        else:
+            ai_insights = "No AI insights found for this meeting. Ensure the meeting was recorded and processed."
+
+    return {
+        "manual_notes": m.get('manual_notes') or "",
+        "ai_notes": ai_insights,
+        "title": m.get('title', 'Untitled Meeting')
+    }
+
+@app.post("/api/notes/{meeting_id}/save", response_class=JSONResponse)
+async def api_save_notes(request: Request, meeting_id: str):
+    user = require_user(request)
+    data = await request.json()
+    notes = data.get("notes", "")
+    db.exec_commit("UPDATE meetings SET manual_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE meeting_id = ? AND user_email = ?", (notes, meeting_id, user['email']))
+    return {"success": True}
 
 
 # ============================================================

@@ -137,6 +137,7 @@ def init_database():
             is_summarized_paid INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            manual_notes TEXT,
             UNIQUE(meeting_id, user_email)
         )
     ''')
@@ -150,6 +151,12 @@ def init_database():
 
     try:
         cursor.execute("ALTER TABLE meetings ADD COLUMN transcripts_pdf_blob TEXT")
+        conn.commit()
+    except Exception:
+        if not getattr(conn, "autocommit", False): conn.rollback()
+
+    try:
+        cursor.execute("ALTER TABLE meetings ADD COLUMN manual_notes TEXT")
         conn.commit()
     except Exception:
         if not getattr(conn, "autocommit", False): conn.rollback()
