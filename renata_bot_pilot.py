@@ -50,10 +50,16 @@ def normalize_url(url: str) -> str:
     return url
 
 # --- BOT CONFIGURATION ---
-PERMANENT_BOT_EMAIL = os.getenv("BOT_EMAIL")
-PERMANENT_BOT_PASS = os.getenv("BOT_PASSWORD")
+PERMANENT_BOT_EMAIL = os.getenv("BOT_EMAIL", "renata@renataiot.com")
+PERMANENT_BOT_PASS = os.getenv("BOT_PASSWORD", "")
 BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session", "main")
 os.makedirs(BOT_SESSION_DIR, exist_ok=True)
+
+if not PERMANENT_BOT_PASS:
+    print("⚠ WARNING: BOT_PASSWORD not set in .env! Google login will fail.")
+    print("  Add to .env:  BOT_EMAIL=renata@renataiot.com")
+    print("                BOT_PASSWORD=your_password_here")
+
 
 # --- CALENDAR OPERATIONS ---
 def get_service(user_email=None):
@@ -134,11 +140,16 @@ class RenaMeetingBot:
     def automate_google_login(self, page):
         """Robust automation for Google Login flow — ensures correct account is signed in."""
         try:
+            if not PERMANENT_BOT_EMAIL or not PERMANENT_BOT_PASS:
+                print("[Login] ERROR: BOT_EMAIL or BOT_PASSWORD not set in .env! Cannot login.")
+                return False
+
             print(f"[Login] Verifying Google account: {PERMANENT_BOT_EMAIL}...")
 
             # Step 1: Navigate to Google Account page to check login state
             page.goto("https://myaccount.google.com/", wait_until="networkidle", timeout=20000)
             time.sleep(3)
+
 
             # Step 2: If we landed on myaccount page, we are logged in — verify correct account
             if "myaccount.google.com" in page.url:
