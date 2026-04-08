@@ -322,67 +322,59 @@
                             <h1>Live Control Room</h1>
                             <p class="subtitle">Dispatch Renata to any call and track its progress in real-time.</p>
                         </div>
-                        <div class="page-header-actions"></div>
                     </div>
 
-                    <!-- Dispatch Card -->
-                    <div class="card live-dispatch" style="margin-bottom: 24px;">
-                        <h3 style="margin-bottom: 16px; font-size: 1.1rem;">Join a Meeting</h3>
-                        <div class="input-group">
-                            <input type="text" id="manual-url" placeholder="https://meet.google.com/xxx-xxxx-xxx or zoom.us/j/...">
-                            <button class="primary-btn" id="manual-join">
-                                <i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i>
-                                Dispatch Renata
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Live AI Captured Notes Section (ANIL SIR FEEDBACK: REAL-TIME NOTE TAKING) -->
-                    <div id="live-notes-card" class="card" style="display: none; margin-bottom: 24px; border: 2px solid var(--accent-orange); box-shadow: 0 10px 40px rgba(242, 113, 33, 0.1);">
-                        <div class="card-header" style="justify-content: space-between; display: flex; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
-                            <h3 style="font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
-                                <i data-feather="edit-3" style="width: 20px; color: var(--accent-orange);"></i>
-                                Live AI Note-Taking
-                            </h3>
-                            <span class="badge blue pulse" id="notes-sync-status" style="font-size: 0.75rem;">AI EXTRACTING...</span>
-                        </div>
-                        <div id="live-notes-area" style="margin-top: 16px; min-height: 180px; padding: 15px; background: #fffcf5; border-radius: 12px; line-height: 1.8; font-size: 0.95rem; color: #1e293b; overflow-y: auto; max-height: 400px; border: 1px dashed var(--accent-orange);">
-                            <div style="text-align: center; color: var(--text-secondary); padding: 40px;">
-                                <i data-feather="cpu" style="width: 30px; height: 30px; margin-bottom: 12px; opacity: 0.3;"></i>
-                                <p>Capturing live conversation points and action items...</p>
+                    <div class="live-container" style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+                        <!-- Dispatch Card -->
+                        <div class="card live-dispatch" style="padding: 30px; border-radius: 20px;">
+                            <h3 style="margin-bottom: 20px; font-size: 1.2rem; font-weight: 700;">Join a Meeting</h3>
+                            <div class="input-group" style="display: flex; gap: 12px;">
+                                <input type="text" id="manual-url" placeholder="Paste Google Meet or Zoom link here..." 
+                                    style="flex: 1; padding: 14px 20px; border-radius: 12px; border: 1.5px solid var(--border-color); font-size: 0.95rem; outline: none; transition: border-color 0.2s;">
+                                <button class="primary-btn" id="manual-join" style="padding: 0 25px; border-radius: 12px; height: 50px; font-weight: 700;">
+                                    <i data-feather="send" style="width:18px; margin-right:8px;"></i>
+                                    Dispatch Bot
+                                </button>
                             </div>
+                            <p style="margin-top: 15px; font-size: 0.8rem; color: var(--text-secondary);">
+                                Supports Google Meet & Zoom. Ensure your bot account has permission to join.
+                            </p>
                         </div>
-                        <div style="margin-top: 12px; font-size: 0.75rem; color: var(--text-secondary); text-align: right; font-style: italic;">
-                            Points are captured in intervals from live transcripts. Final report will have full detail.
-                        </div>
-                    </div>
 
-                    <!-- Live Bot Tracker Card -->
-                    <div id="bot-live-status" class="card" style="padding: 28px;">
-                        <!-- Header Row -->
-                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 20px;">
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <span class="pulse-indicator" id="bot-pulse" style="background:#64748b; flex-shrink:0;"></span>
-                                <div>
-                                    <h3 style="font-size:1.05rem; margin:0;">Bot Status</h3>
-                                    <p id="bot-status-badge" style="margin:0; font-size:0.8rem; color:var(--text-secondary);">Idle</p>
+                        <!-- Live Bot Tracker Card -->
+                        <div id="bot-live-status" class="card" style="padding: 30px; border-radius: 20px; border: 1px solid var(--border-color);">
+                            <!-- Header Row -->
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 24px;">
+                                <div style="display:flex; align-items:center; gap:15px;">
+                                    <div class="status-indicator-wrapper" style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border-radius: 12px;">
+                                        <span class="pulse-indicator" id="bot-pulse" style="background:#64748b; width: 12px; height: 12px; border-radius: 50%;"></span>
+                                    </div>
+                                    <div>
+                                        <h3 style="font-size:1.1rem; font-weight: 700; margin:0;">Bot Activity</h3>
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                            <span id="bot-status-badge" style="font-size: 0.85rem; font-weight: 600; color:var(--text-secondary); background: rgba(0,0,0,0.04); padding: 2px 10px; border-radius: 20px;">Idle</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="bot-live-timer" style="display:none; font-size: 1rem; color: var(--accent-green); font-weight: 700; background: rgba(16, 185, 129, 0.1); padding: 5px 15px; border-radius: 8px;">
+                                    ● 00:00
                                 </div>
                             </div>
-                            <div id="bot-live-timer" style="display:none; font-size:0.85rem; color:var(--accent-green); font-weight:700; font-variant-numeric:tabular-nums;">
-                                ● 00:00
-                            </div>
-                        </div>
 
-                        <!-- IDLE STATE -->
-                        <div id="bot-idle-msg" style="color:var(--text-secondary); font-size:0.9rem; padding: 12px 0;">
-                            Awaiting dispatch. Enter a meeting link above and click <strong>Dispatch Renata</strong>.
-                        </div>
+                            <!-- States Container -->
+                            <div class="bot-state-content">
+                                <!-- IDLE STATE -->
+                                <div id="bot-idle-msg" style="color:var(--text-secondary); font-size:0.95rem; line-height: 1.6; border-left: 3px solid var(--border-color); padding-left: 15px;">
+                                    Renata is currently <strong>Offline</strong>. Enter a link above to start a session.
+                                </div>
 
-                        <!-- PROGRESS STATE (hidden until dispatched) -->
-                        <div id="bot-tracker" style="display:none;">
-                            <!-- Live Log / Note -->
-                            <div id="bot-log" style="background:#f8fafc; border-radius:12px; padding:14px 16px; font-size:0.83rem; color:var(--text-secondary); border:1px solid var(--border-color); font-family: monospace; min-height:40px; line-height:1.7;">
-                                <span id="bot-log-text">» Sending join request to pilot...</span>
+                                <!-- PROGRESS STATE (hidden until dispatched) -->
+                                <div id="bot-tracker" style="display:none;">
+                                    <div id="bot-log" style="background:#f8fafc; border-radius:12px; padding:20px; font-size:0.9rem; color:var(--text-primary); border:1px solid var(--border-color); font-family: 'Inter', sans-serif; min-height:60px; line-height:1.7; display: flex; align-items: flex-start; gap: 12px;">
+                                        <i data-feather="terminal" style="width:16px; margin-top: 4px; color: var(--accent-purple);"></i>
+                                        <span id="bot-log-text">Initializing join sequence...</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

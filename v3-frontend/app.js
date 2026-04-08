@@ -927,24 +927,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         _setBadge(badgeText, badgeColor);
         _setLog(logMsg);
-
-        // Handle Live Notes (Option B)
-        if (note && (note.includes('LIVE_INSIGHTS:') || status === 'LIVE' || status === 'CONNECTED')) {
-            const notesCard = document.getElementById('live-notes-card');
-            const notesArea = document.getElementById('live-notes-area');
-            if (notesCard && notesArea) {
-                notesCard.style.display = 'block';
-                if (note.includes('LIVE_INSIGHTS:')) {
-                    const insights = note.replace('LIVE_INSIGHTS:', '').trim();
-                    // Basic formatting for the live feed
-                    notesArea.innerHTML = insights.split('\n')
-                        .map(line => `<div style="margin-bottom:8px;">${line}</div>`)
-                        .join('');
-                    const syncBadge = document.getElementById('notes-sync-status');
-                    if (syncBadge) syncBadge.textContent = 'UPDATED ' + new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                }
-            }
-        }
     }
 
     function showBotIdle() {
@@ -955,7 +937,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (idle) idle.style.display = 'block';
         if (tracker) tracker.style.display = 'none';
-        if (notesCard) notesCard.style.display = 'none';
         
         if (pulse) { pulse.style.background = '#64748b'; pulse.style.animation = 'none'; }
         _setBadge('Idle', 'var(--text-secondary)');
@@ -998,7 +979,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.removeAttribute('data-mode');
                     btn.style.background = '';
                     btn.style.color = '';
-                    btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata';
+                    btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Bot';
                     feather.replace();
                     currentDispatchMeetingId = null;
                     showBotIdle();
@@ -1040,11 +1021,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 alert('Error: ' + (data.message || 'Failed to dispatch.'));
-                if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata'; feather.replace(); }
+                if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Bot'; feather.replace(); }
             }
         } catch (err) {
             alert('Server error. Is your pilot script running?');
-            if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Renata'; feather.replace(); }
+            if (btn) { btn.innerHTML = '<i data-feather="send" style="width:15px;height:15px;margin-right:6px;display:inline;"></i> Dispatch Bot'; feather.replace(); }
         }
         finally { if (btn) btn.disabled = false; }
     };
