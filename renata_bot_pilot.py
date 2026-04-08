@@ -138,74 +138,72 @@ class RenaMeetingBot:
         print("Bot Login Session Saved.")
 
     def automate_google_login(self, page):
-        """Robust automation for Google Login flow — ensures correct account is signed in."""
+        """Session-first login: reuse saved session, only do full login if needed."""
         try:
             if not PERMANENT_BOT_EMAIL or not PERMANENT_BOT_PASS:
-                print("[Login] ERROR: BOT_EMAIL or BOT_PASSWORD not set in .env! Cannot login.")
+                print("[Login] ERROR: BOT_EMAIL or BOT_PASSWORD not set in .env!")
                 return False
 
-            print(f"[Login] Verifying Google account: {PERMANENT_BOT_EMAIL}...")
+            print(f"[Login] Checking session for {PERMANENT_BOT_EMAIL}...")
 
-            # Step 1: Navigate to Google Account page to check login state
+            # Quick session check — see if already logged in
             page.goto("https://myaccount.google.com/", wait_until="networkidle", timeout=20000)
-            time.sleep(3)
+            time.sleep(2)
 
-
-            # Step 2: If we landed on myaccount page, we are logged in — verify correct account
             if "myaccount.google.com" in page.url:
                 page_text = page.content().lower()
                 if PERMANENT_BOT_EMAIL.lower() in page_text:
-                    print(f"[Login] Already signed in as {PERMANENT_BOT_EMAIL}")
+                    print(f"[Login] ✓ Session valid - already signed in as {PERMANENT_BOT_EMAIL}")
                     return True
                 else:
-                    print(f"[Login] Signed in as WRONG account! Switching to {PERMANENT_BOT_EMAIL}...")
+                    print(f"[Login] Wrong account detected. Logging out...")
                     page.goto("https://accounts.google.com/Logout", wait_until="networkidle", timeout=15000)
                     time.sleep(2)
 
-            # Step 3: We need to sign in — go to sign-in page
+            # Need to sign in
+            print(f"[Login] Signing in as {PERMANENT_BOT_EMAIL}...")
             page.goto("https://accounts.google.com/signin", wait_until="networkidle", timeout=20000)
             time.sleep(3)
 
-            # Step 3a: Handle "Choose an account" page
+            # Handle account chooser tile
             try:
                 email_tile = page.locator(f'div[data-email="{PERMANENT_BOT_EMAIL}"]').first
                 if email_tile.is_visible(timeout=3000):
-                    print(f"[Login] Selecting existing account tile: {PERMANENT_BOT_EMAIL}")
+                    print(f"[Login] Selecting account tile: {PERMANENT_BOT_EMAIL}")
                     email_tile.click()
                     time.sleep(3)
                     try:
-                        pw_field = page.locator('input[type="password"]').first
-                        if pw_field.is_visible(timeout=5000):
-                            print("[Login] Entering password after tile select...")
-                            pw_field.fill(PERMANENT_BOT_PASS)
+                        pw = page.locator('input[type="password"]').first
+                        if pw.is_visible(timeout=5000):
+                            pw.fill(PERMANENT_BOT_PASS)
                             page.locator('#passwordNext button').first.click()
                             time.sleep(5)
                     except: pass
                     self._handle_post_login(page)
-                    return True
+                    self._wait_for_2fa(page)
+                    return self._verify_login(page)
             except: pass
 
-            # Step 3b: Click "Use another account" if shown
+            # Click "Use another account" if shown
             try:
-                another_btn = page.locator('text="Use another account"').first
-                if another_btn.is_visible(timeout=3000):
-                    print("[Login] Clicking 'Use another account'...")
-                    another_btn.click()
+                another = page.locator('text="Use another account"').first
+                if another.is_visible(timeout=2000):
+                    another.click()
                     time.sleep(3)
             except: pass
 
-            # Step 4: Enter email
+            # Enter email
             try:
-                email_input = page.locator('input[type="email"], #identifierId').first
+                email_input = page.locator('#identifierId').first
                 email_input.wait_for(state="visible", timeout=10000)
                 print(f"[Login] Entering email: {PERMANENT_BOT_EMAIL}")
                 email_input.fill(PERMANENT_BOT_EMAIL)
                 page.locator('#identifierNext button').first.click()
                 time.sleep(4)
             except Exception as e:
-                print(f"[Login] Email input error: {e}")
+                print(f"[Login] Email step error: {e}")
 
-            # Step 5: Enter password
+            # Enter password
             try:
                 pw_field = page.locator('input[type="password"]').first
                 pw_field.wait_for(state="visible", timeout=15000)
@@ -214,24 +212,43 @@ class RenaMeetingBot:
                 page.locator('#passwordNext button').first.click()
                 time.sleep(5)
             except Exception as e:
-                print(f"[Login] Password field error: {e}")
+                print(f"[Login] Password step error: {e}")
 
-            # Step 6: Handle post-login screens
+            # Handle consent screens + 2FA
             self._handle_post_login(page)
+            self._wait_for_2fa(page)
+            return self._verify_login(page)
+        except Exception as e:
+            print(f"[Login] Error: {e}")
+            return False
 
-            # Step 7: Final verification
+    def _wait_for_2fa(self, page):
+        """If 2FA challenge is shown, wait up to 60s for manual approval."""
+        time.sleep(2)
+        url = page.url.lower()
+        if "challenge" in url or "signin/v2" in url or "interstitial" in url:
+            print("[Login] ⚠ 2FA verification required! Waiting 60s for manual approval...")
+            print("[Login]   -> Please approve on your phone or enter the code.")
+            for i in range(12):
+                time.sleep(5)
+                current = page.url.lower()
+                if "myaccount" in current or ("accounts.google.com" not in current and "challenge" not in current):
+                    print("[Login] ✓ 2FA approved!")
+                    return
+            print("[Login] ⚠ 2FA timeout - proceeding anyway...")
+
+    def _verify_login(self, page):
+        """Verify correct account is signed in."""
+        try:
             page.goto("https://myaccount.google.com/", wait_until="networkidle", timeout=15000)
             time.sleep(2)
             if "myaccount.google.com" in page.url:
-                page_text = page.content().lower()
-                if PERMANENT_BOT_EMAIL.lower() in page_text:
-                    print(f"[Login] Successfully logged in as {PERMANENT_BOT_EMAIL}")
+                if PERMANENT_BOT_EMAIL.lower() in page.content().lower():
+                    print(f"[Login] ✓ Verified: signed in as {PERMANENT_BOT_EMAIL}")
                     return True
-
-            print("[Login] Could not confirm login. Proceeding anyway...")
+            print("[Login] ⚠ Could not verify login.")
             return False
-        except Exception as e:
-            print(f"[Login] Auto-login error: {e}")
+        except:
             return False
 
     def _handle_post_login(self, page):
