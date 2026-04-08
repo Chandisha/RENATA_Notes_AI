@@ -178,7 +178,7 @@ class RenaMeetingBot:
                         if pw_field.is_visible(timeout=5000):
                             print("[Login] Entering password after tile select...")
                             pw_field.fill(PERMANENT_BOT_PASS)
-                            page.click('#passwordNext, button[jsname="LgbsSe"]')
+                            page.locator('#passwordNext button').first.click()
                             time.sleep(5)
                     except: pass
                     self._handle_post_login(page)
@@ -200,7 +200,7 @@ class RenaMeetingBot:
                 email_input.wait_for(state="visible", timeout=10000)
                 print(f"[Login] Entering email: {PERMANENT_BOT_EMAIL}")
                 email_input.fill(PERMANENT_BOT_EMAIL)
-                page.locator('#identifierNext button, #identifierNext').click()
+                page.locator('#identifierNext button').first.click()
                 time.sleep(4)
             except Exception as e:
                 print(f"[Login] Email input error: {e}")
@@ -211,7 +211,7 @@ class RenaMeetingBot:
                 pw_field.wait_for(state="visible", timeout=15000)
                 print("[Login] Entering password...")
                 pw_field.fill(PERMANENT_BOT_PASS)
-                page.locator('#passwordNext button, #passwordNext').click()
+                page.locator('#passwordNext button').first.click()
                 time.sleep(5)
             except Exception as e:
                 print(f"[Login] Password field error: {e}")
