@@ -1020,66 +1020,97 @@ async def search_index(request: Request):
     return _get_kb_stats(user_email=user['email'], plan=plan)
 
 # ============================================================
-# NOTES API
+# PERSONAL NOTES & AI INSIGHTS API
 # ============================================================
 
-@app.get("/api/notes/meetings", response_class=JSONResponse)
-async def api_notes_meetings(request: Request):
+@app.get("/api/notes/list", response_class=JSONResponse)
+async def api_personal_notes_list(request: Request):
     user = require_user(request)
-    # Get recent meetings to select from, sorted by time
+    notes = db.fetch_all("SELECT id, title, updated_at FROM personal_notes WHERE user_email = ? ORDER BY updated_at DESC", (user['email'],))
+    return {"notes": notes}
+
+@app.get("/api/notes/personal/{note_id}", response_class=JSONResponse)
+async def api_get_personal_note(request: Request, note_id: int):
+    user = require_user(request)
+    note = db.fetch_one("SELECT id, title, content FROM personal_notes WHERE id = ? AND user_email = ?", (note_id, user['email']))
+    if not note: raise HTTPException(status_code=404)
+    return note
+
+@app.post("/api/notes/personal/save", response_class=JSONResponse)
+async def api_save_personal_note(request: Request):
+    user = require_user(request)
+    data = await request.json()
+    note_id = data.get("id")
+    title = data.get("title", "Untitled Note")
+    content = data.get("content", "")
+    
+    if note_id:
+        db.exec_commit("UPDATE personal_notes SET title = ?, content = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_email = ?", (title, content, note_id, user['email']))
+        return {"success": True, "id": note_id}
+    else:
+        db.exec_commit("INSERT INTO personal_notes (user_email, title, content) VALUES (?, ?, ?)", (user['email'], title, content))
+        # Get the new ID (Works for both SQLite and Postgres)
+        row = db.fetch_one("SELECT id FROM personal_notes WHERE user_email = ? ORDER BY id DESC LIMIT 1", (user['email'],))
+        return {"success": True, "id": row['id'] if row else None}
+
+@app.post("/api/notes/personal/delete/{note_id}", response_class=JSONResponse)
+async def api_delete_personal_note(request: Request, note_id: int):
+    user = require_user(request)
+    db.exec_commit("DELETE FROM personal_notes WHERE id = ? AND user_email = ?", (note_id, user['email']))
+    return {"success": True}
+
+@app.get("/api/notes/ai/list", response_class=JSONResponse)
+async def api_ai_insights_list(request: Request):
+    user = require_user(request)
     meetings = db.fetch_all("""
-        SELECT meeting_id, title, start_time, bot_status 
+        SELECT meeting_id, title, start_time, bot_status, pdf_path, is_summarized_paid
         FROM meetings 
         WHERE user_email = ? 
         ORDER BY created_at DESC LIMIT 50
     """, (user['email'],))
     return {"meetings": meetings}
 
-@app.get("/api/notes/{meeting_id}", response_class=JSONResponse)
-async def api_get_notes(request: Request, meeting_id: str):
+@app.get("/api/notes/ai/{meeting_id}", response_class=JSONResponse)
+async def api_get_ai_insights(request: Request, meeting_id: str):
     user = require_user(request)
     m = db.fetch_one("""
-        SELECT manual_notes, summary_text, action_items, title, status, bot_status, bot_status_note 
+        SELECT summary_text, action_items, title, status, bot_status, bot_status_note, pdf_path, is_summarized_paid
         FROM meetings 
         WHERE meeting_id = ? AND user_email = ?
     """, (meeting_id, user['email']))
     
-    if not m:
-        raise HTTPException(status_code=404, detail="Meeting not found")
+    if not m: raise HTTPException(status_code=404)
         
-    # Construct AI Insights
     ai_insights = ""
     if m.get('summary_text'):
         ai_insights += f"### Summary\n{m['summary_text']}\n\n"
     if m.get('action_items'):
         ai_insights += f"### Action Items\n{m['action_items']}\n\n"
     
-    # Check if live notes are being captured
     if m.get('bot_status_note') and "LIVE_INSIGHTS:" in m['bot_status_note']:
         live_part = m['bot_status_note'].split("LIVE_INSIGHTS:")[1].strip()
         ai_insights = f"### Live Captured Points\n{live_part}\n\n" + ai_insights
 
     if not ai_insights:
         if m.get('bot_status') in ['JOIN_PENDING', 'DISPATCHING', 'JOINING', 'CONNECTING', 'CONNECTED']:
-            ai_insights = "Renata is currently in the meeting. AI insights will start appearing shortly..."
+            ai_insights = "Renata is currently in the meeting. AI insights will appear here soon..."
         elif m.get('status') == 'processing' or m.get('bot_status') == 'PROCESSING':
             ai_insights = "Meeting ended. Renata is generating the final AI intelligence report..."
         else:
-            ai_insights = "No AI insights found for this meeting. Ensure the meeting was recorded and processed."
+            ai_insights = "No AI insights found for this meeting."
+
+    # Construct PDF link if exists
+    pdf_link = None
+    if m.get('pdf_path'):
+        pdf_name = m['pdf_path'].split('/')[-1].split('\\')[-1]
+        pdf_link = f"/download/pdf/{pdf_name}"
 
     return {
-        "manual_notes": m.get('manual_notes') or "",
         "ai_notes": ai_insights,
-        "title": m.get('title', 'Untitled Meeting')
+        "title": m.get('title', 'Untitled Meeting'),
+        "pdf_link": pdf_link,
+        "is_paid": m.get('is_summarized_paid', 0)
     }
-
-@app.post("/api/notes/{meeting_id}/save", response_class=JSONResponse)
-async def api_save_notes(request: Request, meeting_id: str):
-    user = require_user(request)
-    data = await request.json()
-    notes = data.get("notes", "")
-    db.exec_commit("UPDATE meetings SET manual_notes = ?, updated_at = CURRENT_TIMESTAMP WHERE meeting_id = ? AND user_email = ?", (notes, meeting_id, user['email']))
-    return {"success": True}
 
 
 # ============================================================

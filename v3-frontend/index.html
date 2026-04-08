@@ -173,57 +173,63 @@
                 </section>
 
                 <section id="notes-page" class="page">
-                    <div class="page-header">
+                    <div class="page-header" style="margin-bottom: 20px;">
                         <div class="header-main">
-                            <h1>Note Taking</h1>
-                            <p class="subtitle">Focus on the conversation—let Renata capture the insights.</p>
-                        </div>
-                        <div class="page-header-actions" style="gap:15px;">
-                            <div class="select-wrapper" style="position:relative; width: 280px;">
-                                <select id="meeting-notes-selector" style="width:100%; padding: 12px 16px; border-radius: 12px; border: 1px solid var(--border-color); background: #ffffff; font-weight: 600; cursor:pointer; appearance: none; -webkit-appearance: none;">
-                                    <option value="" disabled selected>Select a meeting...</option>
-                                </select>
-                                <i data-feather="chevron-down" style="position:absolute; right:15px; top:50%; transform:translateY(-50%); pointer-events:none; width:16px; color:var(--text-secondary);"></i>
-                            </div>
-                            <button id="refresh-notes-btn" title="Refresh Notes" class="refresh-btn">
-                                <i data-feather="refresh-cw"></i>
-                            </button>
+                            <h1>Renata Intelligence Hub</h1>
+                            <p class="subtitle">Personal notebook and AI-powered meeting insights.</p>
                         </div>
                     </div>
                     
-                    <div class="notes-layout" id="notes-content-wrapper" style="display:none; grid-template-columns: 1fr 1fr; gap: 24px; height: calc(100vh - 280px);">
-                        <!-- Left Pane: Manual Notepad -->
-                        <div class="notepad-container card" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.03);">
-                            <div class="panel-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: rgba(242, 113, 33, 0.03);">
-                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
-                                    <i data-feather="edit-3" style="width:16px; color: var(--accent-orange);"></i>
-                                    Manual Notepad
-                                </h3>
-                                <span id="save-status" style="font-size: 0.75rem; color: var(--text-secondary); font-weight: 600; opacity: 0.7;">SAVED</span>
+                    <div class="notebook-layout" style="display: grid; grid-template-columns: 260px 1fr 340px; gap: 20px; height: calc(100vh - 220px);">
+                        <!-- Column 1: My Notes Sidebar -->
+                        <div class="card notebook-sidebar" style="display: flex; flex-direction: column; padding: 15px; overflow: hidden; background: rgba(242,113,33,0.02);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
+                                <h3 style="font-size: 0.9rem; font-weight: 700;">MY NOTES</h3>
+                                <button id="new-note-btn" class="icon-btn" title="Create New Note" style="background: var(--accent-orange); color: white; border-radius: 6px; padding: 4px;">
+                                    <i data-feather="plus" style="width:14px; height:14px;"></i>
+                                </button>
                             </div>
-                            <textarea id="manual-notes-area" placeholder="Write your own notes here during or after the meeting... It auto-saves as you type." 
+                            <div id="personal-notes-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                                <!-- Loaded via JS -->
+                                <div class="muted" style="font-size: 0.8rem; text-align: center; margin-top: 20px;">No notes yet. Click + to start.</div>
+                            </div>
+                        </div>
+
+                        <!-- Column 2: Manual Notepad (Always On) -->
+                        <div class="card notepad-main" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 2px solid rgba(242,113,33,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+                            <div class="panel-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; background: #ffffff;">
+                                <input type="text" id="note-subject" placeholder="Note Subject / Heading..." 
+                                    style="border: none; outline: none; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); width: 70%; background: transparent;">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <span id="save-status-msg" style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 700; opacity: 0.6;">DRAFT</span>
+                                    <button id="delete-note-btn" title="Delete Note" style="background: none; border: none; color: #ef4444; cursor: pointer; opacity: 0.5;">
+                                        <i data-feather="trash-2" style="width:16px;"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <textarea id="notebook-textarea" placeholder="Start writing your thoughts here... Renato auto-saves your progress as a .txt file in your cloud." 
                                 style="flex: 1; padding: 25px; border: none; outline: none; font-size: 1.05rem; line-height: 1.8; color: #1e293b; resize: none; background: #fffcf5; font-family: 'Inter', sans-serif;"></textarea>
                         </div>
 
-                        <!-- Right Pane: AI Intelligence -->
-                        <div class="ai-notes-container card" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border-color);">
-                            <div class="panel-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: rgba(139, 92, 246, 0.03);">
-                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
-                                    <i data-feather="cpu" style="width:16px; color: var(--accent-purple);"></i>
-                                    AI Generated Insights
-                                </h3>
+                        <!-- Column 3: AI Insights & Resources -->
+                        <div class="card ai-resource-pane" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border-color); background: rgba(139, 92, 246, 0.02);">
+                            <div class="panel-header" style="padding: 15px 20px; border-bottom: 1px solid var(--border-color); background: #ffffff;">
+                                <select id="ai-insight-selector" style="width:100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: #ffffff; font-size: 0.85rem; font-weight: 600; cursor:pointer;">
+                                    <option value="" disabled selected>AI Insights from Meeting...</option>
+                                </select>
                             </div>
-                            <div id="ai-notes-area" class="markdown-body" style="flex: 1; padding: 25px; overflow-y: auto; font-size: 0.95rem; line-height: 1.7; color: #334155; height: 100%;">
-                                <!-- AI Content here -->
-                                <p class="muted">Summary and bullet points will appear here once the meeting ends and is processed by AI.</p>
+                            <div id="ai-insight-display" style="flex: 1; padding: 20px; overflow-y: auto; font-size: 0.9rem; line-height: 1.7; color: #334155;">
+                                <div style="text-align: center; margin-top: 50px; opacity: 0.5;">
+                                    <i data-feather="cpu" style="width: 32px; height: 32px; margin-bottom: 12px;"></i>
+                                    <p>Select a meeting to view AI generated intelligence.</p>
+                                </div>
+                            </div>
+                            <div id="ai-insight-footer" style="padding: 15px; border-top: 1px solid var(--border-color); background: #ffffff; display: none;">
+                                <a href="#" id="view-full-pdf-btn" target="_blank" class="primary-btn" style="width: 100%; justify-content: center; font-size: 0.8rem; padding: 8px;">
+                                    <i data-feather="file-text" style="width:14px; margin-right:8px;"></i> Open Full PDF Report
+                                </a>
                             </div>
                         </div>
-                    </div>
-
-                    <div id="notes-empty-state" style="text-align: center; padding: 100px; opacity: 0.6;">
-                        <i data-feather="edit" style="width: 48px; height: 48px; margin-bottom: 20px; color: var(--accent-orange);"></i>
-                        <h3>Select a meeting to start taking notes</h3>
-                        <p>You can manage personal notes alongside AI-generated intelligence.</p>
                     </div>
                 </section>
 

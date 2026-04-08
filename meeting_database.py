@@ -202,6 +202,18 @@ def init_database():
         )
     ''')
 
+    # Personal Notes table (Independent from meetings)
+    cursor.execute(f'''
+        CREATE TABLE IF NOT EXISTS personal_notes (
+            id {pk_def},
+            user_email TEXT NOT NULL,
+            title TEXT DEFAULT 'Untitled Note',
+            content TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     # Pre-Meeting Gmail Briefs
     cursor.execute(f'''
         CREATE TABLE IF NOT EXISTS gmail_briefs (

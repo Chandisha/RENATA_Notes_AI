@@ -275,127 +275,219 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.error(err); }
     }
 
+    // --- NOTE TAKING & NOTEBOOK LOGIC ---
+    let currentNoteId = null;
+    let notebookAutoSaveTimeout = null;
+
     async function loadNotesData() {
-        const refreshIcon = document.querySelector('#refresh-notes-btn i');
-        if (refreshIcon) refreshIcon.classList.add('spin');
-
         try {
-            const res = await apiFetch("/api/notes/meetings");
-            const data = await res.json();
-            const selector = document.getElementById('meeting-notes-selector');
-            if (!selector) return;
+            // 1. Load Personal Notes List
+            const pNotesRes = await apiFetch("/api/notes/list");
+            const pNotesData = await pNotesRes.json();
+            renderPersonalNotesList(pNotesData.notes || []);
 
-            // Save currently selected if any
-            const currentSelected = selector.value;
+            // 2. Load AI Meetings List
+            const aiNotesRes = await apiFetch("/api/notes/ai/list");
+            const aiNotesData = await aiNotesRes.json();
+            renderAiMeetingsSelector(aiNotesData.meetings || []);
 
-            selector.innerHTML = '<option value="" disabled selected>Select a meeting...</option>';
+            // 3. Bind Global Events (once)
+            bindNotebookEvents();
+        } catch (err) { console.error("Notebook Load Error:", err); }
+    }
+
+    function renderPersonalNotesList(notes) {
+        const listContainer = document.getElementById('personal-notes-list');
+        if (!listContainer) return;
+        listContainer.innerHTML = '';
+        
+        if (notes.length === 0) {
+            listContainer.innerHTML = '<div class="muted" style="font-size: 0.8rem; text-align: center; margin-top: 20px;">No notes yet. Click + to start.</div>';
+            return;
+        }
+
+        notes.forEach(n => {
+            const item = document.createElement('div');
+            item.className = `note-item ${currentNoteId == n.id ? 'active' : ''}`;
+            // Styling handled via classes or direct for speed
+            item.style.padding = '10px 12px';
+            item.style.borderRadius = '8px';
+            item.style.cursor = 'pointer';
+            item.style.fontSize = '0.85rem';
+            item.style.fontWeight = '600';
+            item.style.overflow = 'hidden';
+            item.style.whiteSpace = 'nowrap';
+            item.style.textOverflow = 'ellipsis';
+            item.style.marginBottom = '4px';
+            item.style.transition = 'all 0.2s';
             
-            if (data.meetings && data.meetings.length > 0) {
-                data.meetings.forEach(m => {
-                    const option = document.createElement('option');
-                    option.value = m.meeting_id;
-                    const dateStr = new Date(m.start_time).toLocaleDateString(undefined, {month:'short', day:'numeric'});
-                    option.textContent = `${m.title} (${dateStr})`;
-                    selector.appendChild(option);
-                });
+            if (currentNoteId == n.id) {
+                item.style.background = 'rgba(242,113,33,0.1)';
+                item.style.color = 'var(--accent-orange)';
+            } else {
+                item.style.background = 'transparent';
+                item.style.color = 'var(--text-secondary)';
             }
 
-            // Restore selection if existed
-            if (currentSelected) {
-                selector.value = currentSelected;
-            }
+            item.textContent = n.title || 'Untitled Note';
+            item.onclick = () => selectPersonalNote(n.id);
+            listContainer.appendChild(item);
+        });
+    }
 
-            // Bind change event once
-            if (!selector.dataset.bound) {
-                selector.addEventListener('change', () => loadSpecificMeetingNotes(selector.value));
-                selector.dataset.bound = "true";
-            }
-
-            // Bind manual notes area for auto-save
-            const textarea = document.getElementById('manual-notes-area');
-            if (textarea && !textarea.dataset.bound) {
-                textarea.addEventListener('input', () => {
-                    updateSaveStatus('SAVING...');
-                    clearTimeout(window.autoSaveTimeout);
-                    window.autoSaveTimeout = setTimeout(() => saveManualNotes(selector.value, textarea.value), 1000);
-                });
-                textarea.dataset.bound = "true";
-            }
-            
-            // Bind refresh button
-            const refBtn = document.getElementById('refresh-notes-btn');
-            if (refBtn && !refBtn.dataset.bound) {
-                refBtn.onclick = () => {
-                    if (selector.value) loadSpecificMeetingNotes(selector.value);
-                    else loadNotesData();
-                };
-                refBtn.dataset.bound = "true";
-            }
-
-        } catch (err) {
-            console.error("Failed to load notes data:", err);
-        } finally {
-            if (refreshIcon) setTimeout(() => refreshIcon.classList.remove('spin'), 500);
+    function renderAiMeetingsSelector(meetings) {
+        const selector = document.getElementById('ai-insight-selector');
+        if (!selector) return;
+        selector.innerHTML = '<option value="" disabled selected>AI Insights from Meeting...</option>';
+        meetings.forEach(m => {
+            const opt = document.createElement('option');
+            opt.value = m.meeting_id;
+            const dateStr = new Date(m.start_time).toLocaleDateString(undefined, {month:'short', day:'numeric'});
+            opt.textContent = `${m.title} (${dateStr})`;
+            selector.appendChild(opt);
+        });
+        
+        if (!selector.dataset.bound) {
+            selector.addEventListener('change', () => loadAiInsight(selector.value));
+            selector.dataset.bound = "true";
         }
     }
 
-    async function loadSpecificMeetingNotes(meetingId) {
-        if (!meetingId) return;
+    function bindNotebookEvents() {
+        const newBtn = document.getElementById('new-note-btn');
+        const delBtn = document.getElementById('delete-note-btn');
+        const subjectInput = document.getElementById('note-subject');
+        const contentArea = document.getElementById('notebook-textarea');
 
-        const wrapper = document.getElementById('notes-content-wrapper');
-        const emptyState = document.getElementById('notes-empty-state');
-        const aiArea = document.getElementById('ai-notes-area');
-        const manualArea = document.getElementById('manual-notes-area');
-
-        if (wrapper) wrapper.style.display = 'grid';
-        if (emptyState) emptyState.style.display = 'none';
-
-        if (aiArea) aiArea.innerHTML = '<p class="muted">Loading insights...</p>';
-
-        try {
-            const res = await apiFetch(`/api/notes/${meetingId}`);
-            const data = await res.json();
-
-            if (manualArea) manualArea.value = data.manual_notes || '';
-            if (aiArea) {
-                // Simplified markdown preview for insights
-                const md = data.ai_notes || 'No insights available yet.';
-                aiArea.innerHTML = formatMarkdownToHTML(md);
-            }
-            updateSaveStatus('SAVED');
-        } catch (err) {
-            console.error("Error loading meeting notes:", err);
-            if (aiArea) aiArea.innerHTML = '<p class="muted" style="color:#ef4444;">Failed to load insights.</p>';
+        if (newBtn && !newBtn.dataset.bound) {
+            newBtn.onclick = createNewNote;
+            newBtn.dataset.bound = "true";
+        }
+        if (delBtn && !delBtn.dataset.bound) {
+            delBtn.onclick = deleteCurrentNote;
+            delBtn.dataset.bound = "true";
+        }
+        if (subjectInput && !subjectInput.dataset.bound) {
+            subjectInput.oninput = triggerAutoSave;
+            subjectInput.dataset.bound = "true";
+        }
+        if (contentArea && !contentArea.dataset.bound) {
+            contentArea.oninput = triggerAutoSave;
+            contentArea.dataset.bound = "true";
         }
     }
 
-    async function saveManualNotes(meetingId, notes) {
-        if (!meetingId) return;
+    async function selectPersonalNote(id) {
+        currentNoteId = id;
         try {
-            const res = await apiFetch(`/api/notes/${meetingId}/save`, {
+            const res = await apiFetch(`/api/notes/personal/${id}`);
+            const data = await res.json();
+            document.getElementById('note-subject').value = data.title || '';
+            document.getElementById('notebook-textarea').value = data.content || '';
+            document.getElementById('delete-note-btn').style.opacity = '1';
+            updateNotebookSaveStatus('SAVED');
+            
+            // Highlight in list
+            const allItems = document.querySelectorAll('.note-item');
+            allItems.forEach(i => {
+                i.style.background = 'transparent';
+                i.style.color = 'var(--text-secondary)';
+            });
+            // Re-render list to ensure states are correct
+            const listRes = await apiFetch("/api/notes/list");
+            const listData = await listRes.json();
+            renderPersonalNotesList(listData.notes);
+        } catch (err) { console.error(err); }
+    }
+
+    function createNewNote() {
+        currentNoteId = null;
+        document.getElementById('note-subject').value = '';
+        document.getElementById('notebook-textarea').value = '';
+        document.getElementById('delete-note-btn').style.opacity = '0.5';
+        document.querySelectorAll('.note-item').forEach(i => {
+           i.style.background = 'transparent';
+           i.style.color = 'var(--text-secondary)';
+        });
+        updateNotebookSaveStatus('NEW DRAFT');
+        document.getElementById('note-subject').focus();
+    }
+
+    function triggerAutoSave() {
+        updateNotebookSaveStatus('SAVING...');
+        clearTimeout(notebookAutoSaveTimeout);
+        notebookAutoSaveTimeout = setTimeout(saveCurrentNote, 1500);
+    }
+
+    async function saveCurrentNote() {
+        const title = document.getElementById('note-subject').value || 'Untitled Note';
+        const content = document.getElementById('notebook-textarea').value;
+        if (!content && title === 'Untitled Note') return;
+
+        try {
+            const res = await apiFetch("/api/notes/personal/save", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ notes })
+                body: JSON.stringify({ id: currentNoteId, title, content })
             });
-            if (res.ok) updateSaveStatus('SAVED');
-            else updateSaveStatus('ERROR');
-        } catch (err) {
-            updateSaveStatus('STILL SAVING...');
-        }
+            const data = await res.json();
+            if (data.success) {
+                if (!currentNoteId) currentNoteId = data.id;
+                document.getElementById('delete-note-btn').style.opacity = '1';
+                updateNotebookSaveStatus('SAVED');
+                // Refresh list only if needed
+                const listRes = await apiFetch("/api/notes/list");
+                const listData = await listRes.json();
+                renderPersonalNotesList(listData.notes);
+            }
+        } catch (err) { updateNotebookSaveStatus('STILL SAVING...'); }
     }
 
-    function updateSaveStatus(text) {
-        const statusEl = document.getElementById('save-status');
-        if (statusEl) {
-            statusEl.textContent = text;
-            statusEl.style.opacity = text === 'SAVED' ? '0.5' : '1';
-            statusEl.style.color = text === 'ERROR' ? '#ef4444' : 'var(--text-secondary)';
+    async function deleteCurrentNote() {
+        if (!currentNoteId) return;
+        if (!confirm("Are you sure you want to delete this notepad file?")) return;
+        try {
+            await apiFetch(`/api/notes/personal/delete/${currentNoteId}`, { method: 'POST' });
+            createNewNote();
+            loadNotesData();
+        } catch (err) { console.error(err); }
+    }
+
+    async function loadAiInsight(meetingId) {
+        const display = document.getElementById('ai-insight-display');
+        const footer = document.getElementById('ai-insight-footer');
+        const pdfBtn = document.getElementById('view-full-pdf-btn');
+
+        if (!meetingId) return;
+        display.innerHTML = '<p class="muted">Loading Intelligence...</p>';
+        footer.style.display = 'none';
+
+        try {
+            const res = await apiFetch(`/api/notes/ai/${meetingId}`);
+            const data = await res.json();
+            display.innerHTML = formatMarkdownToHTML(data.ai_notes);
+            
+            if (data.pdf_link) {
+                footer.style.display = 'block';
+                pdfBtn.onclick = (e) => {
+                    e.preventDefault();
+                    handleViewPdf(data.pdf_link, meetingId, data.is_paid);
+                };
+            }
+        } catch (err) { display.innerHTML = '<p style="color:#ef4444;">Error loading AI insights.</p>'; }
+    }
+
+    function updateNotebookSaveStatus(text) {
+        const el = document.getElementById('save-status-msg');
+        if (el) {
+            el.textContent = text;
+            el.style.opacity = text === 'SAVED' ? '0.6' : '1';
+            el.style.color = text === 'SAVING...' ? 'var(--accent-orange)' : 'var(--text-secondary)';
         }
     }
 
     function formatMarkdownToHTML(text) {
         if (!text) return '';
-        // Very basic markdown formatting for the preview
         let html = text
             .replace(/^### (.*$)/gim, '<h3 style="margin: 15px 0 10px; color: var(--accent-orange); font-size: 1.1rem; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 5px;">$1</h3>')
             .replace(/^## (.*$)/gim, '<h2 style="margin: 20px 0 10px; color: var(--accent-orange);">$1</h2>')
