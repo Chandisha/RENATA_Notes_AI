@@ -42,8 +42,9 @@ def refresh_local_token():
         print("Please download it from Google Cloud Console → APIs & Services → Credentials.")
         return
 
+    bot_email = os.getenv("BOT_EMAIL")
     print("🔑 Opening browser for Google Sign-In...")
-    print("   Please log in with: renata@renataiot.com")
+    print(f"   Please log in with: {bot_email}")
     print()
 
     flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
@@ -56,7 +57,7 @@ def refresh_local_token():
         headers={"Authorization": f"Bearer {creds.token}"}
     )
     user_info = user_info_resp.json()
-    email = user_info.get("email", "renata@renataiot.com")
+    email = user_info.get("email", bot_email)
     name = user_info.get("name", "User")
 
     print(f"\n✅ Authenticated as: {name} ({email})")
