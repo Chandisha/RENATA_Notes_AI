@@ -854,14 +854,14 @@ def _send_support_email(user_email, subject, query):
     try:
         msg = EmailMessage()
         msg['Subject'] = f"SUPPORT TICKET: {subject}"
-        msg['From'] = "daschandisha@gmail.com"
-        msg['To'] = "chandishadas410@gmail.com" # Company Email ID
+        msg['From'] = "renata@renataiot.com"
+        msg['To'] = "renata@renataiot.com"  # Company support email
         
         body = f"User: {user_email}\nSubject: {subject}\n\nQuery/Issue:\n{query}\n\n---\nSent from Renata Meeting Assistant Support System"
         msg.set_content(body)
         
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login("daschandisha@gmail.com", "bejh mcgq aibo zpfg")
+            smtp.login("renata@renataiot.com", "Z9sky2d3^5")
             smtp.send_message(msg)
         return True
     except Exception as e:

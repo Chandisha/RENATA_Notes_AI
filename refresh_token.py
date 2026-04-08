@@ -43,7 +43,7 @@ def refresh_local_token():
         return
 
     print("🔑 Opening browser for Google Sign-In...")
-    print("   Please log in with: daschandisha@gmail.com")
+    print("   Please log in with: renata@renataiot.com")
     print()
 
     flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
@@ -56,7 +56,7 @@ def refresh_local_token():
         headers={"Authorization": f"Bearer {creds.token}"}
     )
     user_info = user_info_resp.json()
-    email = user_info.get("email", "daschandisha@gmail.com")
+    email = user_info.get("email", "renata@renataiot.com")
     name = user_info.get("name", "User")
 
     print(f"\n✅ Authenticated as: {name} ({email})")

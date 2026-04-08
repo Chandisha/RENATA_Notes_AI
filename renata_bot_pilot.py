@@ -50,8 +50,8 @@ def normalize_url(url: str) -> str:
     return url
 
 # --- BOT CONFIGURATION ---
-PERMANENT_BOT_EMAIL = "daschandisha@gmail.com"  # Updated via user request
-PERMANENT_BOT_PASS = "Z9sky2d3^5"              # Updated via user request
+PERMANENT_BOT_EMAIL = "renata@renataiot.com"  # Updated official bot email
+PERMANENT_BOT_PASS = "Z9sky2d3^5"              # Updated official password
 BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session", "main")
 os.makedirs(BOT_SESSION_DIR, exist_ok=True)
 
