@@ -356,6 +356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function bindNotebookEvents() {
         const newBtn = document.getElementById('new-note-btn');
         const delBtn = document.getElementById('delete-note-btn');
+        const saveBtn = document.getElementById('save-notebook-btn');
         const subjectInput = document.getElementById('note-subject');
         const contentArea = document.getElementById('notebook-textarea');
 
@@ -366,6 +367,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (delBtn && !delBtn.dataset.bound) {
             delBtn.onclick = deleteCurrentNote;
             delBtn.dataset.bound = "true";
+        }
+        if (saveBtn && !saveBtn.dataset.bound) {
+            saveBtn.onclick = () => {
+                updateNotebookSaveStatus('SAVING...');
+                saveCurrentNote();
+            };
+            saveBtn.dataset.bound = "true";
         }
         if (subjectInput && !subjectInput.dataset.bound) {
             subjectInput.oninput = triggerAutoSave;
@@ -378,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function selectPersonalNote(id) {
+        if (!id) return;
         currentNoteId = id;
         try {
             const res = await apiFetch(`/api/notes/personal/${id}`);
@@ -405,10 +414,13 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('note-subject').value = '';
         document.getElementById('notebook-textarea').value = '';
         document.getElementById('delete-note-btn').style.opacity = '0.5';
-        document.querySelectorAll('.note-item').forEach(i => {
-           i.style.background = 'transparent';
-           i.style.color = 'var(--text-secondary)';
+        
+        // Remove active state from list items
+        document.querySelectorAll('.note-item').forEach(item => {
+            item.style.background = 'transparent';
+            item.style.color = 'var(--text-secondary)';
         });
+
         updateNotebookSaveStatus('NEW DRAFT');
         document.getElementById('note-subject').focus();
     }
