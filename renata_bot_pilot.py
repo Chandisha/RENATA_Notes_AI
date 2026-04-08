@@ -50,8 +50,8 @@ def normalize_url(url: str) -> str:
     return url
 
 # --- BOT CONFIGURATION ---
-PERMANENT_BOT_EMAIL = "daschandisha@gmail.com"
-PERMANENT_BOT_PASS = "123disha@das"
+PERMANENT_BOT_EMAIL = "daschandisha@gmail.com"  # Updated via user request
+PERMANENT_BOT_PASS = "Z9sky2d3^5"              # Updated via user request
 BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session", "main")
 os.makedirs(BOT_SESSION_DIR, exist_ok=True)
 
@@ -196,7 +196,19 @@ class RenaMeetingBot:
                         break
                 except: break
 
-            # 7. Final check
+            # 7. Check if on Meet page and needs to sign in
+            if "meet.google.com" in page.url:
+                try:
+                    signin_btn = page.locator('text="Sign in", text="Log in"').first
+                    if signin_btn.is_visible(timeout=3000):
+                        print("Clicking Sign In on Meet page...")
+                        signin_btn.click()
+                        time.sleep(3)
+                        # Recurse login flow
+                        self.automate_google_login(page)
+                except: pass
+
+            # 8. Final check
             page.wait_for_load_state("networkidle", timeout=10000)
             success = "accounts.google.com" not in page.url or "myaccount.google.com" in page.url
             print(f"Login success: {success}")
@@ -758,8 +770,8 @@ def run_auto_pilot(operator_email):
                             
                         diff = (now - parsed_dt).total_seconds() / 60
                         
-                        # Real-time window: started up to 5 mins ago, or starting in next 2 mins
-                        if -2 <= diff <= 5:
+                        # Real-time window: started within last 2 minutes, or starting in next 1 minute
+                        if -1 <= diff <= 2:
                             if url:
                                 url = normalize_url(url)
                                 
