@@ -21,6 +21,89 @@ async function apiFetch(endpoint, options = {}) {
     return response;
 }
 
+// --- GLOBAL NOTEBOOK STATE ---
+let currentNoteId = null;
+let notebookAutoSaveTimeout = null;
+
+window.updateNotebookSaveStatus = function(state) {
+    const msgEl = document.getElementById('save-status-msg');
+    if (!msgEl) return;
+    msgEl.textContent = state;
+    msgEl.style.opacity = (state === 'SAVED') ? '0.5' : '1';
+    if (state === 'SAVING...') msgEl.style.color = 'var(--accent-orange)';
+    else if (state === 'SAVED') msgEl.style.color = 'var(--text-secondary)';
+    else msgEl.style.color = 'var(--accent-purple)';
+};
+
+window.createNewNote = function() {
+    console.log("Notebook: Creating new note...");
+    currentNoteId = null;
+    const sub = document.getElementById('note-subject');
+    const txt = document.getElementById('notebook-textarea');
+    if (sub) sub.value = '';
+    if (txt) txt.value = '';
+    
+    const delBtn = document.getElementById('delete-note-btn');
+    if (delBtn) delBtn.style.opacity = '0.5';
+    
+    document.querySelectorAll('.note-item').forEach(item => {
+        item.style.background = 'transparent';
+        item.style.color = 'var(--text-secondary)';
+    });
+
+    window.updateNotebookSaveStatus('NEW DRAFT');
+    if (sub) sub.focus();
+};
+
+window.saveCurrentNote = async function() {
+    console.log("Notebook: Saving note...");
+    const title = document.getElementById('note-subject').value || 'Untitled Note';
+    const content = document.getElementById('notebook-textarea').value;
+    if (!content && title === 'Untitled Note') {
+        window.updateNotebookSaveStatus('DRAFT');
+        return;
+    }
+
+    try {
+        const res = await apiFetch("/api/notes/personal/save", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: currentNoteId, title, content })
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (!currentNoteId) currentNoteId = data.id;
+            const delBtn = document.getElementById('delete-note-btn');
+            if (delBtn) delBtn.style.opacity = '1';
+            window.updateNotebookSaveStatus('SAVED');
+            
+            // Refresh list
+            if (typeof loadNotesData === 'function') loadNotesData();
+        }
+    } catch (err) { 
+        console.error("Save Error:", err);
+        window.updateNotebookSaveStatus('STILL SAVING...'); 
+    }
+};
+
+window.deleteCurrentNote = async function() {
+    if (!currentNoteId) return;
+    if (!confirm("Are you sure you want to delete this notepad file?")) return;
+    try {
+        await apiFetch(`/api/notes/personal/delete/${currentNoteId}`, { method: 'POST' });
+        window.createNewNote();
+        if (typeof loadNotesData === 'function') loadNotesData();
+    } catch (err) { console.error(err); }
+};
+
+window.triggerNotebookAutoSave = function() {
+    window.updateNotebookSaveStatus('SAVING...');
+    clearTimeout(notebookAutoSaveTimeout);
+    notebookAutoSaveTimeout = setTimeout(() => {
+        window.saveCurrentNote();
+    }, 1500);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     feather.replace();
     loadUserProfile();
@@ -85,29 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- GLOBAL NOTEBOOK DELEGATED LISTENERS ---
-    document.addEventListener('click', (e) => {
-        // Plus Button
-        if (e.target.closest('#new-note-btn')) {
-            e.preventDefault();
-            console.log("Global: New Note Clicked");
-            if (window.createNewNote) window.createNewNote();
-        }
-        // Save Button
-        if (e.target.closest('#save-notebook-btn')) {
-            e.preventDefault();
-            console.log("Global: Save Note Clicked");
-            if (window.saveCurrentNote) {
-                window.updateNotebookSaveStatus('SAVING...');
-                window.saveCurrentNote();
-            }
-        }
-        // Delete Button
-        if (e.target.closest('#delete-note-btn')) {
-            e.preventDefault();
-            if (window.deleteCurrentNote) window.deleteCurrentNote();
-        }
-    });
 
     // --- DATA LOADING LOGIC ---
 
@@ -299,10 +359,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.error(err); }
     }
 
-    // --- NOTE TAKING & NOTEBOOK LOGIC ---
-    let currentNoteId = null;
-    let notebookAutoSaveTimeout = null;
-
+    // --- NOTE TAKING & NOTEBOOK LOGIC (Refined & Global) ---
     async function loadNotesData() {
         try {
             // 1. Load Personal Notes List
@@ -319,7 +376,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderAiMeetingsSelector(aiNotesData.meetings || []);
             }
             
-            bindNotebookInputs();
+            // 3. Setup Auto-save listeners
+            const subInput = document.getElementById('note-subject');
+            const txtArea = document.getElementById('notebook-textarea');
+            if (subInput && !subInput.dataset.bound) {
+                subInput.oninput = () => window.triggerNotebookAutoSave();
+                subInput.dataset.bound = "true";
+            }
+            if (txtArea && !txtArea.dataset.bound) {
+                txtArea.oninput = () => window.triggerNotebookAutoSave();
+                txtArea.dataset.bound = "true";
+            }
         } catch (err) { console.error("Notebook Load Error:", err); }
     }
 
@@ -358,7 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item.textContent = n.title || 'Untitled Note';
             item.onclick = (e) => {
                 e.preventDefault();
-                selectPersonalNote(n.id);
+                window.selectPersonalNote(n.id);
             };
             listContainer.appendChild(item);
         });
@@ -377,116 +444,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         if (!selector.dataset.bound) {
-            selector.addEventListener('change', () => loadAiInsight(selector.value));
+            selector.onchange = () => loadAiInsight(selector.value);
             selector.dataset.bound = "true";
         }
-    }
-    // Notebook Inputs still need direct binding because they are 'input' events
-    function bindNotebookInputs() {
-        const subjectInput = document.getElementById('note-subject');
-        const contentArea = document.getElementById('notebook-textarea');
-        if (subjectInput && !subjectInput.dataset.bound) {
-            subjectInput.addEventListener('input', triggerAutoSave);
-            subjectInput.dataset.bound = "true";
-        }
-        if (contentArea && !contentArea.dataset.bound) {
-            contentArea.addEventListener('input', triggerAutoSave);
-            contentArea.dataset.bound = "true";
-        }
-    }
-
-    window.selectPersonalNote = async function(id) {
-        if (!id) return;
-        currentNoteId = id;
-        try {
-            const res = await apiFetch(`/api/notes/personal/${id}`);
-            if (res) {
-                const data = await res.json();
-                document.getElementById('note-subject').value = data.title || '';
-                document.getElementById('notebook-textarea').value = data.content || '';
-                document.getElementById('delete-note-btn').style.opacity = '1';
-                window.updateNotebookSaveStatus('SAVED');
-                
-                // Re-render list to show active state
-                const listRes = await apiFetch("/api/notes/list");
-                if (listRes) {
-                    const listData = await listRes.json();
-                    renderPersonalNotesList(listData.notes);
-                }
-            }
-        } catch (err) { console.error(err); }
-    }
-
-    window.createNewNote = function() {
-        currentNoteId = null;
-        const sub = document.getElementById('note-subject');
-        const count = document.getElementById('notebook-textarea');
-        if (sub) sub.value = '';
-        if (count) count.value = '';
-        
-        const delBtn = document.getElementById('delete-note-btn');
-        if (delBtn) delBtn.style.opacity = '0.5';
-        
-        // Remove active state from list items
-        document.querySelectorAll('.note-item').forEach(item => {
-            item.style.background = 'transparent';
-            item.style.color = 'var(--text-secondary)';
-        });
-
-        window.updateNotebookSaveStatus('NEW DRAFT');
-        if (sub) sub.focus();
-    }
-
-    function triggerAutoSave() {
-        if (window.updateNotebookSaveStatus) window.updateNotebookSaveStatus('SAVING...');
-        clearTimeout(notebookAutoSaveTimeout);
-        notebookAutoSaveTimeout = setTimeout(() => {
-            if (window.saveCurrentNote) window.saveCurrentNote();
-        }, 1500);
-    }
-
-    window.updateNotebookSaveStatus = function(state) {
-        const msgEl = document.getElementById('save-status-msg');
-        if (!msgEl) return;
-        msgEl.textContent = state;
-        msgEl.style.opacity = (state === 'SAVED') ? '0.5' : '1';
-        if (state === 'SAVING...') msgEl.style.color = 'var(--accent-orange)';
-        else if (state === 'SAVED') msgEl.style.color = 'var(--text-secondary)';
-        else msgEl.style.color = 'var(--accent-purple)';
-    }
-
-    window.saveCurrentNote = async function() {
-        const title = document.getElementById('note-subject').value || 'Untitled Note';
-        const content = document.getElementById('notebook-textarea').value;
-        if (!content && title === 'Untitled Note') return;
-
-        try {
-            const res = await apiFetch("/api/notes/personal/save", {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: currentNoteId, title, content })
-            });
-            const data = await res.json();
-            if (data.success) {
-                if (!currentNoteId) currentNoteId = data.id;
-                document.getElementById('delete-note-btn').style.opacity = '1';
-                window.updateNotebookSaveStatus('SAVED');
-                // Refresh list only if needed
-                const listRes = await apiFetch("/api/notes/list");
-                const listData = await listRes.json();
-                renderPersonalNotesList(listData.notes);
-            }
-        } catch (err) { window.updateNotebookSaveStatus('STILL SAVING...'); }
-    }
-
-    async function deleteCurrentNote() {
-        if (!currentNoteId) return;
-        if (!confirm("Are you sure you want to delete this notepad file?")) return;
-        try {
-            await apiFetch(`/api/notes/personal/delete/${currentNoteId}`, { method: 'POST' });
-            if (window.createNewNote) window.createNewNote();
-            loadNotesData();
-        } catch (err) { console.error(err); }
     }
 
     async function loadAiInsight(meetingId) {

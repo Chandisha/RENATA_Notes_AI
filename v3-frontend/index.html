@@ -185,7 +185,7 @@
                         <div class="card notebook-sidebar" style="display: flex; flex-direction: column; padding: 15px; overflow: hidden; background: rgba(242,113,33,0.02);">
                             <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                                 <h3 style="font-size: 0.9rem; font-weight: 700;">MY NOTES</h3>
-                                <button id="new-note-btn" class="icon-btn" title="Create New Note" style="background: var(--accent-orange); color: white; border-radius: 6px; padding: 6px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                                <button id="new-note-btn" onclick="window.createNewNote()" class="icon-btn" title="Create New Note" style="background: var(--accent-orange); color: white; border-radius: 6px; padding: 6px; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;">
                                     <i data-feather="plus" style="width:16px; height:16px;"></i>
                                 </button>
                             </div>
@@ -202,7 +202,7 @@
                                     style="border: none; outline: none; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); width: 70%; background: transparent;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <span id="save-status-msg" style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 700; opacity: 0.6;">DRAFT</span>
-                                    <button id="delete-note-btn" title="Delete Note" style="background: none; border: none; color: #ef4444; cursor: pointer; opacity: 0.5;">
+                                    <button id="delete-note-btn" onclick="window.deleteCurrentNote()" title="Delete Note" style="background: none; border: none; color: #ef4444; cursor: pointer; opacity: 0.5;">
                                         <i data-feather="trash-2" style="width:16px;"></i>
                                     </button>
                                 </div>
@@ -212,7 +212,7 @@
                             
                             <!-- New Explicit Save Button Footer -->
                             <div class="notepad-footer" style="padding: 15px 20px; border-top: 1px solid var(--border-color); background: #ffffff; display: flex; justify-content: flex-end;">
-                                <button id="save-notebook-btn" class="primary-btn" style="padding: 10px 24px; font-size: 0.85rem; border-radius: 12px; display: flex; align-items: center; gap: 8px;">
+                                <button id="save-notebook-btn" onclick="window.saveCurrentNote()" class="primary-btn" style="padding: 10px 24px; font-size: 0.85rem; border-radius: 12px; display: flex; align-items: center; gap: 8px;">
                                     <i data-feather="save" style="width:16px;"></i>
                                     Save Note to History
                                 </button>
