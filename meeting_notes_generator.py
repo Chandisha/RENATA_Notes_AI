@@ -521,7 +521,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 from email.utils import formataddr
                 
                 bot_email = os.getenv("BOT_EMAIL", "renata@renataiot.com")
-                bot_pass  = os.getenv("BOT_PASSWORD", "")
+                bot_pass  = os.getenv("BOT_SMTP_PASSWORD", "")  # Gmail App Password (separate from Chrome login)
 
                 msg = EmailMessage()
                 msg['Subject'] = f"{title.upper()} on {full_timestamp} | Read Meeting Report"
