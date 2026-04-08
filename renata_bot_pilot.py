@@ -770,8 +770,8 @@ def run_auto_pilot(operator_email):
                             
                         diff = (now - parsed_dt).total_seconds() / 60
                         
-                        # Real-time window: started within last 2 minutes, or starting in next 1 minute
-                        if -1 <= diff <= 2:
+                        # Real-time window: Join ONLY if started (diff >= 0) and within 15 mins (ongoing)
+                        if 0 <= diff <= 15:
                             if url:
                                 url = normalize_url(url)
                                 
