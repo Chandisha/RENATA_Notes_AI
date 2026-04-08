@@ -346,7 +346,7 @@ async def privacy_page(request: Request):
             </section>
 
             <footer>
-                <p>For privacy inquiries, contact us at: chandishadas410@gmail.com</p>
+                <p>For privacy inquiries, contact us at: renata@renataiot.com</p>
                 <p><a href="/terms">Terms of Service</a> | <a href="/">Back to Dashboard</a></p>
             </footer>
         </body>
