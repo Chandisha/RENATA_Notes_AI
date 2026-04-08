@@ -21,87 +21,11 @@ async function apiFetch(endpoint, options = {}) {
     return response;
 }
 
-// --- GLOBAL NOTEBOOK STATE ---
-let currentNoteId = null;
+// --- GLOBAL STATE ---
 let notebookAutoSaveTimeout = null;
 
-window.updateNotebookSaveStatus = function(state) {
-    const msgEl = document.getElementById('save-status-msg');
-    if (!msgEl) return;
-    msgEl.textContent = state;
-    msgEl.style.opacity = (state === 'SAVED') ? '0.5' : '1';
-    if (state === 'SAVING...') msgEl.style.color = 'var(--accent-orange)';
-    else if (state === 'SAVED') msgEl.style.color = 'var(--text-secondary)';
-    else msgEl.style.color = 'var(--accent-purple)';
-};
-
-window.createNewNote = function() {
-    console.log("Notebook: Creating new note...");
-    currentNoteId = null;
-    const sub = document.getElementById('note-subject');
-    const txt = document.getElementById('notebook-textarea');
-    if (sub) sub.value = '';
-    if (txt) txt.value = '';
-    
-    const delBtn = document.getElementById('delete-note-btn');
-    if (delBtn) delBtn.style.opacity = '0.5';
-    
-    document.querySelectorAll('.note-item').forEach(item => {
-        item.style.background = 'transparent';
-        item.style.color = 'var(--text-secondary)';
-    });
-
-    window.updateNotebookSaveStatus('NEW DRAFT');
-    if (sub) sub.focus();
-};
-
-window.saveCurrentNote = async function() {
-    console.log("Notebook: Saving note...");
-    const title = document.getElementById('note-subject').value || 'Untitled Note';
-    const content = document.getElementById('notebook-textarea').value;
-    if (!content && title === 'Untitled Note') {
-        window.updateNotebookSaveStatus('DRAFT');
-        return;
-    }
-
-    try {
-        const res = await apiFetch("/api/notes/personal/save", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: currentNoteId, title, content })
-        });
-        const data = await res.json();
-        if (data.success) {
-            if (!currentNoteId) currentNoteId = data.id;
-            const delBtn = document.getElementById('delete-note-btn');
-            if (delBtn) delBtn.style.opacity = '1';
-            window.updateNotebookSaveStatus('SAVED');
-            
-            // Refresh list
-            if (typeof loadNotesData === 'function') loadNotesData();
-        }
-    } catch (err) { 
-        console.error("Save Error:", err);
-        window.updateNotebookSaveStatus('STILL SAVING...'); 
-    }
-};
-
-window.deleteCurrentNote = async function() {
-    if (!currentNoteId) return;
-    if (!confirm("Are you sure you want to delete this notepad file?")) return;
-    try {
-        await apiFetch(`/api/notes/personal/delete/${currentNoteId}`, { method: 'POST' });
-        window.createNewNote();
-        if (typeof loadNotesData === 'function') loadNotesData();
-    } catch (err) { console.error(err); }
-};
-
 window.triggerNotebookAutoSave = function() {
-    window.updateNotebookSaveStatus('SAVING...');
-    clearTimeout(notebookAutoSaveTimeout);
-    notebookAutoSaveTimeout = setTimeout(() => {
-        window.saveCurrentNote();
-    }, 1500);
+    // No-op or keep if needed for other parts, but removing personal note triggers
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -359,82 +283,22 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) { console.error(err); }
     }
 
-    // --- NOTE TAKING & NOTEBOOK LOGIC (Refined & Global) ---
+    // --- AI MEETING INSIGHTS LOGIC ---
     async function loadNotesData() {
         try {
-            // 1. Load Personal Notes List
-            const pNotesRes = await apiFetch("/api/notes/list");
-            if (pNotesRes) {
-                const pNotesData = await pNotesRes.json();
-                renderPersonalNotesList(pNotesData.notes || []);
+            // Load AI Meetings List
+            const res = await apiFetch("/api/notes/ai/list");
+            if (res) {
+                const data = await res.json();
+                renderAiMeetingsSelector(data.meetings || []);
             }
-
-            // 2. Load AI Meetings List
-            const aiNotesRes = await apiFetch("/api/notes/ai/list");
-            if (aiNotesRes) {
-                const aiNotesData = await aiNotesRes.json();
-                renderAiMeetingsSelector(aiNotesData.meetings || []);
-            }
-            
-            // 3. Setup Auto-save listeners
-            const subInput = document.getElementById('note-subject');
-            const txtArea = document.getElementById('notebook-textarea');
-            if (subInput && !subInput.dataset.bound) {
-                subInput.oninput = () => window.triggerNotebookAutoSave();
-                subInput.dataset.bound = "true";
-            }
-            if (txtArea && !txtArea.dataset.bound) {
-                txtArea.oninput = () => window.triggerNotebookAutoSave();
-                txtArea.dataset.bound = "true";
-            }
-        } catch (err) { console.error("Notebook Load Error:", err); }
-    }
-
-    function renderPersonalNotesList(notes) {
-        const listContainer = document.getElementById('personal-notes-list');
-        if (!listContainer) return;
-        listContainer.innerHTML = '';
-        
-        if (notes.length === 0) {
-            listContainer.innerHTML = '<div class="muted" style="font-size: 0.8rem; text-align: center; margin-top: 20px;">No notes yet. Click + to start.</div>';
-            return;
-        }
-
-        notes.forEach(n => {
-            const item = document.createElement('div');
-            item.className = `note-item ${currentNoteId == n.id ? 'active' : ''}`;
-            item.style.padding = '10px 12px';
-            item.style.borderRadius = '8px';
-            item.style.cursor = 'pointer';
-            item.style.fontSize = '0.85rem';
-            item.style.fontWeight = '600';
-            item.style.overflow = 'hidden';
-            item.style.whiteSpace = 'nowrap';
-            item.style.textOverflow = 'ellipsis';
-            item.style.marginBottom = '4px';
-            item.style.transition = 'all 0.2s';
-            
-            if (currentNoteId == n.id) {
-                item.style.background = 'rgba(242,113,33,0.1)';
-                item.style.color = 'var(--accent-orange)';
-            } else {
-                item.style.background = 'transparent';
-                item.style.color = 'var(--text-secondary)';
-            }
-
-            item.textContent = n.title || 'Untitled Note';
-            item.onclick = (e) => {
-                e.preventDefault();
-                window.selectPersonalNote(n.id);
-            };
-            listContainer.appendChild(item);
-        });
+        } catch (err) { console.error("AI Insights Load Error:", err); }
     }
 
     function renderAiMeetingsSelector(meetings) {
         const selector = document.getElementById('ai-insight-selector');
         if (!selector) return;
-        selector.innerHTML = '<option value="" disabled selected>AI Insights from Meeting...</option>';
+        selector.innerHTML = '<option value="" disabled selected>Select a meeting for intelligence...</option>';
         meetings.forEach(m => {
             const opt = document.createElement('option');
             opt.value = m.meeting_id;
