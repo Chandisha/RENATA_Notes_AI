@@ -512,6 +512,10 @@ async def dashboard_page_spa(request: Request):
         return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
+# --- Calendar Cache (30 second TTL) ---
+_calendar_cache = {}  # {email: {"events": [...], "count": N, "ts": timestamp}}
+CALENDAR_CACHE_TTL = 30  # seconds
+
 @app.get("/dashboard_data")
 async def dashboard_data(request: Request):
     user = get_current_user(request)
@@ -524,7 +528,12 @@ async def dashboard_data(request: Request):
     import asyncio
 
     async def fetch_calendar():
-        """Fetch Google Calendar events in a thread to avoid blocking."""
+        """Fetch Google Calendar events — with 30s cache to avoid slow repeat loads."""
+        # Check cache first
+        cached = _calendar_cache.get(email)
+        if cached and (time.time() - cached["ts"]) < CALENDAR_CACHE_TTL:
+            return cached["events"], cached["count"]
+        
         def _sync_fetch():
             events = []
             count = 0
@@ -558,7 +567,10 @@ async def dashboard_data(request: Request):
             except Exception as e:
                 print(f"Calendar fetch error: {e}")
             return events, count
-        return await asyncio.to_thread(_sync_fetch)
+        result = await asyncio.to_thread(_sync_fetch)
+        # Save to cache
+        _calendar_cache[email] = {"events": result[0], "count": result[1], "ts": time.time()}
+        return result
 
     # Run calendar fetch and DB reads in parallel
     calendar_task = asyncio.create_task(fetch_calendar())

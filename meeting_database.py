@@ -369,13 +369,27 @@ def update_bot_status(meeting_id, status, note="", user_email=None):
     return set_meeting_bot_status(meeting_id, status, bot_status_note=note, user_email=user_email)
 
 def get_active_joining_meeting(user_email):
-    """STRICTLY SCOPED: Only get the current user's truly active meeting (not completed/failed)."""
-    return fetch_one("""
+    """STRICTLY SCOPED: Only get the current user's truly active meeting (not completed/failed).
+    For CONNECTED/LIVE statuses, only return if updated within last 5 minutes to prevent stale ghost status."""
+    # First check for in-progress statuses (joining phases) - these are always valid
+    row = fetch_one("""
         SELECT meeting_id, bot_status, bot_status_note, updated_at 
         FROM meetings 
-        WHERE user_email = ? AND bot_status IN ('JOIN_PENDING', 'DISPATCHING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'LIVE', 'CONNECTED', 'PROCESSING')
+        WHERE user_email = ? AND bot_status IN ('JOIN_PENDING', 'DISPATCHING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'PROCESSING')
         ORDER BY updated_at DESC LIMIT 1
     """, (user_email,))
+    if row:
+        return row
+    
+    # For LIVE/CONNECTED: only return if recently updated (within 5 min) to avoid stale status
+    row = fetch_one("""
+        SELECT meeting_id, bot_status, bot_status_note, updated_at 
+        FROM meetings 
+        WHERE user_email = ? AND bot_status IN ('LIVE', 'CONNECTED')
+        AND updated_at >= datetime('now', '-5 minutes')
+        ORDER BY updated_at DESC LIMIT 1
+    """, (user_email,))
+    return row
 
 def get_recently_finished_meeting(user_email):
     """Get a recently COMPLETED/FAILED meeting (within last 2 minutes) for status display."""
