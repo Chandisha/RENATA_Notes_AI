@@ -29,23 +29,13 @@ window.triggerNotebookAutoSave = function() {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    feather.replace();
-    loadUserProfile();
-
-    // Navigation Logic
+    // 1. Immediate Navigation Setup (Priority)
     const navItems = document.querySelectorAll('.nav-item');
     const pages = document.querySelectorAll('.page');
 
-    navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const targetPage = item.getAttribute('data-page');
-            window.location.hash = targetPage;
-            showPage(targetPage);
-        });
-    });
-
     function showPage(pageId) {
         if (!pageId) pageId = 'dashboard';
+        console.log("Switching to page:", pageId);
 
         navItems.forEach(i => {
             i.classList.toggle('active', i.getAttribute('data-page') === pageId);
@@ -55,17 +45,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetElement) {
             pages.forEach(p => p.classList.remove('active'));
             targetElement.classList.add('active');
-            loadPageData(pageId);
+            loadPageData(pageId).catch(err => console.error("Page load error:", err));
         }
     }
 
+    navItems.forEach(item => {
+        item.onclick = (e) => {
+            const targetPage = item.getAttribute('data-page');
+            if (targetPage) {
+                window.location.hash = targetPage;
+                showPage(targetPage);
+            }
+        };
+    });
+
+    // Handle initial page and hash changes
     const initialPage = window.location.hash.replace('#', '') || 'dashboard';
     showPage(initialPage);
 
-    window.addEventListener('hashchange', () => {
+    window.onhashchange = () => {
         const newPage = window.location.hash.replace('#', '') || 'dashboard';
         showPage(newPage);
-    });
+    };
+
+    // 2. Library & Data Init (Non-blocking)
+    try {
+        if (typeof feather !== 'undefined') feather.replace();
+    } catch (e) { console.error("Feather error:", e); }
+
+    loadUserProfile();
+
 
     // --- MOBILE SIDEBAR TOGGLE ---
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
