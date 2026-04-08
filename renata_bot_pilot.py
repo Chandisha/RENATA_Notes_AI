@@ -132,90 +132,111 @@ class RenaMeetingBot:
         print("Bot Login Session Saved.")
 
     def automate_google_login(self, page):
-        """Robust automation for Google Login flow."""
+        """Robust automation for Google Login flow — ensures correct account is signed in."""
         try:
-            print(f"Checking Google Login for {PERMANENT_BOT_EMAIL}...")
-            
-            # If already on accounts page or redirected
-            if "accounts.google.com" not in page.url:
-                page.goto("https://accounts.google.com/signin", wait_until="networkidle")
+            print(f"[Login] Verifying Google account: {PERMANENT_BOT_EMAIL}...")
 
-            # 1. Check if already logged in by looking for profile info or meet identity
-            if "accounts.google.com/v3/signin/identifier" not in page.url and "signin" not in page.url:
-                print("Already logged in or on a non-login page.")
-                return True
+            # Step 1: Navigate to Google Account page to check login state
+            page.goto("https://myaccount.google.com/", wait_until="networkidle", timeout=20000)
+            time.sleep(3)
 
-            # 2. Account Chooser / Selector (if multiple accounts exist)
-            try:
-                email_div = page.locator(f'div[data-email="{PERMANENT_BOT_EMAIL}"], [aria-label*="{PERMANENT_BOT_EMAIL}"]').first
-                if email_div.is_visible(timeout=5000):
-                    print(f"Selecting existing account: {PERMANENT_BOT_EMAIL}")
-                    email_div.click()
+            # Step 2: If we landed on myaccount page, we are logged in — verify correct account
+            if "myaccount.google.com" in page.url:
+                page_text = page.content().lower()
+                if PERMANENT_BOT_EMAIL.lower() in page_text:
+                    print(f"[Login] Already signed in as {PERMANENT_BOT_EMAIL}")
+                    return True
+                else:
+                    print(f"[Login] Signed in as WRONG account! Switching to {PERMANENT_BOT_EMAIL}...")
+                    page.goto("https://accounts.google.com/Logout", wait_until="networkidle", timeout=15000)
                     time.sleep(2)
+
+            # Step 3: We need to sign in — go to sign-in page
+            page.goto("https://accounts.google.com/signin", wait_until="networkidle", timeout=20000)
+            time.sleep(3)
+
+            # Step 3a: Handle "Choose an account" page
+            try:
+                email_tile = page.locator(f'div[data-email="{PERMANENT_BOT_EMAIL}"]').first
+                if email_tile.is_visible(timeout=3000):
+                    print(f"[Login] Selecting existing account tile: {PERMANENT_BOT_EMAIL}")
+                    email_tile.click()
+                    time.sleep(3)
+                    try:
+                        pw_field = page.locator('input[type="password"]').first
+                        if pw_field.is_visible(timeout=5000):
+                            print("[Login] Entering password after tile select...")
+                            pw_field.fill(PERMANENT_BOT_PASS)
+                            page.click('#passwordNext, button[jsname="LgbsSe"]')
+                            time.sleep(5)
+                    except: pass
+                    self._handle_post_login(page)
+                    return True
             except: pass
 
-            # 3. Identifier Field (Email)
+            # Step 3b: Click "Use another account" if shown
             try:
-                email_input = page.locator('input[type="email"], #identifierId').first
-                if email_input.is_visible(timeout=5000):
-                    print(f"Entering email: {PERMANENT_BOT_EMAIL}")
-                    email_input.fill(PERMANENT_BOT_EMAIL)
-                    page.click('#identifierNext, [jsname="V67oBc"]')
+                another_btn = page.locator('text="Use another account"').first
+                if another_btn.is_visible(timeout=3000):
+                    print("[Login] Clicking 'Use another account'...")
+                    another_btn.click()
                     time.sleep(3)
             except: pass
 
-            # 4. Handle "Use another account" if needed
+            # Step 4: Enter email
             try:
-                another = page.locator('text="Use another account"').first
-                if another.is_visible(timeout=3000):
-                    another.click()
-                    time.sleep(2)
-            except: pass
+                email_input = page.locator('input[type="email"], #identifierId').first
+                email_input.wait_for(state="visible", timeout=10000)
+                print(f"[Login] Entering email: {PERMANENT_BOT_EMAIL}")
+                email_input.fill(PERMANENT_BOT_EMAIL)
+                page.locator('#identifierNext button, #identifierNext').click()
+                time.sleep(4)
+            except Exception as e:
+                print(f"[Login] Email input error: {e}")
 
-            # 5. Password Field
+            # Step 5: Enter password
             try:
-                pw_field = page.locator('input[type="password"], input[name="password"]').first
-                pw_field.wait_for(state="visible", timeout=10000)
-                print("Entering password...")
+                pw_field = page.locator('input[type="password"]').first
+                pw_field.wait_for(state="visible", timeout=15000)
+                print("[Login] Entering password...")
                 pw_field.fill(PERMANENT_BOT_PASS)
-                page.click('#passwordNext, [jsname="V67oBc"]')
+                page.locator('#passwordNext button, #passwordNext').click()
                 time.sleep(5)
-            except:
-                print("Password field not found. Might be already logged in or stuck.")
+            except Exception as e:
+                print(f"[Login] Password field error: {e}")
 
-            # 6. Handle Verification / "Protect your account" / "Continue"
-            for _ in range(3):
-                try:
-                    # Common Google "Continue" or "Not now" buttons after login
-                    btns = page.locator('button:has-text("Not now"), button:has-text("Continue"), button:has-text("Done"), button:has-text("I agree")')
-                    if btns.count() > 0:
-                        print(f"Clicking verification/consent button...")
-                        btns.first.click()
-                        time.sleep(3)
-                    else:
-                        break
-                except: break
+            # Step 6: Handle post-login screens
+            self._handle_post_login(page)
 
-            # 7. Check if on Meet page and needs to sign in
-            if "meet.google.com" in page.url:
-                try:
-                    signin_btn = page.locator('text="Sign in", text="Log in"').first
-                    if signin_btn.is_visible(timeout=3000):
-                        print("Clicking Sign In on Meet page...")
-                        signin_btn.click()
-                        time.sleep(3)
-                        # Recurse login flow
-                        self.automate_google_login(page)
-                except: pass
+            # Step 7: Final verification
+            page.goto("https://myaccount.google.com/", wait_until="networkidle", timeout=15000)
+            time.sleep(2)
+            if "myaccount.google.com" in page.url:
+                page_text = page.content().lower()
+                if PERMANENT_BOT_EMAIL.lower() in page_text:
+                    print(f"[Login] Successfully logged in as {PERMANENT_BOT_EMAIL}")
+                    return True
 
-            # 8. Final check
-            page.wait_for_load_state("networkidle", timeout=10000)
-            success = "accounts.google.com" not in page.url or "myaccount.google.com" in page.url
-            print(f"Login success: {success}")
-            return success
-        except Exception as e: 
-            print(f"Auto-login failed: {e}")
+            print("[Login] Could not confirm login. Proceeding anyway...")
             return False
+        except Exception as e:
+            print(f"[Login] Auto-login error: {e}")
+            return False
+
+    def _handle_post_login(self, page):
+        """Handle Google's post-login verification/consent screens."""
+        for _ in range(5):
+            try:
+                btns = page.locator('button:has-text("Not now"), button:has-text("Continue"), button:has-text("Done"), button:has-text("I agree"), button:has-text("Next")')
+                if btns.count() > 0:
+                    print(f"[Login] Clicking consent button...")
+                    btns.first.click()
+                    time.sleep(3)
+                else:
+                    break
+            except: break
+
+
 
     def start_audio_recording(self, filename):
         self.recording_path = self.output_dir / f"{filename}.wav"
@@ -404,6 +425,7 @@ class RenaMeetingBot:
                 
                 page.goto(meet_url)
                 page.wait_for_load_state("domcontentloaded")
+                time.sleep(3)
                 
                 if db_module and meeting_id: 
                     db_module.update_bot_status(meeting_id, "CONNECTING", "Entering lobby...", user_email=user_email)
@@ -415,6 +437,24 @@ class RenaMeetingBot:
                     self.automate_google_login(page)
                     page.goto(meet_url)
                     time.sleep(5)
+                
+                # Handle "You can't join this video call" by clearing session and re-logging
+                try:
+                    cant_join = page.locator('text="You can\'t join this video call"')
+                    if cant_join.count() > 0:
+                        print("[Meet] 'You can't join' detected! Clearing stale session and re-authenticating...")
+                        if db_module and meeting_id:
+                            db_module.update_bot_status(meeting_id, "CONNECTING", "Re-authenticating with correct account...", user_email=user_email)
+                        # Clear stale session cookies
+                        context.clear_cookies()
+                        # Re-login
+                        self.automate_google_login(page)
+                        # Retry navigation
+                        page.goto(meet_url)
+                        page.wait_for_load_state("domcontentloaded")
+                        time.sleep(5)
+                except: pass
+
                 
                 # Mute mic/camera shortcuts
                 page.keyboard.press("Control+d")
