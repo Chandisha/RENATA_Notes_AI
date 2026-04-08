@@ -1583,6 +1583,3 @@ window.toggleMeetingBot = async function(meetingId, enabled, el) {
         console.error(err);
     }
 };
-
-
-});
