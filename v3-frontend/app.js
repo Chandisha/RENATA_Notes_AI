@@ -85,6 +85,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- GLOBAL NOTEBOOK DELEGATED LISTENERS ---
+    document.addEventListener('click', (e) => {
+        // Plus Button
+        if (e.target.closest('#new-note-btn')) {
+            e.preventDefault();
+            if (typeof createNewNote === 'function') createNewNote();
+        }
+        // Save Button
+        if (e.target.closest('#save-notebook-btn')) {
+            e.preventDefault();
+            if (typeof saveCurrentNote === 'function') {
+                updateNotebookSaveStatus('SAVING...');
+                saveCurrentNote();
+            }
+        }
+        // Delete Button
+        if (e.target.closest('#delete-note-btn')) {
+            e.preventDefault();
+            if (typeof deleteCurrentNote === 'function') deleteCurrentNote();
+        }
+    });
+
     // --- DATA LOADING LOGIC ---
 
     async function loadPageData(page) {
@@ -280,9 +302,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let notebookAutoSaveTimeout = null;
 
     async function loadNotesData() {
-        // Bind events immediately so buttons work even if network is slow
-        bindNotebookEvents();
-        
         try {
             // 1. Load Personal Notes List
             const pNotesRes = await apiFetch("/api/notes/list");
@@ -297,6 +316,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const aiNotesData = await aiNotesRes.json();
                 renderAiMeetingsSelector(aiNotesData.meetings || []);
             }
+            
+            bindNotebookInputs();
         } catch (err) { console.error("Notebook Load Error:", err); }
     }
 
@@ -358,36 +379,10 @@ document.addEventListener('DOMContentLoaded', () => {
             selector.dataset.bound = "true";
         }
     }
-
-    function bindNotebookEvents() {
-        const newBtn = document.getElementById('new-note-btn');
-        const delBtn = document.getElementById('delete-note-btn');
-        const saveBtn = document.getElementById('save-notebook-btn');
+    // Notebook Inputs still need direct binding because they are 'input' events
+    function bindNotebookInputs() {
         const subjectInput = document.getElementById('note-subject');
         const contentArea = document.getElementById('notebook-textarea');
-
-        if (newBtn && !newBtn.dataset.bound) {
-            newBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                createNewNote();
-            });
-            newBtn.dataset.bound = "true";
-        }
-        if (delBtn && !delBtn.dataset.bound) {
-            delBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                deleteCurrentNote();
-            });
-            delBtn.dataset.bound = "true";
-        }
-        if (saveBtn && !saveBtn.dataset.bound) {
-            saveBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                updateNotebookSaveStatus('SAVING...');
-                saveCurrentNote();
-            });
-            saveBtn.dataset.bound = "true";
-        }
         if (subjectInput && !subjectInput.dataset.bound) {
             subjectInput.addEventListener('input', triggerAutoSave);
             subjectInput.dataset.bound = "true";
