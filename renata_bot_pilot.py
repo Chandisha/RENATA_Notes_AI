@@ -670,21 +670,21 @@ def _get_session_dir(slot):
 def _get_audio_device(slot):
     """
     To keep audios separated, each concurrency slot should use a different Virtual Cable.
-    Default:
-    Slot 0 -> VB-Cable (Standard)
+    Isolated Mapping:
+    Slot 0 -> Standard VB-Cable
     Slot 1 -> VB-Cable A
     Slot 2 -> VB-Cable B
-    Slot 3 -> VB-Cable C (if installed)
-    Slot 4 -> VB-Cable D (if installed)
-    
-    If cables are not installed, it falls back to the main CABLE, 
-    meaning audio from multiple meetings will be mixed in one recording.
+    Slot 3 -> VB-Cable C
+    Slot 4 -> VB-Cable D
     """
-    if slot == 1: return "audio=CABLE-A Output (VB-Audio Cable A)"
-    if slot == 2: return "audio=CABLE-B Output (VB-Audio Cable B)"
-    if slot == 3: return "audio=CABLE-C Output (VB-Audio Cable C)"
-    if slot == 4: return "audio=CABLE-D Output (VB-Audio Cable D)"
-    return "audio=CABLE Output (VB-Audio Virtual Cable)"
+    mapping = {
+        0: "audio=CABLE Output (VB-Audio Virtual Cable)",
+        1: "audio=CABLE-A Output (VB-Audio Cable A)",
+        2: "audio=CABLE-B Output (VB-Audio Cable B)",
+        3: "audio=CABLE-C Output (VB-Audio Cable C)",
+        4: "audio=CABLE-D Output (VB-Audio Cable D)",
+    }
+    return mapping.get(slot, mapping[0])
 
 def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
     session_dir = _get_session_dir(slot)
@@ -791,17 +791,26 @@ def run_auto_pilot(operator_email):
             all_users = db.fetch_all("SELECT email, bot_auto_join FROM users WHERE (google_token IS NOT NULL AND google_token != '')")
             now = datetime.now(timezone.utc)
             
+            # Persistent trackers for this session
+            if not hasattr(run_auto_pilot, "_last_scans"):
+                run_auto_pilot._last_scans = {}
+
             for user_row in all_users:
                 cal_email = user_row['email']
                 # Respect auto-join setting
                 if not user_row.get('bot_auto_join', 1):
                     continue
                 
-                if gmail_scanner: 
-                    try:
-                        gmail_scanner.scan_inbox(cal_email)
-                    except Exception: 
-                        pass
+                # OPTIMIZATION: Only scan Gmail every 60 seconds (prevents throttling & lag)
+                if gmail_scanner:
+                    last_scan = run_auto_pilot._last_scans.get(cal_email, 0)
+                    if (time.time() - last_scan) > 60:
+                        try:
+                            print(f"[Pilot] Scanning Gmail for {cal_email}...")
+                            gmail_scanner.scan_inbox(cal_email)
+                            run_auto_pilot._last_scans[cal_email] = time.time()
+                        except Exception as ge: 
+                            print(f"Gmail Error: {ge}")
                 
                 service = get_service(cal_email)
                 if not service: 
