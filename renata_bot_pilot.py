@@ -524,56 +524,7 @@ class RenaMeetingBot:
                         if page.locator('text="You left the meeting"').count() > 0:
                             break
                         
-                        # --- Live AI Note Taking Logic ---
-                        if not hasattr(self, '_last_notes_sync'):
-                            self._last_notes_sync = time.time()
-                            self._captured_lines = []
-                            # Enable Captions
-                            page.keyboard.press("c")
-                            print("[Live] AI Note-taking: Captions enabled.")
-
-                        # Scrape Live Captions (if visible)
-                        try:
-                            # Standard Google Meet caption selector
-                            elements = page.locator('div[jscontroller="p2V79"] div[role="log"] span, div.Vwo7of span').all_text_contents()
-                            if elements:
-                                chunk = " ".join(elements).strip()
-                                if chunk and (not self._captured_lines or chunk != self._captured_lines[-1]):
-                                    self._captured_lines.append(chunk)
-                        except: pass
-
-                        # Sync every 120 seconds
-                        if time.time() - self._last_notes_sync > 120:
-                            if len(self._captured_lines) > 3:
-                                try:
-                                    print("[Live] AI Note-taking: Synchronizing insights with Gemini 3.0...")
-                                    full_text = "\n".join(self._captured_lines[-50:])
-                                    prompt = ("The following are live meeting transcripts. Extract Key Decisions, Action Items, and main Discussion Points as of now. "
-                                             "Be professional and use a structured bulleted format. Focus on 'Minutes of Meeting' style.\n\n"
-                                             f"TRANSCRIPT:\n{full_text}")
-                                    
-                                    # Use Gemini 3.0 Flash Priority
-                                    api_key = os.getenv("GEMINI_API_KEY")
-                                    insights = None
-                                    if api_key:
-                                        try:
-                                            import google.generativeai as genai
-                                            genai.configure(api_key=api_key)
-                                            # Priority: 3.0 -> 2.5
-                                            for model_id in ["gemini-3-flash-preview", "gemini-2.5-flash-preview"]:
-                                                try:
-                                                    model = genai.GenerativeModel(model_id)
-                                                    resp = model.generate_content(prompt)
-                                                    insights = resp.text
-                                                    if insights: break
-                                                except: continue
-                                        except: pass
-                                    
-                                    if insights:
-                                        db_module.update_bot_status(meeting_id, "CONNECTED", note=f"LIVE_INSIGHTS:\n{insights}", user_email=user_email)
-                                except Exception as n_err:
-                                    print(f"[Live] Sync Error: {n_err}")
-                            self._last_notes_sync = time.time()
+                        # --- Check for user cancellation or exit ---
 
                         # Check for user cancellation
                         if db_module and meeting_id:
