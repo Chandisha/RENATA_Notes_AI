@@ -629,7 +629,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     data: {
                         labels: stats.chart_labels,
                         datasets: [{
-                            label: 'Daily Engagement',
+                            label: 'AI Engagement Score',
                             data: stats.chart_data,
                             backgroundColor: 'rgba(242, 113, 33, 0.7)',
                             borderColor: '#f27121',
@@ -643,6 +643,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         plugins: {
                             legend: { display: false },
                             tooltip: {
+                                callbacks: {
+                                    title: (context) => `Day: ${context[0].label}`,
+                                    label: (context) => `Engagement Score: ${context.parsed.y}%`
+                                },
                                 backgroundColor: '#1e293b',
                                 titleColor: '#fff',
                                 bodyColor: '#cbd5e1',
