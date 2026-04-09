@@ -21,34 +21,37 @@ DB_PATH = Path("meeting_outputs") / "meetings.db"  # For SQLite (Local)
 
 def get_db_connection():
     """Get a connection to the database (PostgreSQL if URL exists, else SQLite)."""
-    if DATABASE_URL:
-        # DNS Fix for some ISPs (like Reliance Jio)
+    # Defensive: Ensure URL is clean of hidden characters
+    raw_url = os.getenv("DATABASE_URL")
+    clean_url = raw_url.strip().replace('\r', '').replace('\n', '') if raw_url else None
+    
+    if clean_url:
         import socket
         from urllib.parse import urlparse
         try:
-            parsed = urlparse(DATABASE_URL)
+            parsed = urlparse(clean_url)
             hostname = parsed.hostname
             if hostname:
                 # Resolve IP manually using a more robust method
-                addr_info = socket.getaddrinfo(hostname, 5432)
-                if addr_info:
-                    ip = addr_info[0][4][0]
-                    new_url = DATABASE_URL.replace(hostname, ip)
-                    # Use a short timeout to prevent hanging
-                    return psycopg2.connect(new_url, host=hostname, connect_timeout=10)
+                try:
+                    addr_info = socket.getaddrinfo(hostname, 5432, socket.AF_INET)
+                    if addr_info:
+                        ip = addr_info[0][4][0]
+                        connect_url = clean_url.replace(hostname, ip)
+                        return psycopg2.connect(connect_url, host=hostname, connect_timeout=15)
+                except Exception as dns_e:
+                    print(f"DNS Resolution Hint: {dns_e}")
+            
+            # Direct connection attempt if DNS fix skipped/failed
+            return psycopg2.connect(clean_url, connect_timeout=15)
         except Exception as e:
-            print(f"Manual DNS Fix failed: {e}. Falling back to default.")
-        
-        # Fallback with explicit timeout
-        try:
-            return psycopg2.connect(DATABASE_URL, connect_timeout=10)
-        except Exception as e:
-            print(f"Database Connection Error: {e}")
-            raise e
-    else:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        return conn
+            print(f"⚠️ Cloud DB unreachable: {e}")
+            print("🚀 Falling back to Local Database to prevent data loss...")
+    
+    # SQLite Fallback (Always works offline)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def exec_commit(query, params=()):
     """Execute a query and commit."""
