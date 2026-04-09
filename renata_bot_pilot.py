@@ -50,14 +50,14 @@ def normalize_url(url: str) -> str:
     return url
 
 # --- BOT CONFIGURATION ---
-PERMANENT_BOT_EMAIL = os.getenv("BOT_EMAIL", "renata@renataiot.com")
+PERMANENT_BOT_EMAIL = os.getenv("BOT_EMAIL", "renata@nexren.ai")
 PERMANENT_BOT_PASS = os.getenv("BOT_PASSWORD", "")
 BOT_SESSION_DIR = os.path.join(os.getcwd(), "bot_session", "main")
 os.makedirs(BOT_SESSION_DIR, exist_ok=True)
 
 if not PERMANENT_BOT_PASS:
     print("⚠ WARNING: BOT_PASSWORD not set in .env! Google login will fail.")
-    print("  Add to .env:  BOT_EMAIL=renata@renataiot.com")
+    print("  Add to .env:  BOT_EMAIL=renata@nexren.ai")
     print("                BOT_PASSWORD=your_password_here")
 
 
