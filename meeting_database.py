@@ -29,15 +29,22 @@ def get_db_connection():
             parsed = urlparse(DATABASE_URL)
             hostname = parsed.hostname
             if hostname:
-                # Resolve IP manually
-                ip = socket.gethostbyname(hostname)
-                new_url = DATABASE_URL.replace(hostname, ip)
-                # We still pass the hostname to psycopg2 for SSL validation
-                return psycopg2.connect(new_url, host=hostname)
+                # Resolve IP manually using a more robust method
+                addr_info = socket.getaddrinfo(hostname, 5432)
+                if addr_info:
+                    ip = addr_info[0][4][0]
+                    new_url = DATABASE_URL.replace(hostname, ip)
+                    # Use a short timeout to prevent hanging
+                    return psycopg2.connect(new_url, host=hostname, connect_timeout=10)
         except Exception as e:
             print(f"Manual DNS Fix failed: {e}. Falling back to default.")
         
-        return psycopg2.connect(DATABASE_URL)
+        # Fallback with explicit timeout
+        try:
+            return psycopg2.connect(DATABASE_URL, connect_timeout=10)
+        except Exception as e:
+            print(f"Database Connection Error: {e}")
+            raise e
     else:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
