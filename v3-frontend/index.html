@@ -184,22 +184,25 @@
                     
                     <div class="ai-intelligence-hub" style="max-width: 1000px; margin: 0 auto; height: calc(100vh - 220px); display: flex; flex-direction: column; gap: 20px;">
                         <div class="card ai-resource-pane" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border-color); background: #ffffff; flex: 1; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
-                            <div class="panel-header" style="padding: 20px 25px; border-bottom: 1px solid var(--border-color); background: rgba(242,113,33,0.02); display: flex; align-items: center; justify-content: space-between;">
                                 <div style="display: flex; align-items: center; gap: 12px;">
                                     <div class="icon-circle" style="background: var(--accent-orange); color: white; width: 36px; height: 36px;">
                                         <i data-feather="cpu" style="width: 18px;"></i>
                                     </div>
                                     <div>
-                                        <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary);">AI Meeting Insights</h3>
-                                        <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">Automated summaries and expert analysis.</p>
+                                        <h3 id="ai-pane-title" style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin:0;">AI Intelligence Hub</h3>
+                                        <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">Select a report to view analysis.</p>
                                     </div>
                                 </div>
-                                <select id="ai-insight-selector" style="width:320px; padding: 10px 15px; border-radius: 12px; border: 1px solid var(--border-color); background: #ffffff; font-size: 0.85rem; font-weight: 600; cursor:pointer; outline: none; box-shadow: 0 4px 12px rgba(0,0,0,0.03);">
-                                    <option value="" disabled selected>Select a meeting to view intelligence...</option>
-                                </select>
                             </div>
                             
-                            <div id="ai-insight-display" style="flex: 1; padding: 40px; overflow-y: auto; font-size: 1.05rem; line-height: 1.8; color: #334155; background: #fafafa;">
+                            <div style="display: flex; flex: 1; overflow: hidden; background: #fafafa;">
+                                <!-- Left List Sidebar -->
+                                <div id="ai-notes-list-container" style="width: 320px; border-right: 1px solid var(--border-color); background: #ffffff; overflow-y: auto;">
+                                    <div class="muted" style="padding: 20px; text-align: center;">Loading reports...</div>
+                                </div>
+                                
+                                <!-- Right Content Area -->
+                                <div id="ai-insight-display" style="flex: 1; padding: 40px; overflow-y: auto; font-size: 1.05rem; line-height: 1.8; color: #334155;">
                                 <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: var(--text-secondary); opacity: 0.7;">
                                     <div style="background: white; padding: 30px; border-radius: 50%; box-shadow: 0 10px 20px rgba(0,0,0,0.05); margin-bottom: 25px;">
                                         <i data-feather="clipboard" style="width: 48px; height: 48px; color: var(--accent-orange);"></i>

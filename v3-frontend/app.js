@@ -305,30 +305,65 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderAiMeetingsSelector(meetings) {
-        const selector = document.getElementById('ai-insight-selector');
-        if (!selector) return;
-        selector.innerHTML = '<option value="" disabled selected>Select a meeting for intelligence...</option>';
-        meetings.forEach(m => {
-            const opt = document.createElement('option');
-            opt.value = m.meeting_id;
-            const dateStr = new Date(m.start_time).toLocaleDateString(undefined, {month:'short', day:'numeric'});
-            opt.textContent = `${m.title} (${dateStr})`;
-            selector.appendChild(opt);
+        const listContainer = document.getElementById('ai-notes-list-container');
+        if (!listContainer) return;
+        
+        listContainer.innerHTML = '';
+        if (meetings.length === 0) {
+            listContainer.innerHTML = '<div class="muted" style="padding:20px; text-align:center;">No intelligence reports found.</div>';
+            return;
+        }
+
+        meetings.forEach((m, index) => {
+            const item = document.createElement('div');
+            item.className = 'meeting-item';
+            item.style = 'padding:18px; border-bottom:1px solid var(--border-color); cursor:pointer; transition: all 0.2s;';
+            
+            // Clean title: If it's "Live Meeting", change to "Intelligence Report"
+            let displayTitle = m.title || "Intelligence Report";
+            if (displayTitle.toLowerCase().includes("live meeting") || displayTitle.toLowerCase().includes("upcoming")) {
+                displayTitle = "Intelligence Report";
+            }
+            
+            const dateStr = new Date(m.start_time).toLocaleDateString(undefined, {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            item.innerHTML = `
+                <span class="report-id">#${meetings.length - index}</span>
+                <div class="report-info">
+                    <span class="report-name">${displayTitle}</span>
+                    <span class="report-date">Generated ${timeAgo(m.created_at)} ago</span>
+                </div>
+                <i data-feather="chevron-right" style="width:18px; color:var(--text-secondary);"></i>
+            `;
+            
+            item.onclick = () => {
+                // Highlight active item
+                document.querySelectorAll('.meeting-item').forEach(i => i.style.background = 'transparent');
+                item.style.background = 'rgba(242,113,33,0.05)';
+                loadAiInsight(m.meeting_id, displayTitle);
+            };
+            listContainer.appendChild(item);
         });
         
-        if (!selector.dataset.bound) {
-            selector.onchange = () => loadAiInsight(selector.value);
-            selector.dataset.bound = "true";
-        }
+        feather.replace();
     }
 
-    async function loadAiInsight(meetingId) {
+    async function loadAiInsight(meetingId, title) {
         const display = document.getElementById('ai-insight-display');
         const footer = document.getElementById('ai-insight-footer');
         const pdfBtn = document.getElementById('view-full-pdf-btn');
+        const paneHeader = document.getElementById('ai-pane-title');
 
         if (!meetingId) return;
-        display.innerHTML = '<p class="muted">Loading Intelligence...</p>';
+        if (paneHeader) paneHeader.textContent = title || "Intelligence Report";
+        
+        display.innerHTML = `
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:15px;">
+                <i data-feather="loader" class="spin" style="width:32px; color:var(--accent-orange);"></i>
+                <p class="muted">Extracting Intelligence...</p>
+            </div>
+        `;
+        feather.replace();
         footer.style.display = 'none';
 
         try {
@@ -344,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
             }
         } catch (err) { display.innerHTML = '<p style="color:#ef4444;">Error loading AI insights.</p>'; }
+        feather.replace();
     }
 
     function updateNotebookSaveStatus(text) {
