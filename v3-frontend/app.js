@@ -1,4 +1,4 @@
-// RENATA Frontend Logic
+// RENATA Frontend Logic - v2.0 Production Build
 const API_BASE = window.location.origin;
 
 // Helper for API calls
