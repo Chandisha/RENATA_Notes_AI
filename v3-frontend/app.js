@@ -327,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const dateStr = new Date(m.start_time).toLocaleDateString(undefined, {
                 month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
             item.innerHTML = `
                 <span class="report-id">#${meetings.length - index}</span>
                 <div class="report-info">
