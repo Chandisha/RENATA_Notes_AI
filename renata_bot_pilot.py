@@ -107,12 +107,16 @@ class RenaMeetingBot:
                 pass
             
         self.bot_name = bot_name
-        self.audio_device = audio_device
+        self.audio_device = audio_device  # kept for legacy fallback only
         self.output_dir = Path("meeting_outputs") / "recordings"
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.audio_process = None
+        self.audio_process = None        # legacy ffmpeg process (unused in browser mode)
         self.recording_path = None
         self.session_dir = session_dir if session_dir else BOT_SESSION_DIR
+        # --- Browser-native recording state ---
+        self._browser_page = None        # active Playwright page
+        self._audio_chunks = []          # raw webm chunks received from browser
+        self._recording_active = False
 
     def bot_setup_login(self):
         print(f"Opening Browser for Bot Login to {PERMANENT_BOT_EMAIL}...")
@@ -266,49 +270,108 @@ class RenaMeetingBot:
 
 
 
+    # -------------------------------------------------------------------------
+    # BROWSER-NATIVE AUDIO RECORDING (No VB-Cable / ffmpeg needed)
+    # Uses the browser's built-in MediaRecorder API via Playwright.
+    # Each browser context is fully isolated — unlimited concurrent bots.
+    # -------------------------------------------------------------------------
+
     def start_audio_recording(self, filename):
-        self.recording_path = self.output_dir / f"{filename}.wav"
-        cmd = [
-    "ffmpeg",
-    "-threads", "1",
-    "-loglevel", "quiet",
-    "-y",
-    "-f", "dshow",
-    "-i", self.audio_device,
-    str(self.recording_path)]
-        # Use subprocess.CREATE_NEW_PROCESS_GROUP for Windows CTRL+C emulation
+        """Start capturing audio from the live browser tab via MediaRecorder."""
+        self.recording_path = self.output_dir / f"{filename}.webm"
+        self._audio_chunks = []
+        self._recording_active = True
+
+        if not self._browser_page:
+            print("[Audio] No browser page available — skipping browser recording.")
+            return
+
+        page = self._browser_page
+
+        # Expose a Python function so JS can send audio chunks back
         try:
-            from subprocess import CREATE_NEW_PROCESS_GROUP
-            creation_flags = CREATE_NEW_PROCESS_GROUP
-        except ImportError:
-            creation_flags = 0
-            
-        self.audio_process = subprocess.Popen(
-            cmd, 
-            stdout=subprocess.DEVNULL, 
-            stderr=subprocess.DEVNULL, 
-            creationflags=creation_flags
-        )
+            page.expose_function("_renataAudioChunk", self._on_audio_chunk)
+        except Exception:
+            pass  # already exposed on this page
+
+        # Inject MediaRecorder into the page — captures all audio playing in tab
+        page.evaluate("""
+        () => {
+            if (window._renataRecorder) return;  // already running
+
+            // Capture all audio elements on the page (Meet streams)
+            const ctx = new AudioContext();
+            const dest = ctx.createMediaStreamDestination();
+
+            // Hook every <audio> and <video> element currently or later added
+            function hookElement(el) {
+                try {
+                    const src = ctx.createMediaElementSource(el);
+                    src.connect(dest);
+                    src.connect(ctx.destination);  // keep original playback
+                } catch(e) {}
+            }
+
+            document.querySelectorAll('audio, video').forEach(hookElement);
+
+            const observer = new MutationObserver(() => {
+                document.querySelectorAll('audio, video').forEach(hookElement);
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            // Start recording
+            const recorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
+            window._renataRecorder = recorder;
+
+            recorder.ondataavailable = async (e) => {
+                if (e.data && e.data.size > 0) {
+                    const buf = await e.data.arrayBuffer();
+                    const arr = Array.from(new Uint8Array(buf));
+                    window._renataAudioChunk(arr);
+                }
+            };
+
+            recorder.start(3000);  // send chunk every 3 seconds
+            console.log('[Renata] Browser audio recording started.');
+        }
+        """)
+        print(f"[Audio] Browser-native recording started → {self.recording_path}")
+
+    def _on_audio_chunk(self, chunk_array):
+        """Callback — receives raw audio bytes from browser MediaRecorder."""
+        if self._recording_active:
+            self._audio_chunks.append(bytes(chunk_array))
 
     def stop_audio_recording(self):
-        if self.audio_process:
+        """Stop browser MediaRecorder and save the WebM file."""
+        self._recording_active = False
+
+        if self._browser_page:
             try:
-                # Windows Break Event
-                from signal import CTRL_BREAK_EVENT
-                self.audio_process.send_signal(CTRL_BREAK_EVENT)
-            except:
-                self.audio_process.terminate()
-            self.audio_process.wait()
+                self._browser_page.evaluate("""
+                () => {
+                    if (window._renataRecorder && window._renataRecorder.state !== 'inactive') {
+                        window._renataRecorder.stop();
+                        window._renataRecorder = null;
+                    }
+                }
+                """)
+            except Exception:
+                pass
+
+        time.sleep(1)  # allow final chunks to arrive
+
+        if self._audio_chunks and self.recording_path:
+            with open(self.recording_path, 'wb') as f:
+                for chunk in self._audio_chunks:
+                    f.write(chunk)
+            print(f"[Audio] Saved {len(self._audio_chunks)} chunks → {self.recording_path}")
+        else:
+            print("[Audio] No audio chunks captured.")
 
     def record_manual_audio(self):
-        """Standard manual recording from desktop output"""
-        self.start_audio_recording(f"Manual_Record_{int(time.time())}")
-        print(f"Recording manual audio to {self.recording_path}... Press Ctrl+C to stop.")
-        try:
-            while True: time.sleep(1)
-        except KeyboardInterrupt:
-            self.stop_audio_recording()
-            print(f"Manual recording saved.")
+        """Legacy manual recording stub."""
+        print("[Audio] Manual recording requires a live browser session.")
 
     def join_zoom_meeting(self, zoom_url, record=True, db_module=None, meeting_id=None, user_email=None):
         if not meeting_id: 
@@ -369,7 +432,8 @@ class RenaMeetingBot:
                 if db_module and meeting_id: 
                     db_module.update_bot_status(meeting_id, "LIVE", "Renata active in Zoom. Waiting for admission...")
                 
-                if record: 
+                if record:
+                    self._browser_page = page   # give recorder access to the page
                     self.start_audio_recording(f"Zoom_Meeting_{int(time.time())}")
                     
                 if db_module and meeting_id:
@@ -508,7 +572,8 @@ class RenaMeetingBot:
                         break
                     time.sleep(5)
                 
-                if record: 
+                if record:
+                    self._browser_page = page   # give recorder access to the page
                     self.start_audio_recording(f"Meet_{int(time.time())}")
                     
                 # Monitor Loop — wait for meeting to end
@@ -620,22 +685,52 @@ def _get_session_dir(slot):
 
 def _get_audio_device(slot):
     """
-    To keep audios separated, each concurrency slot should use a different Virtual Cable.
-    Isolated Mapping:
-    Slot 0 -> Standard VB-Cable
-    Slot 1 -> VB-Cable A
-    Slot 2 -> VB-Cable B
-    Slot 3 -> VB-Cable C
-    Slot 4 -> VB-Cable D
+    Maps concurrency slots to isolated virtual audio devices.
+    Supports two drivers — switch via AUDIO_DRIVER in .env:
+
+      AUDIO_DRIVER=vbcable  (default, uses VB-Audio Virtual Cable)
+      AUDIO_DRIVER=sar      (uses Synchronous Audio Router — free & open source)
+
+    VB-Cable Mapping (default):
+      Slot 0 -> Standard VB-Cable (Free)
+      Slot 1 -> VB-Cable A        (Donation required)
+      Slot 2 -> VB-Cable B        (Donation required)
+      Slot 3 -> VB-Cable C        (Donation required)
+      Slot 4 -> VB-Cable D        (Donation required)
+
+    SAR Mapping (100% Free, Open Source):
+      Slot 0 -> SAR Slot 0
+      Slot 1 -> SAR Slot 1
+      Slot 2 -> SAR Slot 2
+      Slot 3 -> SAR Slot 3
+      Slot 4 -> SAR Slot 4
+      (Create these endpoint names in SAR Settings GUI)
     """
-    mapping = {
-        0: "audio=CABLE Output (VB-Audio Virtual Cable)",
-        1: "audio=CABLE-A Output (VB-Audio Cable A)",
-        2: "audio=CABLE-B Output (VB-Audio Cable B)",
-        3: "audio=CABLE-C Output (VB-Audio Cable C)",
-        4: "audio=CABLE-D Output (VB-Audio Cable D)",
-    }
-    return mapping.get(slot, mapping[0])
+    driver = os.getenv("AUDIO_DRIVER", "vbcable").lower().strip()
+
+    if driver == "sar":
+        # Synchronous Audio Router — free, open source
+        # Endpoint names must match what you created in SAR Settings
+        mapping = {
+            0: "audio=SAR Slot 0",
+            1: "audio=SAR Slot 1",
+            2: "audio=SAR Slot 2",
+            3: "audio=SAR Slot 3",
+            4: "audio=SAR Slot 4",
+        }
+    else:
+        # VB-Audio Virtual Cable (default)
+        mapping = {
+            0: "audio=CABLE Output (VB-Audio Virtual Cable)",
+            1: "audio=CABLE-A Output (VB-Audio Cable A)",
+            2: "audio=CABLE-B Output (VB-Audio Cable B)",
+            3: "audio=CABLE-C Output (VB-Audio Cable C)",
+            4: "audio=CABLE-D Output (VB-Audio Cable D)",
+        }
+
+    device = mapping.get(slot, mapping[0])
+    print(f"[Audio] Slot {slot} -> {device} (driver: {driver})")
+    return device
 
 def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
     session_dir = _get_session_dir(slot)
