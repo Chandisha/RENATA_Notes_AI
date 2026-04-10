@@ -3,9 +3,6 @@ import re
 import json
 import warnings
 import sys
-import torch
-import time
-import base64
 import traceback
 from pathlib import Path
 from datetime import datetime
@@ -32,13 +29,8 @@ if os.name == 'nt':
 
 load_dotenv(override=True)
 
-# AI & Transcription Engine Imports
+# AI & Transcription Engine
 import google.generativeai as genai
-try:
-    import nemo.collections.asr as nemo_asr
-    NEMO_AVAILABLE = True
-except Exception:
-    NEMO_AVAILABLE = False
 
 # PDF Imports
 from reportlab.lib import colors
@@ -150,8 +142,7 @@ class AdaptiveMeetingNotesGenerator:
             return None
 
     def perform_diarization(self, audio_path=None):
-        """Disabled local NeMo diarization as per user request to use purely Gemini."""
-        logger.info("Local NeMo Diarization skipped (Pure Gemini Mode).")
+        """Pure Gemini Mode: Skips local diarization."""
         return
 
     def _align_with_diarization(self, gemini_segments):

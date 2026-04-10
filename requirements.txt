@@ -1,4 +1,5 @@
 # Renata - Meeting Intelligence System Dependencies
+# Optimized for Pure Gemini 3.0 (Zero-Local-Model Architecture)
 
 # === Web Framework (FastAPI Production Stack) ===
 fastapi
@@ -9,45 +10,28 @@ itsdangerous
 starlette
 sqlalchemy
 
-# === Core Audio & Transcription ===
-faster-whisper
-librosa
-numpy
-soundfile
-
-# === AI & LLM Orchestration ===
+# === Core Logic & UI ===
 google-generativeai
-langchain
-langchain-community
-torch
-pandas
-
-# === Browser Automation (Pilot Bot) ===
 playwright
 playwright-stealth
-pyperclip
-
-# === PDF Generation & Reporting ===
 reportlab
+loguru
+python-dotenv
+requests
+pandas
 
-# === Google API Integrations (Calendar / Gmail / Drive) ===
+# === Google API Integrations (Calendar / Gmail) ===
 google-api-python-client
 google-auth-oauthlib
 google-auth-httplib2
 
-# === RAG / AI Search Pipeline ===
-sentence-transformers
+# === Search & Data Pipeline ===
 chromadb
 pdfplumber
 pypdf
 
 # === Utilities ===
-loguru
-scikit-learn
-python-dotenv
-omegaconf
-requests
-ollama
 pyngrok
 psycopg2-binary
 razorpay
+pyperclip
