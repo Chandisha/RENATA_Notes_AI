@@ -1,388 +1,140 @@
 # RENATA - AI Meeting Intelligence Platform
 
-**Live Application**: https://renata-notes-ai.vercel.app
+**Live Application**: [meet.nexren.ai](https://meet.nexren.ai)
 
-RENATA is an autonomous meeting intelligence platform. It joins your Google Meet and Zoom calls as a silent bot, records the audio, and generates structured AI-powered reports — transcripts, summaries, action items, speaker analytics, and a searchable knowledge base — all from a cloud dashboard.
-
----
-
-## Table of Contents
-
-1. [Architecture Overview](#architecture-overview)
-2. [Features](#features)
-3. [Tech Stack](#tech-stack)
-4. [Prerequisites](#prerequisites)
-5. [Local Development Setup](#local-development-setup)
-6. [Cloud Deployment on Vercel](#cloud-deployment-on-vercel)
-7. [The Hybrid Setup: Cloud Dashboard and Local Bot](#the-hybrid-setup)
-8. [Project Structure](#project-structure)
-9. [Environment Variables Reference](#environment-variables-reference)
-10. [Usage Guide](#usage-guide)
-11. [Developer](#developer)
+RENATA is an autonomous meeting intelligence platform. It joins your Google Meet and Zoom calls as a silent bot, records the audio via native browser capture, and generates structured AI-powered reports — transcripts, summaries, action items, speaker analytics, and a searchable knowledge base — all from a professional cloud dashboard.
 
 ---
 
-## Architecture Overview
+## ⚡ The Zero-Driver Breakthrough (New!)
 
-RENATA uses a split "Brain and Body" architecture to provide cloud-delivered features without expensive cloud compute for browser automation.
+Unlike other self-hosted bots that require complex virtual audio cables (VB-Cable), virtual drivers, or disabling Windows Secure Boot, **RENATA 2.0** uses a custom **Browser-Native MediaRecorder** architecture.
 
+- ✅ **No Drivers Needed**: No VB-Cable, no SAR, no VAC.
+- ✅ **Total Isolation**: Record 5+ meetings at once; audio streams never mix.
+- ✅ **Secure Boot Friendly**: Works on any standard Windows/Mac/Linux machine.
+- ✅ **Opus-Quality**: Captures high-fidelity WebM audio directly from the meeting's WebAudio context.
+
+---
+
+## 🏛️ Architecture Overview
+
+RENATA uses a split "Brain and Body" architecture to provide cloud features without the high cost of running high-RAM browser automation in a serverless environment.
+
+```mermaid
+graph TD
+    subgraph Cloud_Brain ["Cloud Brain (Vercel)"]
+        Dashboard[Web Dashboard]
+        API[FastAPI Backend]
+        DB[(PostgreSQL Neon)]
+    end
+
+    subgraph Local_Body ["Local Body (Your PC)"]
+        Pilot[renata_bot_pilot.py]
+        Browser[Playwright Chromium]
+        Recorder[Browser-Native MediaRecorder]
+        Intelligence[Gemini 3.0 Flash Engine]
+    end
+
+    Dashboard <--> API
+    API <--> DB
+    Pilot <--> DB
+    Pilot --> Browser
+    Browser --> Recorder
+    Recorder --> Intelligence
+    Intelligence --> DB
 ```
-+------------------------+        +-----------------------------+
-|   Vercel (The Brain)   |        |  Your Computer (The Body)   |
-|                        |  HTTP  |                             |
-|  - Web Dashboard       <--------+  - renata_bot_pilot.py      |
-|  - FastAPI API          |        |  - Playwright Chrome Bot    |
-|  - AI Search (RAG)     |        |  - Audio Recording          |
-|  - User Accounts       |        |  - PDF Generation           |
-|  - PostgreSQL (Neon)   |        |  - Local Transcription      |
-+------------------------+        +-----------------------------+
-```
-
-- The **Vercel app** (the Brain) handles the web UI and stores all data in a cloud PostgreSQL database.
-- The **local pilot** (the Body) polls the cloud database for dispatched meetings, then uses Playwright to open a real Chrome browser and join the call.
-- Results (transcripts, PDFs, summaries) are written back to the shared database and appear in the dashboard.
 
 ---
 
-## Features
+## ✨ Features
 
-### Autonomous Meeting Bot
-- Automatically joins meetings from your Google Calendar at the scheduled start time.
-- Supports Google Meet and Zoom via Playwright browser automation.
-- Joins silently with camera off and microphone muted.
-- Leaves automatically when the meeting ends or the room stays empty.
+### 🤖 Autonomous Meeting Bot
+- **Zero-Touch Join**: Automatically joins meetings from your Google Calendar.
+- **Support**: High-performance automation for **Google Meet** and **Zoom**.
+- **Silent Mode**: Mutes camera/mic and hides automation "infobars" for a professional presence.
+- **Auto-Leave**: Exits automatically when the meeting ends or when everyone else has left.
 
-### AI Processing Pipeline
-- **Transcription** using Google Gemini 3 Flash (fallback to Gemini 2.5 Flash).
-- **Speaker Diarization** to attribute speech to individual participants.
-- **Meeting Intelligence** including summaries, minutes of meeting, and action items.
-- **PDF Report Generation** with full UTF-8 support.
+### 🧠 Intelligence Suite
+- **Gemini 3.0 Flash**: Powered by the fastest, newest frontier models for 1:1 transcription accuracy.
+- **Hinglish Support**: Expertly handles mixed Hindi/English dialogue in Roman script.
+- **MoM & Action Items**: Generates professional Minutes of Meeting and owner-assigned tasks.
+- **Speaker Analytics**: Tracks engagement and talk-time per participant.
 
-### Live Status Tracking
-- Real-time bot status displayed on the dashboard as the bot moves through stages: Dispatching, Fetching, Connecting, In Lobby, Live In Call.
-
-### AI Search Assistant (RAG)
-- All meeting transcripts and generated PDFs are indexed into a ChromaDB vector store.
-- Ask natural language questions like "What were the action items from last Monday?" and get precise, citation-backed answers powered by Gemini.
-- Sync Knowledge Base button to re-index your archive at any time.
-
-### User Accounts and Settings
-- Google Sign-In for authentication (OAuth 2.0).
-- Editable display name. Gmail address is shown read-only.
-- Bot preferences: display name, auto-join toggle, recording toggle.
-- Account deletion with full data wipe.
-
-### Dashboard and Analytics
-- Meeting statistics: total meetings, hours captured, action items, participants.
-- Upcoming meetings from Google Calendar.
-- Recent AI reports list with PDF download links.
+### 📊 Professional Hub
+- **Intelligence Hub**: A centralized list view to access all AI notes with one click.
+- **PDF Export**: Generates premium PDF reports with full multilingual support.
+- **RAG Search**: Natural language search (e.g., "What did we decide about the budget last Friday?") across all past meetings.
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
-| Layer | Technology | Deployment |
-|---|---|---|
-| **Backend** | FastAPI | Vercel (Cloud) / Local |
-| **Auth** | Google OAuth 2.0 | Vercel (Cloud) / Local |
-| **Logic (Brain)** | Google Gemini 3 Flash | Vercel (Cloud) |
-| **Bot (Body)** | Playwright (Chromium) | **Local Device Only** |
-| **Database** | PostgreSQL (Neon) | Vercel (Cloud) & Local Pilot |
-| **AI Search** | Gemini direct (No-Torch) | Vercel (Cloud) |
-| **Local RAG** | ChromaDB (Vector Store) | Local Device Only |
-| **PDF Engine** | ReportLab | Vercel (Cloud) & Local |
-| **Frontend** | Vanilla JS / CSS | Vercel (Cloud) |
+| Layer | Technology |
+|---|---|
+| **Core Engine** | Google Gemini 3.0 Flash & 2.5 Flash |
+| **Automation** | Playwright (Chromium) & Stealth.js |
+| **Audio** | Browser-Native MediaRecorder (WebM/Opus) |
+| **Backend** | FastAPI / Python 3.11 |
+| **Frontend** | Vanilla JS / CSS (Modern Glassmorphism) |
+| **Database** | PostgreSQL (Neon / Cloud) |
+| **Search** | ChromaDB (Vector Store) |
 
 ---
 
-## 🚀 The Hybrid Setup: Brain (Cloud) & Body (Local)
+## 🚀 Getting Started (Local Setup)
 
-RENATA is designed as a **Hybrid AI Platform**. 
+### 1. Prerequisites
+- **Python 3.11** (Recommended)
+- **Playwright**: Installed via `playwright install chromium`
+- That's it! (No virtual audio drivers required for 2.0+)
 
-1. **The Cloud Brain (Vercel)**: Hosts the dashboard, handles user logins, stores meeting metadata, and provides AI search capabilities. It is optimized to run on Vercel's lightweight serverless environment (keeping package size under 500MB by using Gemini API directly for search instead of heavy local models).
-2. **The Local Body (Your PC)**: Runs the heavy-duty browser automation. It joins meetings, records audio, generates transcripts/PDFs, and syncs them to the Cloud Brain. This avoids the high costs and technical limitations of running browser bots in the cloud.
-
----
-
-## Prerequisites
-
-Before starting, make sure you have the following installed on your computer.
-
-- **Python 3.10 to 3.12** (Python 3.11 recommended)
-- **Git**
-- **FFmpeg** for audio processing
-  - Windows: Download from https://ffmpeg.org/download.html and add to your PATH
-- **VB-CABLE** for virtual audio routing (required for bot audio capture on Windows)
-  - Download from https://vb-audio.com/Cable/
-
----
-
-## Local Development Setup
-
-### Step 1: Clone the Repository
-
-```
+### 2. Installation
+```bash
+# Clone the repository
 git clone https://github.com/Chandisha/RENATA_Notes_AI.git
 cd RENATA_Notes_AI
-```
 
-### Step 2: Create a Python Virtual Environment
-
-It is strongly recommended to use a virtual environment to avoid dependency conflicts.
-
-```
-python -m venv renata
-```
-
-Activate the environment:
-- Windows: `.\renata\Scripts\activate`
-- Linux / macOS: `source renata/bin/activate`
-
-You should see `(renata)` appear in your terminal prompt.
-
-### Step 3: Install Dependencies
-
-```
+# Setup Environment
+python -m venv venv
+source venv/bin/activate  # Windows: .\venv\Scripts\activate
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-This will install all required packages including FastAPI, Playwright, ChromaDB, sentence-transformers, and the Google AI libraries.
+### 3. Environment Config (.env)
+Create a `.env` file with these keys:
+```env
+# AI & Intelligence
+GEMINI_API_KEY=your_key_here
+AUDIO_DRIVER=browser  # The default high-performance engine
 
-### Step 4: Set Up Google OAuth Credentials
+# Database (Shared with Vercel)
+DATABASE_URL=postgresql://your_neon_db_url
 
-RENATA requires a Google Cloud project to enable Sign-In with Google and access Calendar and Gmail.
-
-1. Go to https://console.cloud.google.com
-2. Create a new project.
-3. Enable the following APIs for your project:
-   - Google Calendar API
-   - Gmail API
-   - People API
-4. Go to APIs and Services > Credentials.
-5. Click Create Credentials > OAuth 2.0 Client ID.
-6. Select Web Application as the type.
-7. Add the following as an Authorized Redirect URI:
-   - `http://127.0.0.1:8000/auth/callback` (for local development)
-   - `https://your-app.vercel.app/auth/callback` (for production)
-8. Click Create, then download the JSON file.
-9. Rename the downloaded file to `credentials.json` and place it in the root of the project folder.
-
-### Step 5: Create the Environment File
-
-Create a file named `.env` in the root of the project with the following contents:
-
-```
-GEMINI_API_KEY=your_gemini_api_key_here
-SESSION_SECRET=any_long_random_string_here
-
-# Zoom OAuth (optional, only if you want Zoom integration)
-ZOOM_CLIENT_ID=your_zoom_client_id
-ZOOM_CLIENT_SECRET=your_zoom_client_secret
-
-# Leave this blank for local SQLite, or add your Neon URL for local PostgreSQL
-# DATABASE_URL=postgresql://...
+# Bot Identity
+BOT_EMAIL=renata@nexren.ai
+BOT_PASSWORD=your_pass
 ```
 
-To get a Gemini API key, visit https://aistudio.google.com/app/apikey.
-
-### Step 6: Start the Local Web Server
-
-```
-uvicorn main:app --reload --port 8000
-```
-
-Open your browser and go to http://127.0.0.1:8000 to access the dashboard locally.
-
----
-
-## Cloud Deployment on Vercel
-
-### Step 1: Set Up a PostgreSQL Database (Neon)
-
-Vercel's filesystem is temporary and resets on each deployment. You must use a cloud database.
-
-1. Go to https://neon.tech and create a free account.
-2. Create a new project.
-3. From your Neon dashboard, copy the connection string. It looks like:
-   ```
-   postgresql://neondb_owner:YOUR_PASSWORD@ep-something.aws.neon.tech/neondb?sslmode=require
-   ```
-4. Set this as your `DATABASE_URL` in Step 3 below.
-5. Initialize the database tables by running this once locally with the `DATABASE_URL` set in your `.env`:
-   ```
-   python init_pg_db.py
-   ```
-
-### Step 2: Connect Repository to Vercel
-
-1. Go to https://vercel.com and sign in.
-2. Click Add New > Project.
-3. Import your GitHub repository `RENATA_Notes_AI`.
-4. Vercel will auto-detect the `vercel.json` configuration.
-
-### Step 3: Add Environment Variables in Vercel
-
-In your Vercel project settings, go to Settings > Environment Variables and add the following:
-
-| Variable Name | Description |
-|---|---|
-| `DATABASE_URL` | Your Neon PostgreSQL connection string |
-| `GEMINI_API_KEY` | Your Google Gemini API key |
-| `GOOGLE_CREDENTIALS_JSON` | Paste the entire contents of your `credentials.json` file here |
-| `SESSION_SECRET` | Any long random string for session encryption |
-| `ZOOM_CLIENT_ID` | Your Zoom OAuth App Client ID (optional) |
-| `ZOOM_CLIENT_SECRET` | Your Zoom OAuth App Client Secret (optional) |
-
-### Step 4: Update Google OAuth Redirect URI
-
-In Google Cloud Console, go to your OAuth 2.0 Client ID and add your Vercel URL as an Authorized Redirect URI:
-
-```
-https://your-app-name.vercel.app/auth/callback
-```
-
-### Step 5: Deploy
-
-Push any change to the `main` branch of your GitHub repository. Vercel will automatically build and deploy your application.
-
----
-
-## The Hybrid Setup
-
-Once your Vercel app is live, you need to run the local bot pilot on your computer to actually join meetings. This is a one-time setup per session.
-
-### Why is the local pilot needed?
-
-Vercel functions have a maximum execution time of 30 to 60 seconds. Joining and staying in a meeting for 60 minutes, recording audio, and running browser automation requires a persistent process, which Vercel cannot provide. The local pilot fills this role.
-
-### Running the Local Bot Pilot
-
-Each time you want RENATA to be able to join meetings, do the following:
-
-1. Open a terminal and navigate to the project folder.
-2. Activate the virtual environment:
-   ```
-   .\renata\Scripts\activate
-   ```
-3. Ensure your `.env` file contains the real `DATABASE_URL` from Neon (the same one used by Vercel).
-4. Start the pilot:
-   ```
-   python renata_bot_pilot.py
-   ```
-
-The pilot will automatically:
-- Detect your user account from the shared database.
-- Start listening in autopilot mode.
-- Poll the database every 30 seconds for new meetings to join.
-- Join meetings from your Google Calendar when they are about to start.
-- Pick up manual dispatch requests from the Live Control Room on the dashboard.
-
-### Automating the Pilot on Windows
-
-To avoid running the command manually every day, create a file named `start_renata.bat` on your Desktop with the following content:
-
-```
-@echo off
-cd /d D:\RENATA-meet
-call .\renata\Scripts\activate
+### 4. Running the Bot
+```bash
 python renata_bot_pilot.py
-pause
 ```
 
-Double-click this file each morning to start the bot in one step.
+---
+
+## 📂 Project Structure
+
+- **`main.py`**: Cloud Backend & Dashboard API.
+- **`renata_bot_pilot.py`**: The meeting joiner logic.
+- **`meeting_notes_generator.py`**: The AI processing pipeline.
+- **`v3-frontend/`**: The modern dashboard UI.
 
 ---
 
-## 📂 Project Structure & File Guide
+## 🤝 Support & Development
 
-### Core Backend & Cloud (The Brain)
-- **`main.py`**: The heart of the platform. Serves the FastAPI server, handles Google/Zoom OAuth, manages the web dashboard, and provides the RAG search API.
-- **`api/requirements.txt`**: **CRITICAL for Vercel.** Lists only the slim dependencies needed for the cloud dashboard to stay under the 500MB Lambda limit.
-- **`vercel.json`**: Configuration for Vercel deployment, setting up the Python runtime and routing rules.
-- **`init_pg_db.py`**: Run this once to create the necessary tables in your Neon PostgreSQL database.
+**Developer**: [Chandisha Das](https://github.com/Chandisha)
 
-### Local Bot Pilot (The Body)
-- **`renata_bot_pilot.py`**: The automation script that stays on your PC. It polls the database, launches Chromium via Playwright, and joins your meetings.
-- **`meeting_notes_generator.py`**: The AI processing script. After a meeting ends, the pilot uses this to transcribe audio (Faster-Whisper), generate summaries (Gemini), and create PDF reports.
-- **`meeting_database.py`**: Shared database layer. Automatically detects if it should use your local SQLite (`meetings.db`) or cloud PostgreSQL (Neon).
-- **`requirements.txt`**: **Local Only.** Contains all heavy dependencies (Torch, Playwright, Faster-Whisper) needed for the local pilot bot to function.
-
-### Frontend
-- **`v3-frontend/`**: Contains the single-page application (SPA) code.
-  - `index.html`: The shell for the dashboard.
-  - `app.js`: All frontend interactivity, API calls to the Brain, and real-time status polling.
-  - `styles.css`: Modern, glassmorphic design system.
-
-### AI Search & RAG
-- **`rag/`**: Contains advanced AI logic.
-- **`rag_assistant.py`**: Local helper for meeting indexing and vector search using ChromaDB.
-
-### Assets & Storage
-- **`meeting_outputs/`**: Where your local recordings, JSON transcripts, and PDF reports are stored before being synced.
-- **`credentials.json`**: Your Google Cloud OAuth client secrets (keep this private!).
-- **`.env`**: Your secret API keys and database URLs (keep this private!).
-
----
-
-## Environment Variables Reference
-
-| Variable | Required | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | Yes | Google Gemini API key from aistudio.google.com |
-| `SESSION_SECRET` | Yes | A long random string used to sign session cookies |
-| `DATABASE_URL` | Yes (Vercel) | PostgreSQL connection string from Neon or similar |
-| `GOOGLE_CREDENTIALS_JSON` | Yes (Vercel) | Full JSON content of your credentials.json file |
-| `ZOOM_CLIENT_ID` | No | Zoom OAuth App Client ID for Zoom integration |
-| `ZOOM_CLIENT_SECRET` | No | Zoom OAuth App Client Secret for Zoom integration |
-
----
-
-## Usage Guide
-
-### Logging In
-
-1. Open the application URL in your browser.
-2. Click Sign In with Google.
-3. Authorize RENATA to access your Google Calendar and Gmail.
-
-### Manual Dispatch (Join a Specific Meeting)
-
-1. Go to the Live Control Room tab in the sidebar.
-2. Paste a Google Meet or Zoom URL into the input field.
-3. Click Dispatch Renata.
-4. The Bot Status card will update in real time as the bot goes through Dispatching, Fetching, Connecting, In Lobby, and Live stages.
-
-Note: The local bot pilot must be running on your computer for the bot to actually join the meeting.
-
-### Auto-Join from Calendar
-
-When the local pilot is running, it scans your Google Calendar every 30 seconds. If an event is starting within the next 5 minutes and has a Google Meet or Zoom link, the bot will join automatically.
-
-### Viewing Reports
-
-1. Go to the Reports tab to see a list of all completed meetings.
-2. Click PDF to download the full AI-generated meeting report.
-
-### AI Search (Knowledge Base)
-
-1. Go to the AI Search tab.
-2. Type a question in natural language, for example: "What decisions were made about the product launch?"
-3. RENATA will search your indexed meeting transcripts and return a precise answer.
-4. Click Sync Knowledge Base to re-index if you have added new meetings recently.
-
-### Settings
-
-1. Go to the Settings tab.
-2. You can update your display name (your Gmail address is shown read-only and cannot be changed).
-3. Configure bot preferences including the bot's display name, auto-join behavior, and recording options.
-4. Use the Danger Zone section to permanently delete your account and all associated data.
-
----
-
-## Developer
-
-**Chandisha Das**
-GitHub: https://github.com/Chandisha
-
-RENATA is an open-source self-hosted meeting intelligence platform designed as a free alternative to commercial tools like Read.ai and Otter.ai.
+RENATA is an open-source alternative to commercial tools, giving you full control over your meeting data and AI costs.
