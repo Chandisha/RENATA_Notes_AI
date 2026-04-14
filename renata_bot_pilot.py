@@ -113,10 +113,14 @@ class RenaMeetingBot:
         self.audio_process = None        # legacy ffmpeg process (unused in browser mode)
         self.recording_path = None
         self.session_dir = session_dir if session_dir else BOT_SESSION_DIR
+        self.slot = 0 # Default to slot 0
         # --- Browser-native recording state ---
         self._browser_page = None        # active Playwright page
         self._audio_chunks = []          # raw webm chunks received from browser
         self._recording_active = False
+
+    def set_slot(self, slot):
+        self.slot = slot
 
     def bot_setup_login(self):
         print(f"Opening Browser for Bot Login to {PERMANENT_BOT_EMAIL}...")
@@ -277,66 +281,86 @@ class RenaMeetingBot:
     # -------------------------------------------------------------------------
 
     def start_audio_recording(self, filename):
-        """Start capturing audio from the live browser tab via MediaRecorder."""
-        self.recording_path = self.output_dir / f"{filename}.webm"
+        """Start capturing audio. Uses FFmpeg for Slot 0 (VB-Cable) and Browser-native for concurrent slots."""
         self._audio_chunks = []
         self._recording_active = True
 
-        if not self._browser_page:
-            print("[Audio] No browser page available — skipping browser recording.")
+        # SLOT 0: Use High-fidelity VB-Cable + FFmpeg (Direct hardware capture)
+        if self.slot == 0:
+            self.recording_path = self.output_dir / f"{filename}.wav"
+            # Ensure audio_device name is correctly formatted for ffmpeg
+            dev = self.audio_device
+            if not dev.startswith("audio="): dev = f"audio={dev}"
+            
+            cmd = [
+                "ffmpeg", "-y", "-f", "dshow", "-i", dev,
+                "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
+                str(self.recording_path)
+            ]
+            print(f"[Audio] Starting FFmpeg Recording (Slot 0) via {dev}...")
+            self.audio_process = subprocess.Popen(
+                cmd, 
+                stdout=subprocess.DEVNULL, 
+                stderr=subprocess.DEVNULL, 
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
             return
 
+        # SLOT 1+: Use Browser-native Capture (Tab-isolated)
+        if not self._browser_page:
+            print("[Audio] No browser page available for capture.")
+            return
+
+        self.recording_path = self.output_dir / f"{filename}.webm"
         page = self._browser_page
+        try: page.expose_function("_renataAudioChunk", self._on_audio_chunk)
+        except: pass
 
-        # Expose a Python function so JS can send audio chunks back
-        try:
-            page.expose_function("_renataAudioChunk", self._on_audio_chunk)
-        except Exception:
-            pass  # already exposed on this page
-
-        # Inject MediaRecorder into the page — captures all audio playing in tab
+        print(f"[Audio] Starting Browser-native Recording (Slot {self.slot})...")
         page.evaluate("""
         () => {
-            if (window._renataRecorder) return;  // already running
+            if (window._renataRecorder) return;
 
-            // Capture all audio elements on the page (Meet streams)
-            const ctx = new AudioContext();
-            const dest = ctx.createMediaStreamDestination();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const dest = audioCtx.createMediaStreamDestination();
 
-            // Hook every <audio> and <video> element currently or later added
-            function hookElement(el) {
-                try {
-                    const src = ctx.createMediaElementSource(el);
-                    src.connect(dest);
-                    src.connect(ctx.destination);  // keep original playback
-                } catch(e) {}
-            }
-
-            document.querySelectorAll('audio, video').forEach(hookElement);
-
-            const observer = new MutationObserver(() => {
-                document.querySelectorAll('audio, video').forEach(hookElement);
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
-
-            // Start recording
-            ctx.resume(); // Ensure the context is active
-            const recorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
-            window._renataRecorder = recorder;
-
-            recorder.ondataavailable = async (e) => {
-                if (e.data && e.data.size > 0) {
-                    const buf = await e.data.arrayBuffer();
-                    const arr = Array.from(new Uint8Array(buf));
-                    window._renataAudioChunk(arr);
-                }
+            // 1. Capture MediaStreamSources (Incoming WebRTC Meet Streams)
+            const origCreateStreamSource = AudioContext.prototype.createMediaStreamSource;
+            AudioContext.prototype.createMediaStreamSource = function(stream) {
+                const source = origCreateStreamSource.call(this, stream);
+                source.connect(dest);
+                return source;
             };
 
-            recorder.start(3000);  // send chunk every 3 seconds
-            console.log('[Renata] Browser audio recording started.');
+            // 2. Capture MediaElementSources (Audio/Video tags)
+            const hookElement = (el) => {
+                try {
+                    const source = audioCtx.createMediaElementSource(el);
+                    source.connect(dest);
+                    source.connect(audioCtx.destination);
+                } catch(e) {}
+            };
+            document.querySelectorAll('audio, video').forEach(hookElement);
+            new MutationObserver((muts) => {
+                muts.forEach(m => m.addedNodes.forEach(n => {
+                    if (n.nodeName === 'AUDIO' || n.nodeName === 'VIDEO') hookElement(n);
+                    else if (n.querySelectorAll) n.querySelectorAll('audio, video').forEach(hookElement);
+                }));
+            }).observe(document.body, { childList: true, subtree: true });
+
+            // 3. Recorder Setup
+            const recorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
+            window._renataRecorder = recorder;
+            recorder.ondataavailable = async (e) => {
+                if (e.data.size > 0) {
+                    const buf = await e.data.arrayBuffer();
+                    window._renataAudioChunk(Array.from(new Uint8Array(buf)));
+                }
+            };
+            recorder.start(3000);
+            audioCtx.resume();
         }
         """)
-        print(f"[Audio] Browser-native recording started → {self.recording_path}")
 
     def _on_audio_chunk(self, chunk_array):
         """Callback — receives raw audio bytes from browser MediaRecorder."""
@@ -344,9 +368,20 @@ class RenaMeetingBot:
             self._audio_chunks.append(bytes(chunk_array))
 
     def stop_audio_recording(self):
-        """Stop browser MediaRecorder and save the WebM file."""
+        """Stop either FFmpeg or Browser recording."""
         self._recording_active = False
 
+        # Stop FFmpeg (Slot 0)
+        if self.audio_process:
+            print("[Audio] Stopping FFmpeg process...")
+            try:
+                self.audio_process.send_signal(signal.CTRL_BREAK_EVENT)
+                self.audio_process.wait(timeout=10)
+            except:
+                self.audio_process.kill()
+            self.audio_process = None
+
+        # Stop Browser-native (Other slots)
         if self._browser_page:
             try:
                 self._browser_page.evaluate("""
@@ -357,18 +392,14 @@ class RenaMeetingBot:
                     }
                 }
                 """)
-            except Exception:
-                pass
+            except: pass
 
-        time.sleep(1)  # allow final chunks to arrive
-
+        time.sleep(1) # wait for trailing chunks
         if self._audio_chunks and self.recording_path:
             with open(self.recording_path, 'wb') as f:
                 for chunk in self._audio_chunks:
                     f.write(chunk)
-            print(f"[Audio] Saved {len(self._audio_chunks)} chunks → {self.recording_path}")
-        else:
-            print("[Audio] No audio chunks captured.")
+            print(f"[Audio] Saved browser chunks → {self.recording_path}")
 
     def record_manual_audio(self):
         """Legacy manual recording stub."""
@@ -749,6 +780,7 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
         print(f"\n[Slot {slot}] JOINING: {meet_url} for {user_email}")
         
         thread_bot = RenaMeetingBot(user_email=user_email, session_dir=session_dir, audio_device=audio_dev)
+        thread_bot.set_slot(slot)
         
         if is_meet_url(meet_url):
             thread_bot.join_google_meet(meet_url, record=record, db_module=db, meeting_id=meeting_id, user_email=user_email)
