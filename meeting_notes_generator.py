@@ -6,6 +6,7 @@ import sys
 import time
 import base64
 import smtplib
+import subprocess
 import traceback
 from pathlib import Path
 from datetime import datetime
@@ -131,18 +132,48 @@ class AdaptiveMeetingNotesGenerator:
 
     def _upload_to_gemini(self, path):
         logger.info(f"Uploading {path} to Gemini...")
+        if not os.path.exists(path):
+            logger.error(f"File not found: {path}")
+            return None
+            
+        file_size = os.path.getsize(path)
+        if file_size == 0:
+            logger.error(f"File is empty: {path}")
+            return None
+            
         try:
             file = genai.upload_file(path=path)
             while file.state.name == "PROCESSING":
                 time.sleep(2)
                 file = genai.get_file(file.name)
             if file.state.name == "FAILED":
-                raise Exception("Gemini file upload failed")
-            logger.info("Upload Complete")
+                # Try to get detailed error if available in the file object
+                error_msg = getattr(file, 'error', 'Unknown Gemini Upload Error')
+                raise Exception(f"Gemini file state is FAILED: {error_msg}")
+            logger.info(f"Upload Complete ({file_size} bytes)")
             return file
         except Exception as e:
             logger.error(f"Gemini Upload Error: {e}")
             return None
+
+    def _convert_to_wav(self, webm_path):
+        """Convert browser-native webm to standard wav for better Gemini compatibility."""
+        wav_path = webm_path.replace(".webm", ".wav")
+        logger.info(f"Converting {webm_path} to {wav_path} for stable transcription...")
+        try:
+            # -y: overwrite, -acodec pcm_s16le: standard wav, -ar 16000: 16kHz, -ac 1: mono
+            result = subprocess.run([
+                "ffmpeg", "-y", "-i", webm_path, 
+                "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1", 
+                wav_path
+            ], capture_output=True, text=True)
+            if result.returncode != 0:
+                logger.error(f"FFmpeg Error: {result.stderr}")
+                return webm_path
+            return wav_path
+        except Exception as e:
+            logger.error(f"Conversion failed: {e}")
+            return webm_path
 
     def perform_diarization(self, audio_path=None):
         """Pure Gemini Mode: Skips local diarization."""
@@ -173,13 +204,21 @@ class AdaptiveMeetingNotesGenerator:
 
     def transcribe_audio(self, audio_path=None):
         path = audio_path or self.audio_path
-        if not path or not os.path.exists(path): return
+        if not path or not os.path.exists(path): 
+            logger.error(f"Transcription path invalid: {path}")
+            return
+
+        # STABILITY: Convert webm to wav before upload
+        if path.endswith(".webm"):
+            path = self._convert_to_wav(path)
 
         try:
             if not self.gemini_file:
                 self.gemini_file = self._upload_to_gemini(path)
             
-            if not self.gemini_file: return
+            if not self.gemini_file: 
+                logger.error("No Gemini file available for transcription - aborting.")
+                return
 
             prompt = """
 You are transcribing a meeting recording. Follow these rules STRICTLY:
