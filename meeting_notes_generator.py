@@ -548,9 +548,8 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 db_user = db.get_user_profile(user_email)
                 user_plan = db_user.get('subscription_plan', 'Basic') if db_user else 'Basic'
                 
+                # Standardized summary for all users
                 summary_text = generator.intel.get("summary_en", "Processing complete. Please find the attached report.")
-                if user_plan != 'Pro':
-                    summary_text = "Your meeting transcript is ready! Upgrade to Pro to unlock AI summaries, Action Items, and Executive Insights."
                 
                 from email.message import EmailMessage
                 from email.utils import formataddr
@@ -618,11 +617,11 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                             <div class="summary-text">{summary_text}</div>
                         </div>
 
-                        {actions_html if user_plan == 'Pro' else ''}
+                        {actions_html}
                         
                         <div class="button-container">
                             <a href="https://meet.nexren.ai/#dashboard" class="button">
-                                { 'View Full AI Report' if user_plan == 'Pro' else 'Upgrade to Pro' }
+                                View Full AI Report
                             </a>
                         </div>
                         
