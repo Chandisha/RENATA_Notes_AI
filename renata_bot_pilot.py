@@ -320,6 +320,7 @@ class RenaMeetingBot:
             observer.observe(document.body, { childList: true, subtree: true });
 
             // Start recording
+            ctx.resume(); // Ensure the context is active
             const recorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
             window._renataRecorder = recorder;
 

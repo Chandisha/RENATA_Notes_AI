@@ -3,6 +3,9 @@ import re
 import json
 import warnings
 import sys
+import time
+import base64
+import smtplib
 import traceback
 from pathlib import Path
 from datetime import datetime
@@ -507,7 +510,6 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 if user_plan != 'Pro':
                     summary_text = "Your meeting transcript is ready! Upgrade to Pro to unlock AI summaries, Action Items, and Executive Insights."
                 
-                import smtplib
                 from email.message import EmailMessage
                 from email.utils import formataddr
                 

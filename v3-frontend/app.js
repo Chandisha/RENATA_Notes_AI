@@ -351,35 +351,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadAiInsight(meetingId, title) {
         const display = document.getElementById('ai-insight-display');
-        const footer = document.getElementById('ai-insight-footer');
-        const pdfBtn = document.getElementById('view-full-pdf-btn');
         const paneHeader = document.getElementById('ai-pane-title');
 
         if (!meetingId) return;
         if (paneHeader) paneHeader.textContent = title || "Intelligence Report";
         
         display.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:15px;">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; min-height:300px; gap:15px;">
                 <i data-feather="loader" class="spin" style="width:32px; color:var(--accent-orange);"></i>
                 <p class="muted">Extracting Intelligence...</p>
             </div>
         `;
         feather.replace();
-        footer.style.display = 'none';
 
         try {
             const res = await apiFetch(`/api/notes/ai/${meetingId}`);
             const data = await res.json();
-            display.innerHTML = formatMarkdownToHTML(data.ai_notes);
             
-            if (data.pdf_link) {
-                footer.style.display = 'block';
-                pdfBtn.onclick = (e) => {
-                    e.preventDefault();
-                    handleViewPdf(data.pdf_link, meetingId, data.is_paid);
-                };
+            if (data.ai_notes) {
+                // Remove header and footer from view if we are just showing notes
+                const footer = document.getElementById('ai-insight-footer');
+                if (footer) footer.style.display = 'none';
+                
+                display.innerHTML = formatMarkdownToHTML(data.ai_notes);
+            } else {
+                display.innerHTML = '<div class="muted" style="padding:40px; text-align:center;">No AI notes available for this meeting yet.</div>';
             }
-        } catch (err) { display.innerHTML = '<p style="color:#ef4444;">Error loading AI insights.</p>'; }
+        } catch (err) { 
+            display.innerHTML = '<p style="color:#ef4444; padding:40px; text-align:center;">Error loading AI insights.</p>'; 
+        }
         feather.replace();
     }
 
@@ -395,14 +395,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatMarkdownToHTML(text) {
         if (!text) return '';
         let html = text
-            .replace(/^### (.*$)/gim, '<h3 style="margin: 15px 0 10px; color: var(--accent-orange); font-size: 1.1rem; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 5px;">$1</h3>')
-            .replace(/^## (.*$)/gim, '<h2 style="margin: 20px 0 10px; color: var(--accent-orange);">$1</h2>')
-            .replace(/^# (.*$)/gim, '<h1 style="margin: 20px 0 10px;">$1</h1>')
-            .replace(/^\- (.*$)/gim, '<li style="margin-left: 15px; margin-bottom: 8px; list-style-type: disc;">$1</li>')
-            .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+            .replace(/^### (.*$)/gim, '<h3 style="margin: 25px 0 12px; color: var(--accent-orange); font-size: 1.15rem; font-weight:700; border-bottom: 2px solid rgba(242,113,33,0.1); padding-bottom: 6px; display:inline-block;">$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2 style="margin: 30px 0 15px; color: var(--text-main); font-size: 1.4rem; font-weight:700;">$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1 style="margin: 0 0 20px; font-size:1.8rem; color:var(--text-main);">$1</h1>')
+            .replace(/^\* (.*$)/gim, '<li style="margin-left: 20px; margin-bottom: 12px; list-style-type: none; position:relative; padding-left:25px; color:var(--text-main); line-height:1.6;"><span style="position:absolute; left:0; color:var(--accent-orange); font-weight:bold;">▸</span> $1</li>')
+            .replace(/^\- (.*$)/gim, '<li style="margin-left: 20px; margin-bottom: 12px; list-style-type: none; position:relative; padding-left:25px; color:var(--text-main); line-height:1.6;"><span style="position:absolute; left:0; color:var(--accent-orange); font-weight:bold;">▸</span> $1</li>')
+            .replace(/^\d+\. (.*$)/gim, '<li style="margin-left: 20px; margin-bottom: 12px; list-style-type: decimal; color:var(--text-main); line-height:1.6;">$1</li>')
+            .replace(/\*\*(.*)\*\*/gim, '<strong style="color:var(--text-main); font-weight:700;">$1</strong>')
+            .replace(/\n\n/g, '<div style="margin-bottom: 15px;"></div>')
             .replace(/\n/g, '<br>');
         
-        return `<div class="ai-md-content">${html}</div>`;
+        return `<div class="ai-md-content" style="padding: 20px; background: rgba(255,255,255,0.4); border-radius:12px; border:1px solid rgba(0,0,0,0.03);">${html}</div>`;
     }
 
     function timeAgo(date) {
