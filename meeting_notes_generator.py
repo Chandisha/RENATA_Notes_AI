@@ -150,7 +150,7 @@ class AdaptiveMeetingNotesGenerator:
                 # Try to get detailed error if available in the file object
                 error_msg = getattr(file, 'error', 'Unknown Gemini Upload Error')
                 raise Exception(f"Gemini file state is FAILED: {error_msg}")
-            logger.info(f"Upload Complete ({file_size} bytes)")
+            logger.info(f"Upload Complete: {file.name} ({file_size} bytes)")
             return file
         except Exception as e:
             logger.error(f"Gemini Upload Error: {e}")
@@ -221,19 +221,22 @@ class AdaptiveMeetingNotesGenerator:
                 return
 
             prompt = """
-You are transcribing a meeting recording. Follow these rules STRICTLY:
+You are transcribing a meeting recording. The speakers may use a mix of Hindi and English (Hinglish).
+Follow these rules STRICTLY:
 
-1. TRANSCRIBE EVERY WORD from the very beginning of the audio to the very end. Do NOT skip silent parts at the start - include everything.
-2. Use RELATIVE timestamps starting from 00:00 (beginning of the audio file), in MM:SS format.
-3. Identify different speakers as Speaker A, Speaker B, etc.
-4. VERY IMPORTANT - Language: The speakers may speak a mix of Hindi and English (Hinglish).
-   - Write English words in English as-is.
-   - Write Hindi words using Roman script transliteration (e.g., 'aap kaise hain', 'theek hai', 'hoga').
-   - Do NOT use Devanagari script (no Hindi Unicode characters like \u0900-\u097F).
-5. Return ONLY a valid JSON array. No markdown, no explanation.
+1. TRANSCRIBE EVERY WORD. Include professional greeting, discussion, and closing.
+2. Use RELATIVE timestamps starting from 00:00 (beginning of the audio), in MM:SS format.
+3. Identify speakers as 'Speaker A', 'Speaker B', or by their name if mentioned.
+4. LANGUAGE RULES:
+   - If a speaker uses English, write it in proper English.
+   - If a speaker uses Hindi, transliterate it into Roman script (e.g., 'kaise hain', 'theek hai').
+   - Do NOT use Devanagari script (no Hindi characters like \u0900-\u097F).
+   - If the entire meeting is English, just provide the full English transcript.
+5. QUALITY: Ensure the transcript aligns with the flow of conversation.
 
+Return ONLY a valid JSON array.
 Output format:
-[{"timestamp": "00:00", "speaker": "Speaker A", "text": "hello theek hai, let's start the meeting"}, ...]
+[{"timestamp": "00:00", "speaker": "Speaker A", "text": "hello everyone, let's start today's discussion"}, ...]
 """
             
             logger.info("Requesting Gemini Hinglish Transcription & Diarization...")
@@ -633,18 +636,22 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
                 """
                 msg.add_alternative(html_content, subtype='html')
                 
-                # Attach Main Report PDF (ONLY FOR PRO)
-                if user_plan == 'Pro':
+                # Attach Main Report PDF (Attach for all during debugging/testing as requested)
+                try:
                     if generator.last_pdf_path and os.path.exists(generator.last_pdf_path):
                         with open(generator.last_pdf_path, 'rb') as f:
                             msg.add_attachment(f.read(), maintype='application', subtype='pdf', 
                                              filename=os.path.basename(generator.last_pdf_path))
-                                         
-                # Attach Transcript PDF (FOR ALL)
-                if generator.last_transcripts_pdf_path and os.path.exists(generator.last_transcripts_pdf_path):
-                    with open(generator.last_transcripts_pdf_path, 'rb') as f:
-                        msg.add_attachment(f.read(), maintype='application', subtype='pdf', 
-                                         filename=os.path.basename(generator.last_transcripts_pdf_path))
+                        logger.info(f"Attached Report PDF: {os.path.basename(generator.last_pdf_path)}")
+                    
+                    # Attach Transcript PDF
+                    if generator.last_transcripts_pdf_path and os.path.exists(generator.last_transcripts_pdf_path):
+                        with open(generator.last_transcripts_pdf_path, 'rb') as f:
+                            msg.add_attachment(f.read(), maintype='application', subtype='pdf', 
+                                             filename=os.path.basename(generator.last_transcripts_pdf_path))
+                        logger.info(f"Attached Transcripts PDF: {os.path.basename(generator.last_transcripts_pdf_path)}")
+                except Exception as att_e:
+                    logger.error(f"Error attaching PDFs: {att_e}")
                 
                 logger.info(f"Sending professional report email to {user_email}...")
                 if not sender_email or not bot_pass:

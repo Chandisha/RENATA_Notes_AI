@@ -281,29 +281,39 @@ class RenaMeetingBot:
     # -------------------------------------------------------------------------
 
     def start_audio_recording(self, filename):
-        """Start capturing audio. Uses FFmpeg for Slot 0 (VB-Cable) and Browser-native for concurrent slots."""
+        """
+        Start capturing meeting audio.
+        Optimized Strategy:
+        - SLOT 0: Uses FFmpeg + VB-Cable (High-fidelity direct capture).
+        - SLOT 1+: Uses Browser-native MediaRecorder (Tab-isolated concurrency).
+        """
         self._audio_chunks = []
         self._recording_active = True
 
-        # SLOT 0: Use High-fidelity VB-Cable + FFmpeg (Direct hardware capture)
+        # --- SLOT 0: VB-CABLE + FFMPEG ---
         if self.slot == 0:
             self.recording_path = self.output_dir / f"{filename}.wav"
-            # Ensure audio_device name is correctly formatted for ffmpeg
             dev = self.audio_device
-            if not dev.startswith("audio="): dev = f"audio={dev}"
+            if not dev.startswith("audio="): 
+                dev = f"audio={dev}"
             
+            # Use standard WAV format for Gemini compatibility (16kHz, Mono)
             cmd = [
                 "ffmpeg", "-y", "-f", "dshow", "-i", dev,
                 "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
                 str(self.recording_path)
             ]
-            print(f"[Audio] Starting FFmpeg Recording (Slot 0) via {dev}...")
-            self.audio_process = subprocess.Popen(
-                cmd, 
-                stdout=subprocess.DEVNULL, 
-                stderr=subprocess.DEVNULL, 
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
-            )
+            
+            print(f"[Audio] Recording SLOT 0 via {dev} (VB-Cable)...")
+            try:
+                self.audio_process = subprocess.Popen(
+                    cmd, 
+                    stdout=subprocess.DEVNULL, 
+                    stderr=subprocess.DEVNULL, 
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                )
+            except Exception as e:
+                print(f"[Audio] ERROR starting FFmpeg: {e}")
             return
 
         # SLOT 1+: Use Browser-native Capture (Tab-isolated)
@@ -368,17 +378,22 @@ class RenaMeetingBot:
             self._audio_chunks.append(bytes(chunk_array))
 
     def stop_audio_recording(self):
-        """Stop either FFmpeg or Browser recording."""
+        """Stop either FFmpeg or Browser recording and finalize files."""
+        if not self._recording_active:
+            return
+            
         self._recording_active = False
 
         # Stop FFmpeg (Slot 0)
         if self.audio_process:
-            print("[Audio] Stopping FFmpeg process...")
+            print("[Audio] Stopping FFmpeg process (Slot 0)...")
             try:
+                # Use CTRL_BREAK to allow ffmpeg to finalize the WAV header
                 self.audio_process.send_signal(signal.CTRL_BREAK_EVENT)
                 self.audio_process.wait(timeout=10)
             except:
-                self.audio_process.kill()
+                try: self.audio_process.kill()
+                except: pass
             self.audio_process = None
 
         # Stop Browser-native (Other slots)
@@ -389,17 +404,31 @@ class RenaMeetingBot:
                     if (window._renataRecorder && window._renataRecorder.state !== 'inactive') {
                         window._renataRecorder.stop();
                         window._renataRecorder = null;
+                        if (window._renataAudioCtx) window._renataAudioCtx.close();
                     }
                 }
                 """)
             except: pass
 
-        time.sleep(1) # wait for trailing chunks
-        if self._audio_chunks and self.recording_path:
-            with open(self.recording_path, 'wb') as f:
-                for chunk in self._audio_chunks:
-                    f.write(chunk)
-            print(f"[Audio] Saved browser chunks → {self.recording_path}")
+        time.sleep(2) # Wait for trailing chunks/finalizing
+        
+        # Save chunks if Browser-native was used
+        if self._audio_chunks and self.recording_path and self.slot != 0:
+            try:
+                with open(self.recording_path, 'wb') as f:
+                    for chunk in self._audio_chunks:
+                        f.write(chunk)
+                print(f"[Audio] Saved Browser Capture → {self.recording_path}")
+            except Exception as e:
+                print(f"[Audio] Error saving browser chunks: {e}")
+        
+        # Basic integrity check
+        if self.recording_path and self.recording_path.exists():
+            size = self.recording_path.stat().st_size
+            if size < 1000:
+                print(f"[Audio] ⚠ WARNING: Captured file is very small ({size} bytes). Recording might have failed.")
+            else:
+                print(f"[Audio] Finalized recording: {self.recording_path.name} ({size} bytes)")
 
     def record_manual_audio(self):
         """Legacy manual recording stub."""
