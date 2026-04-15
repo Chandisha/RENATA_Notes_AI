@@ -1375,7 +1375,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.success && data.tickets && data.tickets.length > 0) {
                 list.innerHTML = '';
                 data.tickets.forEach(ticket => {
-                    // Try to parse the date nicely
                     let dateStr = "Recently";
                     try {
                         dateStr = new Date(ticket.created_at).toLocaleDateString(undefined, {
