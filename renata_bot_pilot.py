@@ -598,7 +598,7 @@ class RenaMeetingBot:
             if db_module and meeting_id:
                 db_module.update_bot_status(meeting_id, "FAILED", note=f"Zoom error: {str(e)[:100]}")
 
-    def join_google_meet(self, meet_url, record=True, db_module=None, meeting_id=None, user_email=None, guest_mode=False, guest_name="Renata AI | Meeting Assistant"):
+    def join_google_meet(self, meet_url, record=True, db_module=None, meeting_id=None, user_email=None, guest_mode=False, guest_name="Renata AI | Meeting Assistant", scheduled_start=None):
         if not meeting_id: 
             meeting_id = f"meet_live_{int(time.time())}"
         
@@ -702,16 +702,32 @@ class RenaMeetingBot:
                 if not joined:
                     print(f"[Meet Slot {self.slot}] Join button not found after 5 minutes. Continuing to wait for admission if available.")
 
-                # 6. Wait for Admission
+                # 6. Wait for Admission with Patient Lobby Logic
+                # Wait until 2 minutes after the scheduled start time before giving up.
+                admission_deadline = time.time() + 600 # Fallback 10 mins
+                if scheduled_start:
+                    try:
+                        dt_start = dt_parser.parse(scheduled_start)
+                        if dt_start.tzinfo is None: dt_start = dt_start.replace(tzinfo=timezone.utc)
+                        # Admission deadline is Start Time + 2 Minutes
+                        planned_deadline = (dt_start + timedelta(minutes=2)).timestamp()
+                        admission_deadline = max(admission_deadline, planned_deadline)
+                        print(f"[Meet Slot {self.slot}] Patient Lobby: Will wait until {datetime.fromtimestamp(admission_deadline).strftime('%H:%M:%S')} for admission.")
+                    except: pass
+
                 while True:
                     if page.locator('button[aria-label*="Leave call" i]').count() > 0:
                         if db_module and meeting_id: 
                             db_module.update_bot_status(meeting_id, "CONNECTED", note=f"Bot joined as {guest_name if guest_mode else PERMANENT_BOT_EMAIL}", user_email=user_email)
                         break
                     
-                    if page.locator('text="Waiting to be admitted"').count() > 0:
+                    if time.time() > admission_deadline:
+                        print(f"[Meet Slot {self.slot}] Admission timeout (2 mins past start). Leaving lobby.")
+                        break
+
+                    if page.locator('text="Waiting to be admitted"').count() > 0 or page.locator('text="Asking to join"').count() > 0:
                         if db_module and meeting_id:
-                            db_module.update_bot_status(meeting_id, "IN_LOBBY", note="Waiting for host to admit bot...", user_email=user_email)
+                            db_module.update_bot_status(meeting_id, "IN_LOBBY", note="Waiting for host to admit bot (staying until 2m past start)...", user_email=user_email)
                             
                     time.sleep(5)
                 
@@ -885,7 +901,7 @@ def _get_audio_device(slot):
     print(f"[Audio] Slot {slot} -> {device} (driver: {driver})")
     return device
 
-def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
+def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot, start_time=None):
     session_dir = _get_session_dir(slot)
     audio_dev = _get_audio_device(slot)
     norm_url = normalize_url(meet_url)
@@ -913,7 +929,8 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
                 meeting_id=meeting_id, 
                 user_email=user_email,
                 guest_mode=is_guest_mode,
-                guest_name="Renata AI | Meeting Assistant"
+                guest_name="Renata AI | Meeting Assistant",
+                scheduled_start=start_time
             )
         elif is_zoom_url(meet_url):
             thread_bot.join_zoom_meeting(meet_url, record=record, db_module=db, meeting_id=meeting_id, user_email=user_email)
@@ -1130,7 +1147,7 @@ def run_auto_pilot(operator_email):
                             
                             t = threading.Thread(
                                 target=_run_meeting_in_thread, 
-                                args=(url, m_id, cal_email, 1, slot), 
+                                args=(url, m_id, cal_email, 1, slot, start_str), 
                                 daemon=True
                             )
                             _active_jobs[(m_id, cal_email)] = t
