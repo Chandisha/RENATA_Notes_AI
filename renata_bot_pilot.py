@@ -758,6 +758,7 @@ class RenaMeetingBot:
                 alone_since = None
                 ALONE_TIMEOUT_SECS = 30  # Leave 30 seconds after everyone else leaves
                 CHECK_INTERVAL = 10
+                ever_active = False # USER REQUEST: Track if the meeting actually started (host joined)
 
                 while True:
                     page.wait_for_timeout(CHECK_INTERVAL * 1000)
@@ -788,15 +789,19 @@ class RenaMeetingBot:
                             cnt = page.locator(sel).count()
                             if cnt > 0:
                                 participant_count = cnt
+                                if cnt > 1: # Bot + at least 1 other
+                                    ever_active = True 
                                 break
 
                         # Bot itself counts as 1 — if only 1 (or 0) left, start timer
                         if participant_count <= 1:
-                            # STRATEGIC PATIENCE: 
-                            # If it's before (Scheduled Start + 15 mins), DO NOT LEAVE.
-                            # The bot should wait for the actual meeting to start.
+                            # STRATEGIC PATIENCE logic:
+                            # 1. If meeting NEVER started (no host/guest ever joined), wait 15m.
+                            # 2. If meeting DID start (ever_active is True) and now empty, leave in 30s.
                             is_grace_period = False
-                            if scheduled_start:
+                            
+                            # Grace period ONLY if meeting never actually had anyone else
+                            if not ever_active and scheduled_start:
                                 try:
                                     dt_start = dt_parser.parse(scheduled_start)
                                     if dt_start.tzinfo is None: dt_start = dt_start.replace(tzinfo=timezone.utc)
@@ -804,7 +809,7 @@ class RenaMeetingBot:
                                     if time.time() < grace_deadline:
                                         is_grace_period = True
                                         if alone_since is None: # Only log once
-                                            print(f"[Bot] Alone in meeting, but it's within the 15m start window. Waiting for participants...")
+                                            print(f"[Bot] Alone in meeting (Never Started). Waiting until 15m past start...")
                                 except: pass
 
                             if is_grace_period:
