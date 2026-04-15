@@ -704,16 +704,16 @@ class RenaMeetingBot:
 
                 # 6. Wait for Admission with Patient Lobby Logic
                 # The bot will ONLY start recording AFTER the host admits it.
-                # If it times out in the lobby without being admitted, it leaves silently.
-                admission_deadline = time.time() + 600  # Fallback 10 mins
+                # USER REQUEST: Wait until 15 minutes after the scheduled start time before giving up.
+                admission_deadline = time.time() + 900  # Fallback 15 mins
                 if scheduled_start:
                     try:
                         dt_start = dt_parser.parse(scheduled_start)
                         if dt_start.tzinfo is None: dt_start = dt_start.replace(tzinfo=timezone.utc)
-                        # Admission deadline is Start Time + 2 Minutes
-                        planned_deadline = (dt_start + timedelta(minutes=2)).timestamp()
+                        # Admission deadline is Start Time + 15 Minutes
+                        planned_deadline = (dt_start + timedelta(minutes=15)).timestamp()
                         admission_deadline = max(admission_deadline, planned_deadline)
-                        print(f"[Meet Slot {self.slot}] Patient Lobby: Will wait until {datetime.fromtimestamp(admission_deadline).strftime('%H:%M:%S')} for admission.")
+                        print(f"[Meet Slot {self.slot}] Patient Lobby: Will wait until {datetime.fromtimestamp(admission_deadline).strftime('%H:%M:%S')} for admission (15m buffer).")
                     except: pass
 
                 # CRITICAL: Track actual admission — do NOT record in lobby
@@ -792,12 +792,29 @@ class RenaMeetingBot:
 
                         # Bot itself counts as 1 — if only 1 (or 0) left, start timer
                         if participant_count <= 1:
-                            if alone_since is None:
+                            # STRATEGIC PATIENCE: 
+                            # If it's before (Scheduled Start + 15 mins), DO NOT LEAVE.
+                            # The bot should wait for the actual meeting to start.
+                            is_grace_period = False
+                            if scheduled_start:
+                                try:
+                                    dt_start = dt_parser.parse(scheduled_start)
+                                    if dt_start.tzinfo is None: dt_start = dt_start.replace(tzinfo=timezone.utc)
+                                    grace_deadline = (dt_start + timedelta(minutes=15)).timestamp()
+                                    if time.time() < grace_deadline:
+                                        is_grace_period = True
+                                        if alone_since is None: # Only log once
+                                            print(f"[Bot] Alone in meeting, but it's within the 15m start window. Waiting for participants...")
+                                except: pass
+
+                            if is_grace_period:
+                                alone_since = None # Reset timer while in grace period
+                            elif alone_since is None:
                                 alone_since = time.time()
                                 print(f"[Bot] Only bot remains in meeting. Will leave in {ALONE_TIMEOUT_SECS}s...")
                                 if db_module and meeting_id:
                                     db_module.update_bot_status(meeting_id, "CONNECTED",
-                                        note=f"All participants left. Leaving in {ALONE_TIMEOUT_SECS}s...",
+                                        note=f"No participants detected. Leaving in {ALONE_TIMEOUT_SECS}s...",
                                         user_email=user_email)
                             elif (time.time() - alone_since) > ALONE_TIMEOUT_SECS:
                                 print("[Bot] Timeout reached (Bot remains alone). Auto-leaving meeting.")
