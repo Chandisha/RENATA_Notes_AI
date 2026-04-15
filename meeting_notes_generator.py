@@ -524,11 +524,11 @@ Output format:
         self.last_json_path = str(json_path)
         logger.info("Gemini Hybrid Pipeline Finished.")
 
-def process_meeting_audio(audio_path: str, meeting_id: str):
+def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = None):
     """
     Standard entry point for the bot pilot to process a recording.
     """
-    logger.info(f"Starting pipeline for meeting {meeting_id} with audio {audio_path}")
+    logger.info(f"Starting pipeline for meeting {meeting_id} with audio {audio_path} (user_email={user_email})")
     generator = AdaptiveMeetingNotesGenerator(audio_path)
     try:
         generator.process_meeting(audio_path)
@@ -568,7 +568,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
         # NOT to all meeting participants - this respects multi-user privacy
         # The PDF is sent only to the user whose Gmail account is connected to the app
         try:
-            mtg = db.get_meeting(meeting_id)
+            mtg = db.get_meeting(meeting_id, user_email=user_email) if user_email else db.get_meeting(meeting_id)
             if mtg and mtg.get('user_email'):
                 user_email = mtg['user_email']
                 # Use AI generated title if available, otherwise fallback to database title

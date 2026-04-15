@@ -580,11 +580,11 @@ class RenaMeetingBot:
                 if record: 
                     self.stop_audio_recording()
                 
-                if db_module and meeting_id: 
+                if db_module and meeting_id:
                     db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
                     try:
                         from meeting_notes_generator import process_meeting_audio
-                        process_meeting_audio(str(self.recording_path), meeting_id)
+                        process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email)
                         db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready")
                     except Exception as ex:
                         print(f"Zoom Pipeline Fail: {ex}")
@@ -769,7 +769,7 @@ class RenaMeetingBot:
                     db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
                     try:
                         from meeting_notes_generator import process_meeting_audio
-                        process_meeting_audio(str(self.recording_path), meeting_id)
+                        process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email)
                         db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready")
                     except Exception as ex:
                         print(f"Pipeline Fail: {ex}")
@@ -920,10 +920,10 @@ def run_auto_pilot(operator_email):
         print(f"| - {email:<46} |")
     print("+--------------------------------------------------+")
     PILOT_BOOT_TIME = datetime.now(timezone.utc)
-    session_handled_ids = set()
     
     while True:
         try:
+            session_handled_ids = set()
             # 1. LIVE JOIN INTENTS (ALL USERS)
             pending_joins = db.fetch_all("SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' ORDER BY created_at ASC")
             for pending in pending_joins:
@@ -1008,13 +1008,13 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        timeMin=(now - timedelta(minutes=15)).isoformat().replace('+00:00','Z'), 
+                        timeMin=(now - timedelta(hours=3)).isoformat().replace('+00:00','Z'), 
                         timeMax=(now + timedelta(minutes=5)).isoformat().replace('+00:00','Z'), 
-                        maxResults=20, 
+                        maxResults=40, 
                         singleEvents=True, 
                         orderBy='startTime',
                         conferenceDataVersion=1,
-                        fields='items(id,summary,start,location,hangoutLink,conferenceData),nextPageToken'
+                        fields='items(id,summary,start,end,location,hangoutLink,conferenceData),nextPageToken'
                     ).execute().get('items', [])
                     
                     for event in events:
@@ -1038,17 +1038,25 @@ def run_auto_pilot(operator_email):
                             continue
                         
                         start_str = event.get('start', {}).get('dateTime', event.get('start', {}).get('date'))
+                        end_str = event.get('end', {}).get('dateTime', event.get('end', {}).get('date'))
                         if not start_str: 
                             continue
                             
                         parsed_dt = dt_parser.parse(start_str)
                         if parsed_dt.tzinfo is None:
                             parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
-                            
-                        diff = (now - parsed_dt).total_seconds() / 60
-                        
-                        # Real-time window: Join ongoing meetings and those starting within 5 minutes.
-                        if -5 <= diff <= 15:
+                        parsed_end = None
+                        if end_str:
+                            parsed_end = dt_parser.parse(end_str)
+                            if parsed_end.tzinfo is None:
+                                parsed_end = parsed_end.replace(tzinfo=timezone.utc)
+
+                        # Skip events that have already ended
+                        if parsed_end and now > parsed_end:
+                            continue
+
+                        # Join meetings that have started already, are still ongoing, or will start within 5 minutes.
+                        if parsed_dt <= (now + timedelta(minutes=5)):
                             if url:
                                 url = normalize_url(url)
                                 
