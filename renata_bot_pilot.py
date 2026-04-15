@@ -1008,8 +1008,9 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        timeMin=(now - timedelta(minutes=5)).isoformat().replace('+00:00','Z'), 
-                        maxResults=5, 
+                        timeMin=(now - timedelta(minutes=15)).isoformat().replace('+00:00','Z'), 
+                        timeMax=(now + timedelta(minutes=5)).isoformat().replace('+00:00','Z'), 
+                        maxResults=20, 
                         singleEvents=True, 
                         orderBy='startTime'
                     ).execute().get('items', [])
@@ -1017,6 +1018,14 @@ def run_auto_pilot(operator_email):
                     for event in events:
                         m_id = event.get('id')
                         url = event.get('hangoutLink')
+                        if not url:
+                            conf = event.get('conferenceData', {})
+                            if conf:
+                                for entry in conf.get('entryPoints', []):
+                                    uri = entry.get('uri')
+                                    if uri and (is_meet_url(uri) or is_zoom_url(uri)):
+                                        url = uri
+                                        break
                         if not url and 'location' in event: 
                             loc = event['location']
                             url = loc if is_meet_url(loc) or is_zoom_url(loc) else None
@@ -1036,8 +1045,8 @@ def run_auto_pilot(operator_email):
                             
                         diff = (now - parsed_dt).total_seconds() / 60
                         
-                        # Real-time window: Join ONLY if started (diff >= 0) and within 15 mins (ongoing)
-                        if 0 <= diff <= 15:
+                        # Real-time window: Join ongoing meetings and those starting within 5 minutes.
+                        if -5 <= diff <= 15:
                             if url:
                                 url = normalize_url(url)
                                 
