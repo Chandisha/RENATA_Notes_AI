@@ -91,41 +91,28 @@ def get_service(user_email=None):
         return None
 
 # --- RTCPeerConnection Hook — Injected BEFORE page load ---
-# This patches WebRTC at the browser level to capture all remote audio tracks
+# Maintains a global registry of all peer connections so we can
+# enumerate their audio receivers when recording starts.
 RTC_AUDIO_HOOK = """
 (function() {
-    console.log('[Renata] Injecting RTC Audio Hook...');
+    console.log('[Renata] Injecting RTC Hook...');
+    window.__renataActivePCs = window.__renataActivePCs || [];
     try {
-        window.__renataAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        window.__renataDest = window.__renataAudioCtx.createMediaStreamDestination();
-
-        const origAddTrack = RTCPeerConnection.prototype.addTrack;
-        RTCPeerConnection.prototype.addTrack = function(track, ...streams) {
-            console.log('[Renata] RTC Track Added:', track.kind);
-            if (track.kind === 'audio') {
-                const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([track]));
-                src.connect(window.__renataDest);
-            }
-            return origAddTrack.call(this, track, ...streams);
-        };
-
-        const origOntrack = Object.getOwnPropertyDescriptor(RTCPeerConnection.prototype, 'ontrack');
-        if (origOntrack && origOntrack.set) {
-            Object.defineProperty(RTCPeerConnection.prototype, 'ontrack', {
-                set: function(fn) {
-                    const wrappedFn = (e) => {
-                        if (e.track && e.track.kind === 'audio') {
-                            console.log('[Renata] Remote Audio Track Received');
-                            const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([e.track]));
-                            src.connect(window.__renataDest);
-                        }
-                        return fn.apply(this, arguments);
-                    };
-                    return origOntrack.set.call(this, wrappedFn);
+        const OrigRTC = window.RTCPeerConnection;
+        window.RTCPeerConnection = function(...args) {
+            const pc = new OrigRTC(...args);
+            window.__renataActivePCs.push(pc);
+            console.log('[Renata] RTCPeerConnection created. Total:', window.__renataActivePCs.length);
+            pc.addEventListener('connectionstatechange', () => {
+                if (pc.connectionState === 'closed') {
+                    window.__renataActivePCs = window.__renataActivePCs.filter(p => p !== pc);
                 }
             });
-        }
-        console.log('[Renata] Hook Ready.');
+            return pc;
+        };
+        Object.setPrototypeOf(window.RTCPeerConnection, OrigRTC);
+        Object.defineProperty(window.RTCPeerConnection, 'prototype', { value: OrigRTC.prototype });
+        console.log('[Renata] Hook Ready — PC registry enabled.');
     } catch(e) { console.error('[Renata] Hook Fail:', e); }
 })();
 """
@@ -351,52 +338,79 @@ class RenaMeetingBot:
         except Exception:
             pass  # Already registered (safe to ignore)
 
-        print(f"[Audio Slot {self.slot}] Attaching MediaRecorder to RTC-hooked destination...")
+        print(f"[Audio Slot {self.slot}] Attaching MediaRecorder — scanning all live RTC receivers...")
         page.evaluate("""
         () => {
-            if (window._renataRecorder) {
+            if (window._renataRecorder && window._renataRecorder.state !== 'inactive') {
                 console.log('[Renata] Recorder already running.');
                 return;
             }
 
-            // Use the destination set up by the pre-navigation RTC hook.
-            // If missing (e.g. very old cached page), create a fresh fallback.
-            if (!window.__renataDest) {
-                console.warn('[Renata] RTC dest not found — creating fallback AudioContext.');
-                window.__renataAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                window.__renataDest = window.__renataAudioCtx.createMediaStreamDestination();
+            // Fresh AudioContext + destination to mix all remote tracks
+            window.__renataAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            window.__renataDest = window.__renataAudioCtx.createMediaStreamDestination();
 
-                // Fallback: hook <audio>/<video> srcObject since RTC hook missed startup
+            let tracksConnected = 0;
+
+            // METHOD 1: Enumerate receivers from all open RTCPeerConnections
+            const pcs = window.__renataActivePCs || [];
+            console.log('[Renata] Open PeerConnections found:', pcs.length);
+            pcs.forEach(pc => {
+                if (pc.connectionState === 'closed' || pc.connectionState === 'failed') return;
+                pc.getReceivers().forEach(receiver => {
+                    const track = receiver.track;
+                    if (track && track.kind === 'audio' && track.readyState === 'live') {
+                        try {
+                            const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([track]));
+                            src.connect(window.__renataDest);
+                            tracksConnected++;
+                            console.log('[Renata] Connected receiver track from PC registry');
+                        } catch(e) { console.warn('[Renata] Track connect error:', e); }
+                    }
+                });
+            });
+
+            // METHOD 2: Fallback — scan all <audio>/<video> srcObjects
+            if (tracksConnected === 0) {
+                console.warn('[Renata] No PeerConnection receivers found. Trying DOM elements...');
                 document.querySelectorAll('audio, video').forEach(el => {
                     if (el.srcObject) {
-                        try {
-                            const src = window.__renataAudioCtx.createMediaStreamSource(el.srcObject);
-                            src.connect(window.__renataDest);
-                        } catch(e) {}
+                        el.srcObject.getAudioTracks().forEach(track => {
+                            try {
+                                const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([track]));
+                                src.connect(window.__renataDest);
+                                tracksConnected++;
+                                console.log('[Renata] Connected DOM audio track');
+                            } catch(e) {}
+                        });
                     }
                 });
             }
 
-            // Resume AudioContext (required after autoplay policy blocks it)
-            if (window.__renataAudioCtx && window.__renataAudioCtx.state === 'suspended') {
+            console.log('[Renata] Total audio tracks connected:', tracksConnected);
+
+            // Resume AudioContext if blocked by autoplay policy
+            if (window.__renataAudioCtx.state === 'suspended') {
                 window.__renataAudioCtx.resume();
             }
 
-            const dest = window.__renataDest;
-            const recorder = new MediaRecorder(dest.stream, { mimeType: 'audio/webm;codecs=opus' });
+            // Pick best supported mimeType
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus' : 'audio/webm';
+
+            const recorder = new MediaRecorder(window.__renataDest.stream, { mimeType });
             window._renataRecorder = recorder;
 
             recorder.ondataavailable = async (e) => {
-                if (e.data.size > 0) {
+                if (e.data && e.data.size > 0) {
                     const buf = await e.data.arrayBuffer();
                     window._renataAudioChunk(Array.from(new Uint8Array(buf)));
                 }
             };
 
-            recorder.onerror = (e) => console.error('[Renata] Recorder error:', e);
-
-            recorder.start(3000); // Emit a chunk every 3 seconds
-            console.log('[Renata] MediaRecorder started. Capturing RTC audio stream.');
+            recorder.onerror = (e) => console.error('[Renata] Recorder error:', e.error);
+            recorder.start(3000);
+            console.log('[Renata] MediaRecorder started. mimeType:', mimeType);
         }
         """)
         print(f"[Audio Slot {self.slot}] Recording started → {self.recording_path.name}")
