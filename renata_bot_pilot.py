@@ -1077,9 +1077,9 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        # NARROW WINDOW: Only look at 5m ago to avoid yesterday's ghost meetings
-                        timeMin=(now - timedelta(minutes=5)).isoformat().replace('+00:00','Z'), 
-                        timeMax=(now + timedelta(minutes=30)).isoformat().replace('+00:00','Z'), 
+                        # NARROW WINDOW: Only look from NOW forward (0 min lookback) to avoid any previous meetings
+                        timeMin=now.isoformat().replace('+00:00','Z'), 
+                        timeMax=(now + timedelta(minutes=45)).isoformat().replace('+00:00','Z'), 
                         maxResults=40, 
                         singleEvents=True, 
                         orderBy='startTime',
@@ -1185,7 +1185,7 @@ def run_auto_pilot(operator_email):
                             session_handled_ids.add((m_id, cal_email))
                             session_handled_ids.add((url, cal_email))
                             
-                            db.set_meeting_bot_status(m_id, "DISPATCHING", user_email=cal_email, title=event.get('summary'), start_time=start_str, bot_status_note=f"Scheduled event detected. Assigning Slot {slot}...")
+                            db.set_meeting_bot_status(m_id, "DISPATCHING", user_email=cal_email, title=event.get('summary'), start_time=start_str, meet_url=url, bot_status_note=f"Scheduled event detected. Assigning Slot {slot}...")
                             
                             t = threading.Thread(
                                 target=_run_meeting_in_thread, 
