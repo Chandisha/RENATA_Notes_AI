@@ -1104,7 +1104,7 @@ def run_auto_pilot(operator_email):
                     t.start()
 
             # 2. CALENDAR SCAN (Auto-join if enabled by user)
-            all_users = db.fetch_all("SELECT email, bot_auto_join FROM users WHERE google_token IS NOT NULL OR zoom_token IS NOT NULL")
+            all_users = db.fetch_all("SELECT email, bot_auto_join, bot_recording_enabled FROM users WHERE google_token IS NOT NULL OR zoom_token IS NOT NULL")
             now = datetime.now(timezone.utc)
             
             # Persistent trackers for this session
@@ -1254,9 +1254,12 @@ def run_auto_pilot(operator_email):
                             
                             db.set_meeting_bot_status(m_id, "DISPATCHING", user_email=cal_email, title=event.get('summary'), start_time=start_str, meet_url=url, bot_status_note=f"Scheduled event detected. Assigning Slot {slot}...")
                             
+                            # Respect user's global recording preference
+                            rec_enabled = user_row.get('bot_recording_enabled', 1)
+                            
                             t = threading.Thread(
                                 target=_run_meeting_in_thread, 
-                                args=(url, m_id, cal_email, 1, slot, start_str), 
+                                args=(url, m_id, cal_email, rec_enabled, slot, start_str), 
                                 daemon=True
                             )
                             _active_jobs[(m_id, cal_email)] = t
