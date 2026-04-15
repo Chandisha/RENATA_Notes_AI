@@ -90,6 +90,43 @@ def get_service(user_email=None):
     except Exception: 
         return None
 
+# --- RTCPeerConnection Hook — Injected BEFORE page load ---
+# This patches WebRTC at the browser level to capture all remote audio tracks
+# and route them to a single MediaStreamDestination.
+RTC_AUDIO_HOOK = """
+() => {
+    console.log('[Renata] Injecting RTC Audio Hook...');
+    window.__renataAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    window.__renataDest = window.__renataAudioCtx.createMediaStreamDestination();
+
+    const origAddTrack = RTCPeerConnection.prototype.addTrack;
+    RTCPeerConnection.prototype.addTrack = function(track, ...streams) {
+        console.log('[Renata] RTC Track Added:', track.kind);
+        if (track.kind === 'audio') {
+            const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([track]));
+            src.connect(window.__renataDest);
+        }
+        return origAddTrack.call(this, track, ...streams);
+    };
+
+    const origOntrack = Object.getOwnPropertyDescriptor(RTCPeerConnection.prototype, 'ontrack');
+    Object.defineProperty(RTCPeerConnection.prototype, 'ontrack', {
+        set: function(fn) {
+            const wrappedFn = (e) => {
+                if (e.track && e.track.kind === 'audio') {
+                    console.log('[Renata] Remote Audio Track Received');
+                    const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([e.track]));
+                    src.connect(window.__renataDest);
+                }
+                return fn.apply(this, arguments);
+            };
+            return origOntrack.set.call(this, wrappedFn);
+        }
+    });
+    console.log('[Renata] Hook Ready.');
+};
+"""
+
 # --- MAIN BOT CLASS ---
 class RenaMeetingBot:
     def __init__(self, bot_name="Renata AI | Meeting Assistant", 
@@ -533,16 +570,18 @@ class RenaMeetingBot:
             if db_module and meeting_id:
                 db_module.update_bot_status(meeting_id, "FAILED", note=f"Zoom error: {str(e)[:100]}")
 
-    def join_google_meet(self, meet_url, record=True, db_module=None, meeting_id=None, user_email=None):
+    def join_google_meet(self, meet_url, record=True, db_module=None, meeting_id=None, user_email=None, guest_mode=False, guest_name="Renata AI | Meeting Assistant"):
         if not meeting_id: 
             meeting_id = f"meet_live_{int(time.time())}"
         
         meet_url = normalize_url(meet_url)
+        print(f"[Meet Slot {self.slot}] Mode: {'GUEST (' + guest_name + ')' if guest_mode else 'AUTHENTICATED'}")
+        
         try:
             with sync_playwright() as p:
                 context = p.chromium.launch_persistent_context(
                     self.session_dir, 
-                    headless=False, 
+                    headless=True, 
                     args=[
                         "--use-fake-ui-for-media-stream",
                         "--use-fake-device-for-media-stream",
@@ -557,68 +596,70 @@ class RenaMeetingBot:
                 page = context.pages[0]
                 Stealth().apply_stealth_sync(page)
                 
-                # PROACTIVE LOGIN: Ensure authenticated before joining
-                if not self.automate_google_login(page):
-                    print("Warning: Google Login might have failed. Proceeding anyway...")
+                # 1. Inject RTC Audio Hook BEFORE navigation
+                page.add_init_script(RTC_AUDIO_HOOK)
+
+                # 2. Authentication or Guest Mode
+                if guest_mode:
+                    print(f"[Meet Slot {self.slot}] Skipping login, joining as guest...")
+                    page.goto(meet_url)
+                else:
+                    # PROACTIVE LOGIN: Ensure authenticated before joining
+                    if not self.automate_google_login(page):
+                        print("Warning: Google Login might have failed. Proceeding anyway...")
+                    page.goto(meet_url)
                 
-                if db_module and meeting_id: 
-                    db_module.update_bot_status(meeting_id, "FETCHING", "Navigating to Google Meet...", user_email=user_email)
-                
-                page.goto(meet_url)
                 page.wait_for_load_state("domcontentloaded")
-                time.sleep(3)
+                time.sleep(5)
                 
-                if db_module and meeting_id: 
-                    db_module.update_bot_status(meeting_id, "CONNECTING", "Entering lobby...", user_email=user_email)
-                
-                # Double check if redirected to login again
-                if "accounts.google.com" in page.url:
+                if not guest_mode and "accounts.google.com" in page.url:
                     if db_module and meeting_id: 
                         db_module.update_bot_status(meeting_id, "CONNECTING", "Re-authenticating...")
                     self.automate_google_login(page)
                     page.goto(meet_url)
                     time.sleep(5)
+
+                if db_module and meeting_id: 
+                    db_module.update_bot_status(meeting_id, "CONNECTING", "Entering lobby...", user_email=user_email)
                 
-                # Handle "You can't join this video call" by clearing session and re-logging
+                # 3. Mute mic/camera
                 try:
-                    cant_join = page.locator('text="You can\'t join this video call"')
-                    if cant_join.count() > 0:
-                        print("[Meet] 'You can't join' detected! Clearing stale session and re-authenticating...")
-                        if db_module and meeting_id:
-                            db_module.update_bot_status(meeting_id, "CONNECTING", "Re-authenticating with correct account...", user_email=user_email)
-                        # Clear stale session cookies
-                        context.clear_cookies()
-                        # Re-login
-                        self.automate_google_login(page)
-                        # Retry navigation
-                        page.goto(meet_url)
-                        page.wait_for_load_state("domcontentloaded")
-                        time.sleep(5)
+                    page.keyboard.press("Control+d")
+                    time.sleep(0.5)
+                    page.keyboard.press("Control+e")
+                    time.sleep(1)
                 except: pass
 
-                
-                # Mute mic/camera shortcuts
-                page.keyboard.press("Control+d")
-                time.sleep(0.5)
-                page.keyboard.press("Control+e")
-                time.sleep(1)
-                
-                # Click Join Button explicitly
+                # 4. Handle Guest Name Input
+                if guest_mode:
+                    try:
+                        name_input = page.locator('input[placeholder*="name" i], input[aria-label*="name" i]').first
+                        if name_input.is_visible(timeout=5000):
+                            name_input.fill(guest_name)
+                            print(f"[Meet Slot {self.slot}] Entered guest name: {guest_name}")
+                            time.sleep(1)
+                    except:
+                        print(f"[Meet Slot {self.slot}] Name input not found — likely already in lobby.")
+
+                # 5. Click Join Button
                 try:
-                    btn = page.locator(
-                        'button:has-text("Join now"), button:has-text("Ask to join")'
-                    ).first
+                    btn = page.locator('button:has-text("Join now"), button:has-text("Ask to join")').first
                     btn.wait_for(timeout=8000)
                     btn.click(force=True)
                 except:
-                    print("Join button not found")
+                    print("[Meet Slot {self.slot}] Join button not found")
                 
-                # Wait for Admission
+                # 6. Wait for Admission
                 while True:
                     if page.locator('button[aria-label*="Leave call" i]').count() > 0:
                         if db_module and meeting_id: 
-                            db_module.update_bot_status(meeting_id, "CONNECTED", note="Bot joined! Initializing meeting intelligence...", user_email=user_email)
+                            db_module.update_bot_status(meeting_id, "CONNECTED", note=f"Bot joined as {guest_name if guest_mode else PERMANENT_BOT_EMAIL}", user_email=user_email)
                         break
+                    
+                    if page.locator('text="Waiting to be admitted"').count() > 0:
+                        if db_module and meeting_id:
+                            db_module.update_bot_status(meeting_id, "IN_LOBBY", note="Waiting for host to admit bot...", user_email=user_email)
+                            
                     time.sleep(5)
                 
                 if record:
@@ -800,11 +841,27 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
         thread_bot.set_slot(slot)
         
         if is_meet_url(meet_url):
-            thread_bot.join_google_meet(meet_url, record=record, db_module=db, meeting_id=meeting_id, user_email=user_email)
+            thread_bot.join_google_meet(
+                meet_url, 
+                record=record, 
+                db_module=db, 
+                meeting_id=meeting_id, 
+                user_email=user_email,
+                guest_mode=(slot > 0),
+                guest_name="Renata AI | Meeting Assistant"
+            )
         elif is_zoom_url(meet_url):
             thread_bot.join_zoom_meeting(meet_url, record=record, db_module=db, meeting_id=meeting_id, user_email=user_email)
         else:
-            thread_bot.join_google_meet(meet_url, record=record, db_module=db, meeting_id=meeting_id, user_email=user_email)
+            thread_bot.join_google_meet(
+                meet_url, 
+                record=record, 
+                db_module=db, 
+                meeting_id=meeting_id, 
+                user_email=user_email,
+                guest_mode=(slot > 0),
+                guest_name="Renata AI | Meeting Assistant"
+            )
     except Exception as e:
         print(f"\n[Slot {slot}] FATAL ERROR in thread: {e}")
         traceback.print_exc()
