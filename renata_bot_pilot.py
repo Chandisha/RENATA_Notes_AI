@@ -996,7 +996,7 @@ def run_auto_pilot(operator_email):
                     t.start()
 
             # 2. CALENDAR SCAN (Auto-join if enabled by user)
-            all_users = db.fetch_all("SELECT email, bot_auto_join FROM users WHERE (google_token IS NOT NULL AND google_token != '')")
+            all_users = db.fetch_all("SELECT email, bot_auto_join FROM users WHERE google_token IS NOT NULL OR zoom_token IS NOT NULL")
             now = datetime.now(timezone.utc)
             
             # Persistent trackers for this session
@@ -1007,6 +1007,7 @@ def run_auto_pilot(operator_email):
                 cal_email = user_row['email']
                 # Respect auto-join setting
                 if not user_row.get('bot_auto_join', 1):
+                    # print(f"[Pilot] SKIP {cal_email} — auto-join disabled in settings")
                     continue
                 
                 # OPTIMIZATION: Only scan Gmail every 60 seconds (prevents throttling & lag)
