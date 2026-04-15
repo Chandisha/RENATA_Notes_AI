@@ -1023,8 +1023,8 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        timeMin=(now - timedelta(minutes=15)).isoformat().replace('+00:00','Z'), 
-                        timeMax=(now + timedelta(minutes=15)).isoformat().replace('+00:00','Z'), 
+                        timeMin=(now - timedelta(hours=2)).isoformat().replace('+00:00','Z'), 
+                        timeMax=(now + timedelta(minutes=30)).isoformat().replace('+00:00','Z'), 
                         maxResults=40, 
                         singleEvents=True, 
                         orderBy='startTime',
@@ -1069,22 +1069,26 @@ def run_auto_pilot(operator_email):
                         if parsed_end and now > parsed_end:
                             continue
 
-                        # Only consider events that start within 15 minutes or are currently ongoing.
-                        if parsed_dt > now + timedelta(minutes=15):
+                        # Only consider meetings that are ongoing or starting soon.
+                        if parsed_dt > now + timedelta(minutes=30):
                             continue
                         if parsed_dt < now - timedelta(minutes=15) and (not parsed_end or now > parsed_end):
                             continue
 
-                        if url:
-                                url = normalize_url(url)
-                                
-                                # Check if user manually skipped this specific meeting
-                                db_meeting = db.fetch_one("SELECT is_skipped FROM meetings WHERE meeting_id = ? AND user_email = ?", (m_id, cal_email))
-                                if db_meeting and db_meeting.get('is_skipped', 0):
-                                    if (m_id, cal_email) not in session_handled_ids:
-                                        print(f"[Pilot] Meeting {m_id} skipped by user preference for {cal_email}")
-                                        session_handled_ids.add((m_id, cal_email))
-                                    continue
+                        # Skip meetings already completed/failed for this user.
+                        db_meeting = db.fetch_one("SELECT bot_status, is_skipped FROM meetings WHERE meeting_id = ? AND user_email = ?", (m_id, cal_email))
+                        if db_meeting:
+                            if db_meeting.get('is_skipped', 0):
+                                if (m_id, cal_email) not in session_handled_ids:
+                                    print(f"[Pilot] Meeting {m_id} skipped by user preference for {cal_email}")
+                                    session_handled_ids.add((m_id, cal_email))
+                                continue
+                            if db_meeting.get('bot_status') in ('COMPLETED', 'FAILED') and now > parsed_dt:
+                                continue
+
+                        if not url:
+                            continue
+                        url = normalize_url(url)
 
                                 if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs or url in _active_urls:
                                     continue
