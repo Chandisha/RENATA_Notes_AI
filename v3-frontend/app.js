@@ -41,6 +41,10 @@ async function apiFetch(endpoint, options = {}) {
 
 // --- GLOBAL STATE ---
 let notebookAutoSaveTimeout = null;
+let reportsRefreshInterval = null;
+let dashboardRefreshInterval = null;
+let reportsRefreshInProgress = false;
+let dashboardRefreshInProgress = false;
 
 window.triggerNotebookAutoSave = function() {
     // No-op or keep if needed for other parts, but removing personal note triggers
@@ -50,6 +54,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Immediate Navigation Setup (Priority)
     const navItems = document.querySelectorAll('.nav-item');
     const pages = document.querySelectorAll('.page');
+
+    function clearAutoRefreshIntervals() {
+        if (reportsRefreshInterval) {
+            clearInterval(reportsRefreshInterval);
+            reportsRefreshInterval = null;
+        }
+        if (dashboardRefreshInterval) {
+            clearInterval(dashboardRefreshInterval);
+            dashboardRefreshInterval = null;
+        }
+    }
 
     function showPage(pageId) {
         if (!pageId) pageId = 'dashboard';
@@ -63,7 +78,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetElement) {
             pages.forEach(p => p.classList.remove('active'));
             targetElement.classList.add('active');
+            clearAutoRefreshIntervals();
             loadPageData(pageId).catch(err => console.error("Page load error:", err));
+
+            if (pageId === 'reports') {
+                reportsRefreshInterval = setInterval(async () => {
+                    if (!reportsRefreshInProgress) {
+                        reportsRefreshInProgress = true;
+                        await loadReportsData();
+                        reportsRefreshInProgress = false;
+                    }
+                }, 8000);
+            }
+
+            if (pageId === 'dashboard') {
+                dashboardRefreshInterval = setInterval(async () => {
+                    if (!dashboardRefreshInProgress) {
+                        dashboardRefreshInProgress = true;
+                        await loadDashboardData(true);
+                        dashboardRefreshInProgress = false;
+                    }
+                }, 12000);
+            }
         }
     }
 
@@ -199,10 +235,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadDashboardData() {
+    async function loadDashboardData(skipProfile = false) {
         try {
-            // 1. Fast Profile Load
-            await loadUserProfile();
+            if (!skipProfile) {
+                // 1. Fast Profile Load
+                await loadUserProfile();
+            }
 
             // 2. Heavier Dashboard Data (Calendar, Stats, Recent)
             const res = await apiFetch("/dashboard_data");
@@ -1064,6 +1102,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 feather.replace();
             }, 3000);
         });
+    }
 
     const refGmailBtn = document.getElementById('refresh-gmail-btn');
     if (refGmailBtn) refGmailBtn.onclick = () => loadGmailData();

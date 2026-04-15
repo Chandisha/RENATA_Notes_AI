@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MeetAI by Nexren · Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body class="login-body">
+    <div class="login-bg">
+        <div class="login-glow login-glow-1"></div>
+        <div class="login-glow login-glow-2"></div>
+    </div>
+
+    <div class="login-container">
+        <div class="login-card">
+            <img src="/static/renataiot_logo.jpg" alt="Renata Logo" style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 15px; border: 2px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+            <h1 class="login-title">MeetAI</h1>
+            <p class="login-subtitle">Enterprise Meeting Intelligence by Nexren</p>
+            <p class="login-desc">Your autonomous AI that joins, transcribes, and summarizes every meeting — powered by
+                Google Gemini.</p>
+
+            
+
+            <div class="login-actions">
+                <a href="/auth/google" class="btn btn-primary login-btn">
+                    Sign in using google account
+                </a>
+                <div id="loading" class="mt-4 hidden text-center text-sm text-gray-500">
+                <i class="fas fa-spinner fa-spin mr-2"></i> Signing you in...
+            </div>
+
+            <!-- Added for Google Verification -->
+            <div class="mt-8 pt-6 border-t border-gray-100 text-center">
+                <div class="flex justify-center space-x-4 text-xs text-gray-400">
+                    <a href="/privacy" class="hover:text-blue-500 transition-colors">Privacy Policy</a>
+                    <span class="text-gray-300">|</span>
+                    <a href="/terms" class="hover:text-blue-500 transition-colors">Terms of Service</a>
+                </div>
+                <p class="mt-2 text-[10px] text-gray-300">&copy; 2026 MeetAI by Nexren</p>
+            </div>
+        </div>
+    </div>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"5796229b65144f1a8cc2c93d75f95229","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+
+</html>

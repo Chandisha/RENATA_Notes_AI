@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeetAI by Nexren</title>
+    <!-- CONSISTENCY FIX: CSS version cache-busting ensures all users get latest styles -->
+    <link rel=\"stylesheet\" href=\"/v3-frontend/styles.css?v=20260415\">
+    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">
+    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>
+    <link href=\"https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap\"
+        rel=\"stylesheet\">
+    <script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>
+    <script src=\"https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js\"></script>
+    <script src=\"https://checkout.razorpay.com/v1/checkout.js\"></script>
+</head>
+
+<!-- MULTI-USER CONSISTENCY:
+     - All users see the SAME HTML layout and CSS styling
+     - User-specific data (name, email, avatar, plan) is loaded dynamically via JavaScript
+     - Frontend is purely presentational; no hardcoded user values
+     - Each user's data is fetched from /api/me endpoint
+     - Avatar seed is user-email-based (consistent for each user)
+     - Reports, PDFs, and meeting data are user-isolated via backend
+-->
+<body class="light-theme">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <img src="/static/renataiot_logo.jpg" class="logo-img" alt="MeetAI Logo">
+                    <span class="logo-text">MeetAI<span class="logo-subtext">by Nexren</span></span>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-item active" data-page="dashboard">
+                    <i data-feather="grid"></i> <span>Dashboard</span>
+                </div>
+                <div class="nav-item" data-page="reports">
+                    <i data-feather="file-text"></i> <span>Reports</span>
+                </div>
+                <div class="nav-item" data-page="gmail">
+                    <i data-feather="mail"></i> <span>Gmail Intelligence</span>
+                </div>
+                <div class="nav-item" data-page="search">
+                    <i data-feather="search"></i> <span>AI Search</span>
+                </div>
+                <div class="nav-item" data-page="live">
+                    <i data-feather="video"></i> <span>Live Meeting</span>
+                </div>
+                <div class="nav-item" data-page="analytics">
+                    <i data-feather="pie-chart"></i> <span>Analytics</span>
+                </div>
+                <div class="nav-item" data-page="integrations">
+                    <i data-feather="link"></i> <span>Integrations</span>
+                </div>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="nav-item" data-page="help" onclick="window.location.hash='#help'" style="padding: 10px 12px; margin-bottom: 4px;">
+                    <i data-feather="help-circle"></i> <span>Help & Support</span>
+                </div>
+                <div class="nav-item" data-page="settings">
+                    <i data-feather="settings"></i> <span>Settings</span>
+                </div>
+                <a href="/logout" class="sidebar-logout"
+                    style="display: flex; align-items: center; gap: 12px; padding: 12px; color: #ef4444; text-decoration: none; font-size: 0.9rem; font-weight: 600; margin-top: 8px;">
+                    <i data-feather="log-out" style="width: 18px; height: 18px;"></i> <span>Logout</span>
+                </a>
+                <div class="user-profile" style="margin-top: 16px;">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com" class="avatar" alt="User" id="user-avatar-img">
+                    <div class="user-info">
+                        <span class="user-name">Loading...</span>
+                        <span class="user-account" style="font-size: 0.75rem; font-weight: 600; color: var(--accent-purple); display: block; margin-top: 2px;">Account: Basic</span>
+                        <span class="user-status" style="margin-top:2px;">Online</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="mobile-menu-toggle" id="mobile-menu-btn">
+                    <i data-feather="menu"></i>
+                </div>
+                <div class="top-bar-actions">
+                    <div class="status-badge">
+                        <span class="status-dot pulse"></span>
+                        <span class="status-text">Server: Connected</span>
+                    </div>
+
+                    <button class="primary-btn" id="header-live-btn" onclick="window.location.hash='#live'; window.location.reload();">
+                        <i data-feather="video"></i>
+                        <span>Live Meeting</span>
+                    </button>
+                </div>
+            </header>
+
+            <div id="content-area">
+                <!-- Dashboard Page (Default) -->
+                <section id="dashboard-page" class="page active">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Upcoming Meetings</h1>
+                            <p class="subtitle">Managing your scheduled calls and AI intelligence.</p>
+                        </div>
+                        <div class="page-header-actions"></div>
+                    </div>
+
+                    <div class="dashboard-primary">
+                        <div class="card calendar-card" style="width: 100%; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
+                            <div class="card-header">
+                                <h2>Upcoming Meetings</h2>
+                                <span class="badge blue">Google Calendar Sync</span>
+                            </div>
+                            <div id="calendar-grid" class="meeting-list">
+                                <!-- Calendar Events Loaded via JS -->
+                                <p class="muted">Scanning your calendar...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card recent-meetings" style="margin-top: 24px;">
+                        <div class="card-header">
+                            <h2>Recent AI Reports</h2>
+                            <a href="#reports" class="link-btn" style="color: var(--accent-purple); font-weight: 700;">View All History</a>
+                        </div>
+                        <div class="meeting-list" id="recent-list">
+                            <!-- Dynamic List -->
+                        </div>
+                    </div>
+                </section>
+
+                <section id="analytics-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Account Analytics</h1>
+                            <p class="subtitle">Personalized performance and engagement metrics.</p>
+                        </div>
+                        <div class="page-header-actions"></div>
+                    </div>
+
+                    <div class="stats-grid" id="analytics-stats-grid">
+                        <div class="stat-card">
+                            <i data-feather="video" class="stat-icon purple"></i>
+                            <div class="stat-data">
+                                <span class="stat-value" id="ana-total-meetings">0</span>
+                                <span class="stat-label">Total Meetings Joined</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i data-feather="clock" class="stat-icon blue"></i>
+                            <div class="stat-data">
+                                <span class="stat-value" id="ana-total-reports">0</span>
+                                <span class="stat-label">Reports Generated</span>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <i data-feather="calendar" class="stat-icon cyan"></i>
+                            <div class="stat-data">
+                                <span class="stat-value" id="ana-upcoming">0</span>
+                                <span class="stat-label">Upcoming Meetings</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card" style="margin-top: 24px; padding: 25px;">
+                        <div class="card-header" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                            <h2 style="font-size: 1.2rem; font-weight: 800; color: var(--text-primary); margin: 0;">AI Engagement Intelligence</h2>
+                            <p class="muted" style="font-size: 0.85rem; max-width: 500px;">This chart tracks your relative AI activity and engagement levels over the last 7 days, helping you visualize how frequently MeetAI is processing your meetings and extracting key insights.</p>
+                        </div>
+
+                        <div class="chart-container">
+                            <canvas id="analyticsChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="gmail-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Gmail Intelligence</h1>
+                            <p class="subtitle">AI-extracted briefs and inbox context for your upcoming meetings.</p>
+                        </div>
+                        <div class="page-header-actions">
+                            <button id="refresh-gmail-btn" title="Refresh Intelligence" class="refresh-btn">
+                                <i data-feather="refresh-cw"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Gmail Sub-Tabs -->
+                    <div class="gmail-tabs-container" style="display:flex; gap:20px; margin-bottom:24px; border-bottom:1px solid rgba(0,0,0,0.08); padding: 0 5px;">
+                        <div class="gmail-tab active" data-tab="briefs" style="padding: 12px 18px; cursor:pointer; font-weight:600; color: var(--accent-purple); border-bottom: 2px solid var(--accent-purple); display: flex; align-items:center; gap:8px;">
+                            <i data-feather="zap" style="width:16px;"></i> Intelligence Briefs
+                        </div>
+                        <div class="gmail-tab" data-tab="inbox" style="padding: 12px 18px; cursor:pointer; font-weight:600; color: #64748b; display: flex; align-items:center; gap:8px;">
+                            <i data-feather="inbox" style="width:16px;"></i> Inbox Activity
+                        </div>
+                    </div>
+                    
+                    <div id="gmail-briefs-list" class="meeting-list">
+                        <!-- Content toggled via JS -->
+                        <div class="muted" style="text-align: center; padding: 100px;">
+                            <i data-feather="mail" style="width: 48px; height: 48px; margin-bottom: 20px; opacity: 0.1;"></i>
+                            <p>Analyzing context...</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Other pages are hidden by default and managed by JS -->
+                <section id="reports-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Meeting Archive</h1>
+                            <p class="subtitle">Access your past and newly generated reports.</p>
+                        </div>
+                        <div class="page-header-actions">
+                            <button id="refresh-reports-btn" title="Refresh Reports" class="refresh-btn">
+                                <i data-feather="refresh-cw"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="reports-container" id="reports-grid">
+                        <!-- Dynamic Grid -->
+                    </div>
+                </section>
+
+                <section id="search-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>AI Assistant</h1>
+                            <p class="subtitle">Search across all your meetings with natural language.</p>
+                        </div>
+                        <div class="page-header-actions search-stats-container">
+                            <button id="sync-pdf-btn" class="secondary-btn sync-btn">
+                                <i data-feather="database"></i> Sync PDF
+                            </button>
+                            <div class="kb-stats">
+                                <span class="badge"><b id="report-count">0</b> Reports</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-layout">
+                        <div class="chat-container">
+                            <div class="chat-messages" id="chat-box">
+                                <div class="message assistant">
+                                    <p>Hello! I'm MeetAI. Ask me anything about your meeting reports. For example, try 'What was discussed in the last report?'</p>
+                                </div>
+                            </div>
+                            <div class="chat-input-area">
+                                <input type="text" id="chat-input" placeholder="Type your question about meeting reports...">
+                                <button id="send-chat" class="primary-btn">
+                                    <i data-feather="send"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <aside class="chat-history-sidebar">
+                            <div class="history-header">
+                                <span>Recent Chats</span>
+                                <button id="new-chat-sidebar-btn" class="icon-btn" title="New Chat">
+                                    <i data-feather="plus"></i>
+                                </button>
+                            </div>
+                            <div class="history-list" id="chat-session-list">
+                                <!-- Sessions loaded via JS -->
+                                <div class="history-item empty">No history yet</div>
+                            </div>
+                        </aside>
+                    </div>
+                </section>
+
+                <section id="live-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Live Control Room</h1>
+                            <p class="subtitle">Dispatch MeetAI to any call and track its progress in real-time.</p>
+                        </div>
+                    </div>
+
+                    <div class="live-container" style="max-width: 800px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px;">
+                        <!-- Dispatch Card -->
+                        <div class="card live-dispatch" style="padding: 30px; border-radius: 20px;">
+                            <h3 style="margin-bottom: 20px; font-size: 1.2rem; font-weight: 700;">Join a Meeting</h3>
+                            <div class="input-group" style="display: flex; gap: 12px;">
+                                <input type="text" id="manual-url" placeholder="Paste Google Meet or Zoom link here..." 
+                                    style="flex: 1; padding: 14px 20px; border-radius: 12px; border: 1.5px solid var(--border-color); font-size: 0.95rem; outline: none; transition: border-color 0.2s;">
+                                <button class="primary-btn" id="manual-join" style="padding: 0 25px; border-radius: 12px; height: 50px; font-weight: 700;">
+                                    <i data-feather="send" style="width:18px; margin-right:8px;"></i>
+                                    Dispatch Bot
+                                </button>
+                            </div>
+                            <p style="margin-top: 15px; font-size: 0.8rem; color: var(--text-secondary);">
+                                Supports Google Meet & Zoom. Ensure your bot account has permission to join.
+                            </p>
+                        </div>
+
+                        <!-- Live Bot Tracker Card -->
+                        <div id="bot-live-status" class="card" style="padding: 30px; border-radius: 20px; border: 1px solid var(--border-color);">
+                            <!-- Header Row -->
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 24px;">
+                                <div style="display:flex; align-items:center; gap:15px;">
+                                    <div class="status-indicator-wrapper" style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border-radius: 12px;">
+                                        <span class="pulse-indicator" id="bot-pulse" style="background:#64748b; width: 12px; height: 12px; border-radius: 50%;"></span>
+                                    </div>
+                                    <div>
+                                        <h3 style="font-size:1.1rem; font-weight: 700; margin:0;">Bot Activity</h3>
+                                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+                                            <span id="bot-status-badge" style="font-size: 0.85rem; font-weight: 600; color:var(--text-secondary); background: rgba(0,0,0,0.04); padding: 2px 10px; border-radius: 20px;">Idle</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="bot-live-timer" style="display:none; font-size: 1rem; color: var(--accent-green); font-weight: 700; background: rgba(16, 185, 129, 0.1); padding: 5px 15px; border-radius: 8px;">
+                                    ● 00:00
+                                </div>
+                            </div>
+
+                            <!-- States Container -->
+                            <div class="bot-state-content">
+                                <!-- IDLE STATE -->
+                                <div id="bot-idle-msg" style="color:var(--text-secondary); font-size:0.95rem; line-height: 1.6; border-left: 3px solid var(--border-color); padding-left: 15px;">
+                                    MeetAI is currently <strong>Offline</strong>. Enter a link above to start a session.
+                                </div>
+
+                                <!-- PROGRESS STATE (hidden until dispatched) -->
+                                <div id="bot-tracker" style="display:none;">
+                                    <div id="bot-log" style="background:#f8fafc; border-radius:12px; padding:20px; font-size:0.9rem; color:var(--text-primary); border:1px solid var(--border-color); font-family: 'Inter', sans-serif; min-height:60px; line-height:1.7; display: flex; align-items: flex-start; gap: 12px;">
+                                        <i data-feather="terminal" style="width:16px; margin-top: 4px; color: var(--accent-purple);"></i>
+                                        <span id="bot-log-text">Initializing join sequence...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="integrations-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Integrations</h1>
+                            <p class="subtitle">Connect your workspace tools to MeetAI.</p>
+                        </div>
+                        <div class="page-header-actions"></div>
+                    </div>
+
+                    <div class="integrations-grid">
+                        <div class="card integration-card" id="int-google">
+                            <div class="int-header">
+                                <div class="int-icon google">G</div>
+                                <span class="int-name">GOOGLE</span>
+                            </div>
+                            <span class="status-text" id="google-status">Disconnected</span>
+                            <button onclick="window.location.href=API_BASE+'/auth/google'" class="secondary-btn">Link
+                                Account</button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="settings-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Account Settings</h1>
+                            <p class="subtitle">Manage your bot preferences and profile.</p>
+                        </div>
+                        <div class="page-header-actions">
+                            <a href="/logout" class="primary-btn" style="background: #ef4444; padding: 8px 16px; font-size: 0.85rem;">
+                                <i data-feather="log-out"></i> Logout
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="settings-container">
+                        <div class="card info-card"
+                            style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(30, 41, 59, 1) 0%, rgba(15, 23, 42, 1) 100%);">
+                            <div class="card-header">
+                                <h2>Your Profile</h2>
+                            </div>
+                            <form id="profile-form" class="settings-form">
+                                <div class="profile-grid">
+                                    <div class="form-group">
+                                        <label>Full Name</label>
+                                        <input type="text" id="pref-user-name" disabled style="opacity: 0.8; cursor: default; background: rgba(255,255,255,0.05);">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Email Address</label>
+                                        <input type="email" id="pref-user-email" disabled
+                                            style="opacity: 0.6; cursor: not-allowed;">
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="settings-container" style="margin-top: 32px;">
+                        <div class="card info-card">
+                            <div class="card-header">
+                                <h2>Bot Preferences</h2>
+                            </div>
+                            <form id="settings-preferences-form" class="settings-form">
+                                <div class="form-group toggle-group">
+                                    <div class="toggle-info">
+                                        <label>Auto-Join Calendar Meetings</label>
+                                        <p class="muted">MeetAI will automatically join your scheduled Google/Zoom
+                                            calls.</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="pref-auto-join">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+
+                                <button type="submit" class="primary-btn">Save Preferences</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="settings-container" style="margin-top: 24px;">
+                        <div class="card"
+                            style="border: 1px solid rgba(239,68,68,0.3); background: rgba(239,68,68,0.05);">
+                            <div class="card-header">
+                                <h2 style="color: #ef4444;">Danger Zone</h2>
+                            </div>
+                            <p class="muted" style="margin-bottom: 16px;">Permanently delete your account and all
+                                associated meeting data. This action cannot be undone.</p>
+                            <form method="POST" action="/account/delete"
+                                onsubmit="return confirm('Are you sure? This will permanently delete your account and ALL your meeting data. This cannot be undone.')">
+                                <button type="submit"
+                                    style="background: #ef4444; color: white; border: none; padding: 12px 24px; border-radius: 12px; font-weight: 600; cursor: pointer;">Delete
+                                    My Account</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Help & Support Page -->
+                <section id="help-page" class="page">
+                    <div class="page-header">
+                        <div class="header-main">
+                            <h1>Help & Support</h1>
+                            <p class="subtitle">Encountered an issue? Raise a ticket and our team will help you.</p>
+                        </div>
+                        <div class="page-header-actions"></div>
+                    </div>
+
+                    <div class="help-grid" style="display: block; max-width: 650px; margin: 0 auto;">
+                        <!-- Raise Ticket Form -->
+                        <div class="card" style="padding: 24px;">
+                            <div class="card-header">
+                                <h2>Raise a Support Ticket</h2>
+                            </div>
+                            <form id="help-ticket-form" style="display: flex; flex-direction: column; gap: 16px; margin-top: 16px;">
+                                <div class="form-group">
+                                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Subject</label>
+                                    <input type="text" id="ticket-subject" placeholder="What's the issue about?" required 
+                                        style="width: 100%; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.2); padding: 12px; background: rgba(139, 92, 246, 0.05); color: var(--text-main);">
+                                </div>
+                                <div class="form-group">
+                                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Issue Details / Query</label>
+                                    <textarea id="ticket-query" placeholder="Describe your problem in detail..." required rows="5"
+                                        style="width: 100%; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.2); padding: 12px; background: rgba(139, 92, 246, 0.05); color: var(--text-main); resize: none; font-size: 16px;"></textarea>
+                                </div>
+                                <button type="submit" class="primary-btn" id="submit-ticket-btn" style="width: 100%; justify-content: center; height: 48px;">
+                                    <i data-feather="send" style="width: 16px; margin-right: 8px;"></i> Raise Ticket
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <!-- Footer with Privacy Link for Google Verification -->
+            <footer style="text-align: center; padding: 40px 20px; font-size: 0.8rem; color: #666; opacity: 0.7;">
+                &copy; 2026 MeetAI | <a href="/privacy" style="color: #666; text-decoration: underline;">Privacy Policy</a>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="join-modal" class="modal">
+        <div class="modal-content">
+            <h3>Join Live Meeting</h3>
+            <p>Paste the Google Meet or Zoom link below.</p>
+            <input type="text" id="meeting-url" placeholder="https://meet.google.com/xxx-xxxx-xxx">
+            <div class="modal-actions">
+                <button class="secondary-btn" onclick="closeModal()">Cancel</button>
+                <button class="primary-btn" id="confirm-join">Launch Bot</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <h3 style="color: var(--accent-purple); margin-bottom: 12px;">Upgrade to Pro</h3>
+            <p style="margin-bottom: 24px; color: var(--text-secondary);">Unlock full PDF reports with AI summaries and Action Items. Transcripts are always free!</p>
+            <div style="background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+                <h2 style="font-size: 2rem; color: var(--text-main); margin-bottom: 8px;">₹10<span style="font-size: 1rem; color: var(--text-secondary);">/mo</span></h2>
+                <p style="font-size: 0.9rem; color: var(--text-secondary);">TEST MODE ENABLED</p>
+            </div>
+            <div class="modal-actions" style="justify-content: center; gap: 16px;">
+                <button class="secondary-btn" onclick="closePaymentModal()">Not Now</button>
+                <button class="primary-btn" id="confirm-upgrade-btn" onclick="processUpgrade()" style="background: var(--accent-purple);">Pay & Upgrade</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- App Script -->
+    <script src="/v3-frontend/app.js?v=20260415"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"5796229b65144f1a8cc2c93d75f95229","r":1,"server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+
+</html>
