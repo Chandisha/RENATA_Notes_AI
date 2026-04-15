@@ -64,7 +64,10 @@ OUTPUT_DIR.mkdir(exist_ok=True)
 
 # Limit concurrent Gemini uploads to avoid rate-limit errors
 # when many parallel meetings finish around the same time.
+# Google Gemini API limits: ~15 file uploads per minute per API key
+# With 10+ concurrent users, uploads can exceed this quota
 # Max 3 simultaneous uploads; others queue and wait their turn.
+# The semaphore ensures controlled queuing instead of hammering the API.
 _gemini_upload_sem = threading.Semaphore(3)
 
 logger.remove()
@@ -137,7 +140,7 @@ class AdaptiveMeetingNotesGenerator:
         raise Exception("All requested Gemini models failed.")
 
     def _upload_to_gemini(self, path):
-        """Upload audio file to Gemini Files API. Rate-limited to 3 concurrent uploads."""
+        """Upload audio file to Gemini Files API. Rate-limited to 3 concurrent uploads with retry logic."""
         logger.info(f"Uploading {path} to Gemini...")
         if not os.path.exists(path):
             logger.error(f"File not found: {path}")
@@ -149,20 +152,40 @@ class AdaptiveMeetingNotesGenerator:
             return None
             
         with _gemini_upload_sem:  # Max 3 parallel Gemini uploads at once
-            logger.info(f"[Gemini Upload] Semaphore acquired — uploading {os.path.basename(path)} ({file_size:,} bytes)")
-            try:
-                file = genai.upload_file(path=path)
-                while file.state.name == "PROCESSING":
-                    time.sleep(2)
-                    file = genai.get_file(file.name)
-                if file.state.name == "FAILED":
-                    error_msg = getattr(file, 'error', 'Unknown Gemini Upload Error')
-                    raise Exception(f"Gemini file state is FAILED: {error_msg}")
-                logger.info(f"Upload Complete: {file.name} ({file_size:,} bytes)")
-                return file
-            except Exception as e:
-                logger.error(f"Gemini Upload Error: {e}")
-                return None
+            # MULTI-USER FIX: Add retry logic for rate-limit errors (503)
+            max_retries = 5
+            retry_delay = 2  # Start with 2 seconds
+            
+            for attempt in range(1, max_retries + 1):
+                logger.info(f"[Gemini Upload] Attempt {attempt}/{max_retries}: uploading {os.path.basename(path)} ({file_size:,} bytes)")
+                try:
+                    file = genai.upload_file(path=path)
+                    while file.state.name == "PROCESSING":
+                        time.sleep(2)
+                        file = genai.get_file(file.name)
+                    if file.state.name == "FAILED":
+                        error_msg = getattr(file, 'error', 'Unknown Gemini Upload Error')
+                        raise Exception(f"Gemini file state is FAILED: {error_msg}")
+                    logger.info(f"Upload Complete: {file.name} ({file_size:,} bytes)")
+                    return file
+                except Exception as e:
+                    error_str = str(e).lower()
+                    # Retry on rate limits (503), connection resets, socket errors
+                    if any(pattern in error_str for pattern in ['503', 'socket', 'reset', 'connection forcibly closed', 'iocp']):
+                        if attempt < max_retries:
+                            logger.warning(f"[Gemini Upload] Rate limited or connection error (attempt {attempt}). Retrying in {retry_delay}s...")
+                            time.sleep(retry_delay)
+                            retry_delay = min(retry_delay * 2, 30)  # Exponential backoff, max 30s
+                            continue
+                        else:
+                            logger.error(f"[Gemini Upload] Failed after {max_retries} attempts: {e}")
+                            return None
+                    else:
+                        # Non-retryable error
+                        logger.error(f"[Gemini Upload Error] Non-retryable: {e}")
+                        return None
+            
+            return None
 
     def _convert_to_wav(self, webm_path):
         """Convert browser-native webm to standard wav for better Gemini compatibility."""
