@@ -40,7 +40,7 @@
                     <i data-feather="grid"></i> <span>Dashboard</span>
                 </div>
                 <div class="nav-item" data-page="reports">
-                    <i data-feather="file-text"></i> <span>Reports</span>
+                    <i data-feather="file-text"></i> <span>Transcripts</span>
                 </div>
                 <div class="nav-item" data-page="gmail">
                     <i data-feather="mail"></i> <span>Gmail Intelligence</span>
@@ -126,7 +126,7 @@
 
                     <div class="card recent-meetings" style="margin-top: 24px;">
                         <div class="card-header">
-                            <h2>Recent AI Reports</h2>
+                            <h2>Recent AI Transcripts</h2>
                             <a href="#reports" class="link-btn" style="color: var(--accent-purple); font-weight: 700;">View All History</a>
                         </div>
                         <div class="meeting-list" id="recent-list">
@@ -156,7 +156,7 @@
                             <i data-feather="clock" class="stat-icon blue"></i>
                             <div class="stat-data">
                                 <span class="stat-value" id="ana-total-reports">0</span>
-                                <span class="stat-label">Reports Generated</span>
+                                <span class="stat-label">Transcripts Generated</span>
                             </div>
                         </div>
                         <div class="stat-card">
@@ -217,7 +217,7 @@
                     <div class="page-header">
                         <div class="header-main">
                             <h1>Meeting Archive</h1>
-                            <p class="subtitle">Access your past and newly generated reports.</p>
+                            <p class="subtitle">Access your past and newly generated transcripts.</p>
                         </div>
                         <div class="page-header-actions">
                             <button id="refresh-reports-btn" title="Refresh Reports" class="refresh-btn">
@@ -241,7 +241,7 @@
                                 <i data-feather="database"></i> Sync PDF
                             </button>
                             <div class="kb-stats">
-                                <span class="badge"><b id="report-count">0</b> Reports</span>
+                                <span class="badge"><b id="report-count">0</b> Transcripts</span>
                             </div>
                         </div>
                     </div>
@@ -249,11 +249,11 @@
                         <div class="chat-container">
                             <div class="chat-messages" id="chat-box">
                                 <div class="message assistant">
-                                    <p>Hello! I'm MeetAI. Ask me anything about your meeting reports. For example, try 'What was discussed in the last report?'</p>
+                                    <p>Hello! I'm MeetAI. Ask me anything about your meeting transcripts. For example, try 'What was discussed in the last transcript?'</p>
                                 </div>
                             </div>
                             <div class="chat-input-area">
-                                <input type="text" id="chat-input" placeholder="Type your question about meeting reports...">
+                                <input type="text" id="chat-input" placeholder="Type your question about meeting transcripts...">
                                 <button id="send-chat" class="primary-btn">
                                     <i data-feather="send"></i>
                                 </button>

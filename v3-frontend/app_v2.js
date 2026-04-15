@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const totalReports = data.total_count || allMeetings.length;
 
             if (allMeetings.length === 0) {
-                grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No meetings yet. Reports will appear here once meeting processing is complete.</p></div>';
+                grid.innerHTML = '<div class="card" style="grid-column: 1/-1; padding:40px; text-align:center;"><p class="muted">No meetings yet. Transcripts will appear here once meeting processing is complete.</p></div>';
                 if (refreshIcon) refreshIcon.classList.remove('spin');
                 return;
             }
@@ -452,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="display:flex; align-items:center; gap:20px;">
                         <div class="report-number" style="font-size: 1.2rem; font-weight: 800; color: var(--accent-purple); opacity: 0.5;">#${totalReports - index}</div>
                         <div>
-                            <h3 class="report-title" style="margin:0; font-size:1.1rem;">${m.title || 'Meeting Report'}</h3>
+                            <h3 class="report-title" style="margin:0; font-size:1.1rem;">${m.title || 'Meeting Transcript'}</h3>
                             <span class="muted" style="font-size:0.85rem;">${isProcessing ? '🔄 AI Processing in progress...' : 'Generated ' + generatedTime}</span>
                         </div>
                     </div>
