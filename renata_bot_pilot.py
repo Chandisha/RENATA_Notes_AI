@@ -765,19 +765,27 @@ class RenaMeetingBot:
                                         note=f"All participants left. Leaving in {ALONE_TIMEOUT_SECS}s...",
                                         user_email=user_email)
                             elif (time.time() - alone_since) > ALONE_TIMEOUT_SECS:
-                                print("[Bot] Timeout reached. Auto-leaving meeting.")
-                                # Click Leave call button if it exists
+                                print("[Bot] Timeout reached (Bot remains alone). Auto-leaving meeting.")
+                                
+                                # If we are leaving because we were alone, and we already tried joining once,
+                                # mark COMPLETED so we don't spam join attempts on an empty meeting.
+                                if db_module and meeting_id:
+                                    db_module.update_bot_status(meeting_id, "COMPLETED", 
+                                        note="Bot left: No participants detected after window.", 
+                                        user_email=user_email)
+                                    db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=?", (meeting_id,))
+
+                                # Click Leave call button
                                 try:
                                     leave_btn = page.locator('button[aria-label*="Leave call" i]').first
                                     if leave_btn.count() > 0:
                                         leave_btn.click()
                                         time.sleep(2)
-                                except Exception:
-                                    pass
+                                except Exception: pass
                                 break
                         else:
                             if alone_since is not None:
-                                print("[Bot] Participants rejoined — resetting alone timer.")
+                                print("[Bot] Participants joined! Resetting alone timer.")
                             alone_since = None
                     except Exception:
                         break
@@ -788,8 +796,10 @@ class RenaMeetingBot:
                     db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
                     try:
                         from meeting_notes_generator import process_meeting_audio
+                        # Mark COMPLETED with status='completed' to show up in Reports section
                         process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email)
-                        db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready")
+                        db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready. Review in Reports section.")
+                        db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=?", (meeting_id,))
                     except Exception as ex:
                         print(f"Pipeline Fail: {ex}")
                         db_module.update_bot_status(meeting_id, "FAILED", note="Processing error")
@@ -939,10 +949,10 @@ def run_auto_pilot(operator_email):
         print(f"| - {email:<46} |")
     print("+--------------------------------------------------+")
     PILOT_BOOT_TIME = datetime.now(timezone.utc)
+    session_handled_ids = set() # MOVED OUTSIDE: Persistent trackers for this session
     
     while True:
         try:
-            session_handled_ids = set()
             # 1. LIVE JOIN INTENTS (ALL USERS)
             pending_joins = db.fetch_all("SELECT * FROM meetings WHERE bot_status = 'JOIN_PENDING' ORDER BY created_at ASC")
             for pending in pending_joins:
