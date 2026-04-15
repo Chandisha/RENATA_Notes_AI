@@ -20,7 +20,7 @@
 }
 
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Outfit', sans-serif;
     background-color: var(--bg-dark);
     color: var(--text-primary);
     overflow: hidden;
@@ -65,15 +65,30 @@ body {
 
 
 .logo-text {
-    font-size: 1.5rem;
-    font-weight: 800;
-    letter-spacing: 1px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
     background: linear-gradient(135deg, #f27121, #e94057, #8a2387);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-left: 10px;
+    line-height: 1.1;
     white-space: nowrap;
+}
+
+.logo-subtext {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    -webkit-text-fill-color: var(--text-secondary);
+    display: block;
+    letter-spacing: 0.5px;
+    text-transform: none;
+    margin-top: 2px;
 }
 
 .sidebar-nav {

@@ -1,4 +1,4 @@
-// RENATA Frontend Logic - v2.0 Production Build
+// MeetAI Frontend Logic - v2.0 Production Build
 const API_BASE = window.location.origin;
 
 // Helper for API calls
@@ -585,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 "key": orderData.key,
                 "amount": orderData.amount,
                 "currency": "INR",
-                "name": "RENATA AI",
+                "name": "MeetAI",
                 "description": "Upgrade to Pro Plan",
                 "order_id": orderData.order_id,
                 "handler": async function (response) {
@@ -605,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const verifyData = await verifyRes.json();
 
                     if (verifyData.status === 'success') {
-                        alert("Upgrade Successful! Welcome to RENATA Pro.");
+                        alert("Upgrade Successful! Welcome to MeetAI Pro.");
                         await loadUserProfile(); // This updates window.currentUserPlan and Sidebar
                         closePaymentModal();
                         loadReportsData();

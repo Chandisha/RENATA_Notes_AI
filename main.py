@@ -298,7 +298,7 @@ async def privacy_page(request: Request):
     return HTMLResponse("""
     <html>
         <head>
-            <title>Privacy Policy - RENATA Meeting Intelligence</title>
+            <title>Privacy Policy - MeetAI</title>
             <style>
                 body { font-family: sans-serif; line-height: 1.6; padding: 40px; max-width: 800px; margin: auto; color: #333; }
                 header { border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 40px; }
@@ -312,12 +312,12 @@ async def privacy_page(request: Request):
             <header>
                 <h1>Privacy Policy</h1>
                 <p><strong>Effective Date: March 30, 2026</strong></p>
-                <p><strong>Entity: RENATA Meeting Intelligence (operated by Nexren)</strong></p>
+                <p><strong>Entity: MeetAI (operated by Nexren)</strong></p>
             </header>
 
             <section>
                 <h2>1. Introduction</h2>
-                <p>RENATA ("we," "us," or "our") provides an AI-powered meeting assistant. This policy explains how we collect, use, and protect your information when you use our service, particularly regarding your Google and Zoom integrations.</p>
+                <p>MeetAI ("we," "us," or "our") provides an AI-powered meeting assistant. This policy explains how we collect, use, and protect your information when you use our service, particularly regarding your Google and Zoom integrations.</p>
             </section>
 
             <section>
@@ -332,7 +332,7 @@ async def privacy_page(request: Request):
 
             <section class="notice">
                 <h2>3. Limited Use Disclosure</h2>
-                <p><strong>RENATA's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements.</strong></p>
+                <p><strong>MeetAI's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements.</strong></p>
             </section>
 
             <section>
@@ -359,7 +359,7 @@ async def terms_page(request: Request):
     return HTMLResponse("""
     <html>
         <head>
-            <title>Terms of Service - RENATA Meeting Intelligence</title>
+            <title>Terms of Service - MeetAI</title>
             <style>
                 body { font-family: sans-serif; line-height: 1.6; padding: 40px; max-width: 800px; margin: auto; color: #333; }
                 h1 { color: #1e3a8a; }
@@ -368,7 +368,7 @@ async def terms_page(request: Request):
         <body>
             <h1>Terms of Service</h1>
             <p><strong>Last Updated: March 30, 2026</strong></p>
-            <p>By using RENATA Meeting Intelligence, you agree to allow our AI bot to join and record meetings you specify. We are not responsible for any misuse of the generated notes by the user.</p>
+            <p>By using MeetAI, you agree to allow our AI bot to join and record meetings you specify. We are not responsible for any misuse of the generated notes by the user.</p>
             <p>The service is provided "as is" and you agree to comply with your organization's internal recording policies before using the bot.</p>
             <a href="/">Back to Home</a>
         </body>
@@ -610,7 +610,7 @@ async def dashboard_data(request: Request):
             "zoom": True if profile.get("zoom_token") else False
         },
         "preferences": {
-            "bot_name": profile.get("bot_name", "Renata AI | Assistant"),
+            "bot_name": profile.get("bot_name", "MeetAI | Assistant"),
             "auto_join": bool(profile.get("bot_auto_join", 1) if profile.get("bot_auto_join") is not None else 1),
             "recording": bool(profile.get("bot_recording_enabled", 1) if profile.get("bot_recording_enabled") is not None else 1)
         }

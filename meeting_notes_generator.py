@@ -8,6 +8,7 @@ import base64
 import smtplib
 import subprocess
 import traceback
+import threading
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -60,6 +61,11 @@ else:
 
 OUTPUT_DIR = Path("meeting_outputs")
 OUTPUT_DIR.mkdir(exist_ok=True)
+
+# Limit concurrent Gemini uploads to avoid rate-limit errors
+# when many parallel meetings finish around the same time.
+# Max 3 simultaneous uploads; others queue and wait their turn.
+_gemini_upload_sem = threading.Semaphore(3)
 
 logger.remove()
 logger.add(sys.stderr, format="<blue>{time:HH:mm:ss}</blue> | <level>{message}</level>")
@@ -131,6 +137,7 @@ class AdaptiveMeetingNotesGenerator:
         raise Exception("All requested Gemini models failed.")
 
     def _upload_to_gemini(self, path):
+        """Upload audio file to Gemini Files API. Rate-limited to 3 concurrent uploads."""
         logger.info(f"Uploading {path} to Gemini...")
         if not os.path.exists(path):
             logger.error(f"File not found: {path}")
@@ -141,20 +148,21 @@ class AdaptiveMeetingNotesGenerator:
             logger.error(f"File is empty: {path}")
             return None
             
-        try:
-            file = genai.upload_file(path=path)
-            while file.state.name == "PROCESSING":
-                time.sleep(2)
-                file = genai.get_file(file.name)
-            if file.state.name == "FAILED":
-                # Try to get detailed error if available in the file object
-                error_msg = getattr(file, 'error', 'Unknown Gemini Upload Error')
-                raise Exception(f"Gemini file state is FAILED: {error_msg}")
-            logger.info(f"Upload Complete: {file.name} ({file_size} bytes)")
-            return file
-        except Exception as e:
-            logger.error(f"Gemini Upload Error: {e}")
-            return None
+        with _gemini_upload_sem:  # Max 3 parallel Gemini uploads at once
+            logger.info(f"[Gemini Upload] Semaphore acquired — uploading {os.path.basename(path)} ({file_size:,} bytes)")
+            try:
+                file = genai.upload_file(path=path)
+                while file.state.name == "PROCESSING":
+                    time.sleep(2)
+                    file = genai.get_file(file.name)
+                if file.state.name == "FAILED":
+                    error_msg = getattr(file, 'error', 'Unknown Gemini Upload Error')
+                    raise Exception(f"Gemini file state is FAILED: {error_msg}")
+                logger.info(f"Upload Complete: {file.name} ({file_size:,} bytes)")
+                return file
+            except Exception as e:
+                logger.error(f"Gemini Upload Error: {e}")
+                return None
 
     def _convert_to_wav(self, webm_path):
         """Convert browser-native webm to standard wav for better Gemini compatibility."""
