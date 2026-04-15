@@ -675,14 +675,29 @@ class RenaMeetingBot:
                     except:
                         print(f"[Meet Slot {self.slot}] Name input not found — likely already in lobby.")
 
-                # 5. Click Join Button
-                try:
-                    btn = page.locator('button:has-text("Join now"), button:has-text("Ask to join")').first
-                    btn.wait_for(timeout=8000)
-                    btn.click(force=True)
-                except:
-                    print("[Meet Slot {self.slot}] Join button not found")
-                
+                # 5. Click Join Button - retry until it appears or until the meeting is joined
+                joined = False
+                join_deadline = time.time() + 600
+                while not joined and time.time() < join_deadline:
+                    try:
+                        btn = page.locator('button:has-text("Join now"), button:has-text("Ask to join")').first
+                        if btn.count() > 0:
+                            btn.click(force=True)
+                            joined = True
+                            break
+                    except Exception:
+                        pass
+
+                    if page.locator('button[aria-label*="Leave call" i]').count() > 0 or page.locator('text="Waiting to be admitted"').count() > 0:
+                        joined = True
+                        break
+
+                    print(f"[Meet Slot {self.slot}] Join button not found, retrying in 5s...")
+                    time.sleep(5)
+
+                if not joined:
+                    print(f"[Meet Slot {self.slot}] Join button not found after 5 minutes. Continuing to wait for admission if available.")
+
                 # 6. Wait for Admission
                 while True:
                     if page.locator('button[aria-label*="Leave call" i]').count() > 0:
@@ -1054,8 +1069,8 @@ def run_auto_pilot(operator_email):
                         if parsed_end and now > parsed_end:
                             continue
 
-                        # Join meetings that have started already, are still ongoing, or will start within 5 minutes.
-                        if parsed_dt <= (now + timedelta(minutes=5)):
+                        # Join only after the meeting has started and before it ends.
+                        if parsed_dt <= now and (parsed_end is None or now <= parsed_end):
                             if url:
                                 url = normalize_url(url)
                                 
