@@ -543,19 +543,35 @@ class RenaMeetingBot:
                 except Exception: 
                     pass
                 
-                if db_module and meeting_id: 
-                    db_module.update_bot_status(meeting_id, "LIVE", "Renata active in Zoom. Waiting for admission...")
-                
-                if record:
+                # 3. Wait for Admission (Check for Leave and Participants buttons)
+                was_admitted = False
+                admission_deadline = time.time() + 900 # 15 min wait
+                while time.time() < admission_deadline:
+                    # Zoom Web Client admission indicators
+                    has_leave_btn = page.locator('button:has-text("Leave")').is_visible()
+                    has_participants_btn = page.locator('button:has-text("Participants"), button[aria-label="Participants"]').is_visible()
+                    
+                    if has_leave_btn and has_participants_btn:
+                        was_admitted = True
+                        print(f"[Zoom Slot {self.slot}] HOST ADMITTED THE BOT ✓ — starting recording now.")
+                        break
+                    time.sleep(5)
+
+                if record and was_admitted:
                     self._browser_page = page   # give recorder access to the page
                     self.start_audio_recording(f"Zoom_Meeting_{int(time.time())}")
                     
                 if db_module and meeting_id:
-                    db_module.set_meeting_bot_status(meeting_id, "CONNECTED", user_email=user_email, bot_status_note="Bot joined! Capturing meeting intelligence...")
-                
+                    if was_admitted:
+                        db_module.set_meeting_bot_status(meeting_id, "CONNECTED", user_email=user_email, bot_status_note="Bot admitted! Capturing meeting intelligence...")
+                    else:
+                        db_module.update_bot_status(meeting_id, "COMPLETED", note="Host did not admit bot. No recording made.", user_email=user_email)
+                        return # Exit early, no recording
+
                 # Monitor Loop — wait for meeting to end or everyone leaves
                 alone_since = None
-                ALONE_TIMEOUT_SECS = 30
+                ALONE_TIMEOUT_SECS = 15
+                ever_active = False 
                 while True:
                     try:
                         if page.is_closed():
@@ -572,10 +588,14 @@ class RenaMeetingBot:
                         if not has_leave:
                             if alone_since is None:
                                 alone_since = time.time()
-                                print("[Zoom Bot] Leave button gone. Will exit in 30s if not restored...")
+                                print("[Zoom Bot] Leave button gone. Will exit in 15s if not restored...")
                             elif (time.time() - alone_since) > ALONE_TIMEOUT_SECS:
                                 break
                         else:
+                            # Track participation - if we ever saw others, it was a real meeting
+                            # Zoom web client doesn't easily expose participant count without opening sidebar, 
+                            # but seeing the Leave button implies we are admitted.
+                            ever_active = True 
                             alone_since = None
                     except Exception:
                         break
@@ -585,14 +605,21 @@ class RenaMeetingBot:
                     self.stop_audio_recording()
                 
                 if db_module and meeting_id:
-                    db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
-                    try:
-                        from meeting_notes_generator import process_meeting_audio
-                        process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email)
-                        db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready")
-                    except Exception as ex:
-                        print(f"Zoom Pipeline Fail: {ex}")
-                        db_module.update_bot_status(meeting_id, "FAILED", note="Processing error")
+                    # ONLY use Gemini if meeting was active and file has data
+                    rec_size = self.recording_path.stat().st_size if self.recording_path and self.recording_path.exists() else 0
+                    if ever_active and rec_size > 5000:
+                        db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
+                        try:
+                            from meeting_notes_generator import process_meeting_audio
+                            process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email)
+                            db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready")
+                        except Exception as ex:
+                            print(f"Zoom Pipeline Fail: {ex}")
+                            db_module.update_bot_status(meeting_id, "FAILED", note="Processing error")
+                    else:
+                        print(f"[Zoom Bot] Skipping Gemini API (Active: {ever_active}, Size: {rec_size} bytes)")
+                        db_module.update_bot_status(meeting_id, "COMPLETED", note="Meeting empty - No intelligence needed.", user_email=user_email)
+                        db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=?", (meeting_id,))
         except Exception as e: 
             print(f"Zoom Error: {e}")
             if db_module and meeting_id:
@@ -704,7 +731,7 @@ class RenaMeetingBot:
 
                 # 6. Wait for Admission with Patient Lobby Logic
                 # The bot will ONLY start recording AFTER the host admits it.
-                # USER REQUEST: Wait until 15 minutes after the scheduled start time before giving up.
+                # USER REQUEST: Wait for 15 minutes after the scheduled start time before giving up.
                 admission_deadline = time.time() + 900  # Fallback 15 mins
                 if scheduled_start:
                     try:
@@ -719,8 +746,12 @@ class RenaMeetingBot:
                 # CRITICAL: Track actual admission — do NOT record in lobby
                 was_admitted = False
                 while True:
-                    # Bot is inside the meeting (Leave call button visible) = admitted
-                    if page.locator('button[aria-label*="Leave call" i]').count() > 0:
+                    # Bot is inside the meeting (Leave call button visible AND Meeting details button shown) = admitted
+                    # This dual-check prevents false positives from lobby UI
+                    has_leave_btn = page.locator('button[aria-label*="Leave call" i]').is_visible()
+                    has_details_btn = page.locator('button[aria-label*="Meeting details" i], button[aria-label*="Chat with everyone" i]').is_visible()
+
+                    if has_leave_btn and has_details_btn:
                         was_admitted = True
                         if db_module and meeting_id:
                             db_module.update_bot_status(meeting_id, "CONNECTED",
@@ -756,7 +787,7 @@ class RenaMeetingBot:
                     
                 # Monitor Loop — wait for meeting to end
                 alone_since = None
-                ALONE_TIMEOUT_SECS = 30  # Leave 30 seconds after everyone else leaves
+                ALONE_TIMEOUT_SECS = 15  # USER REQUEST: Leave 15 seconds after everyone else leaves
                 CHECK_INTERVAL = 10
                 ever_active = False # USER REQUEST: Track if the meeting actually started (host joined)
 
@@ -805,11 +836,12 @@ class RenaMeetingBot:
                                 try:
                                     dt_start = dt_parser.parse(scheduled_start)
                                     if dt_start.tzinfo is None: dt_start = dt_start.replace(tzinfo=timezone.utc)
-                                    grace_deadline = (dt_start + timedelta(minutes=15)).timestamp()
+                                    # USER REQUEST: Shorten grace period for empty rooms to avoid recording 15m silence
+                                    grace_deadline = (dt_start + timedelta(minutes=5)).timestamp()
                                     if time.time() < grace_deadline:
                                         is_grace_period = True
                                         if alone_since is None: # Only log once
-                                            print(f"[Bot] Alone in meeting (Never Started). Waiting until 15m past start...")
+                                            print(f"[Bot] Room is empty (Never Started). Waiting up to 5m past start...")
                                 except: pass
 
                             if is_grace_period:
@@ -850,17 +882,24 @@ class RenaMeetingBot:
                 self.stop_audio_recording()
                 
                 if db_module and meeting_id:
-                    db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
-                    try:
-                        from meeting_notes_generator import process_meeting_audio
-                        process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email)
-                        # Mark COMPLETED so report shows in dashboard Reports section
-                        db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready. Check Reports section.", user_email=user_email)
+                    # ONLY use Gemini if meeting was active and file has data
+                    rec_size = self.recording_path.stat().st_size if self.recording_path and self.recording_path.exists() else 0
+                    if ever_active and rec_size > 5000:
+                        db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
+                        try:
+                            from meeting_notes_generator import process_meeting_audio
+                            process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email)
+                            # Mark COMPLETED so report shows in dashboard Reports section
+                            db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready. Check Reports section.", user_email=user_email)
+                            db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=? AND user_email=?", (meeting_id, user_email))
+                            print(f"[Bot] Pipeline done for {meeting_id} → {user_email}. Report ready.")
+                        except Exception as ex:
+                            print(f"Pipeline Fail: {ex}")
+                            db_module.update_bot_status(meeting_id, "FAILED", note="Processing error")
+                    else:
+                        print(f"[Bot] Skipping Gemini API (Active: {ever_active}, Size: {rec_size} bytes)")
+                        db_module.update_bot_status(meeting_id, "COMPLETED", note="Meeting empty - No intelligence needed.", user_email=user_email)
                         db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=? AND user_email=?", (meeting_id, user_email))
-                        print(f"[Bot] Pipeline done for {meeting_id} → {user_email}. Report ready.")
-                    except Exception as ex:
-                        print(f"Pipeline Fail: {ex}")
-                        db_module.update_bot_status(meeting_id, "FAILED", note="Processing error")
         except Exception as e: 
             print(f"Meet Error: {e}")
             if db_module and meeting_id:
@@ -1036,8 +1075,8 @@ def run_auto_pilot(operator_email):
                         
                         age_mins = (datetime.now(timezone.utc) - c_dt).total_seconds() / 60
                         
-                        # IGNORE STALE REQUESTS: Skip if older than 5 mins OR created before this bot instance started
-                        if age_mins > 5 or c_dt < (PILOT_BOOT_TIME - timedelta(seconds=10)): 
+                        # IGNORE STALE REQUESTS: Skip if older than 10 mins OR created before this bot instance started
+                        if age_mins > 10 or c_dt < (PILOT_BOOT_TIME - timedelta(seconds=10)): 
                             session_handled_ids.add((m_id, u_email))
                             session_handled_ids.add((meet_url, u_email))
                             # Don't mark as FAILED if it was just an old one from a previous run
@@ -1149,10 +1188,16 @@ def run_auto_pilot(operator_email):
                             print(f"[Pilot] SKIP '{title}' — already ended")
                             continue
 
-                        # Only consider meetings ongoing or starting within 30 mins
-                        # (The 5-min lookback window already excludes older events,
-                        # but we also check end_time above for safety.)
-                        if parsed_dt > now + timedelta(minutes=30):
+                        # STRICT UPCOMING FILTER: Skip if meeting started more than 10 minutes ago
+                        # This prevents the bot from joining "old" or "stale" meetings that are nearing completion.
+                        if parsed_dt < (now - timedelta(minutes=10)):
+                            print(f"[Pilot] SKIP '{title}' — started too long ago (>{(now-parsed_dt).total_seconds()/60:.1f}m ago)")
+                            session_handled_ids.add((m_id, cal_email))
+                            continue
+
+                        # USER REQUEST: Wait for the meeting to start. Only join if it starts within next 60 seconds
+                        # (Previously joined 30m early — now joins at most 1m early)
+                        if parsed_dt > now + timedelta(minutes=1):
                             continue
 
                         print(f"[Pilot] CANDIDATE '{title}' for {cal_email} — url={'YES' if url else 'NO'}")
