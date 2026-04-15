@@ -552,7 +552,17 @@ async def dashboard_data(request: Request):
                     for item in items:
                         start_raw = item['start'].get('dateTime', item['start'].get('date'))
                         m_id = item.get("id")
-                        link = item.get("hangoutLink", item.get("location", ""))
+                        
+                        # Extract link with priority: hangoutLink -> conferenceData -> location
+                        link = item.get("hangoutLink")
+                        if not link:
+                            conf = item.get("conferenceData", {})
+                            for ep in conf.get("entryPoints", []):
+                                if ep.get("entryPointType") == "video":
+                                    link = ep.get("uri")
+                                    break
+                        if not link:
+                            link = item.get("location", "")
                         db_meeting = db.get_meeting(m_id, user_email=email)
                         is_enabled = True
                         if db_meeting:

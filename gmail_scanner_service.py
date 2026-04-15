@@ -16,17 +16,26 @@ class GmailScannerService:
             'action_item': [r'action item', r'task', r'todo', r'to-do', r'assigned to']
         }
 
-    def _get_service(self):
-        if not os.path.exists('token.json'):
+    def _get_service(self, user_email):
+        serialized = db.get_user_token(user_email)
+        if not serialized:
             return None
-        creds = Credentials.from_authorized_user_file('token.json', self.scopes)
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        return build('gmail', 'v1', credentials=creds)
+        try:
+            from google.oauth2.credentials import Credentials
+            from google.auth.transport.requests import Request
+            creds = Credentials.from_authorized_user_info(db.json.loads(serialized))
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+                db.exec_commit("UPDATE users SET google_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?",
+                               (creds.to_json(), user_email))
+            return build('gmail', 'v1', credentials=creds)
+        except Exception as e:
+            print(f"Gmail Service creation error for {user_email}: {e}")
+            return None
 
     def scan_inbox(self, user_email, max_results=20):
         """Scan unread emails for keywords and save to DB"""
-        service = self._get_service()
+        service = self._get_service(user_email)
         if not service:
             return False, "Not authorized"
 

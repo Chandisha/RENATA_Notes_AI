@@ -28,11 +28,10 @@ except ImportError:
     gmail_scanner = None
 
 # --- HELPERS ---
-MEET_RE = re.compile(r"meet\.google\.com")
 def is_meet_url(text: str) -> bool:
     if not isinstance(text, str):
         return False
-    return bool(MEET_RE.search(text))
+    return bool(re.search(r"meet\.google\.com", text)) or "google.com/meet" in text
 
 def is_zoom_url(text: str) -> bool:
     if not isinstance(text, str): 
@@ -1018,7 +1017,10 @@ def run_auto_pilot(operator_email):
                 
                 service = get_service(cal_email)
                 if not service: 
+                    print(f"[Pilot] ⚠ Skipping {cal_email} - Invalid or missing token")
                     continue
+                
+                print(f"[Pilot] Scanning calendar for {cal_email}...")
                 
                 try:
                     events = service.events().list(
