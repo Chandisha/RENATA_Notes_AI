@@ -37,12 +37,15 @@ body {
 /* Sidebar Styling */
 .sidebar {
     width: 260px;
+    min-width: 260px; /* Prevent sidebar from shrinking on any screen */
     background: #ffffff;
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     padding: 24px 0;
     box-shadow: 4px 0 20px rgba(0, 0, 0, 0.02);
+    overflow-y: auto; /* Allow scrolling if content exceeds height */
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 .sidebar-header {
@@ -68,16 +71,19 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    font-size: 1.6rem;
+    font-size: 1.4rem;
     font-weight: 900;
     letter-spacing: -0.5px;
     background: linear-gradient(135deg, #f27121, #e94057, #8a2387);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    margin-left: 10px;
+    margin-left: 8px;
     line-height: 1.1;
     white-space: nowrap;
+    max-width: 140px; /* Prevent overflow on narrow screens */
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .logo-subtext {
@@ -356,6 +362,21 @@ body {
 .delete-btn:hover {
     background: #ef4444;
     color: white;
+}
+
+/* CONSISTENCY FIX: Mobile Menu Button - Always exists but hidden on desktop */
+#mobile-menu-btn {
+    display: none; /* Hidden on desktop */
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-primary);
+    padding: 12px;
+}
+
+#mobile-menu-btn:hover {
+    background: rgba(242, 113, 33, 0.1);
+    border-radius: 8px;
 }
 
 /* Page Transitions */
@@ -1372,18 +1393,23 @@ input:checked+.slider:before {
 }
 
 /* --- MOBILE RESPONSIVENESS & SIDEBAR TOGGLE --- */
+/* CONSISTENCY FIX: Ensure sidebar, header, and layout remain consistent across all screen sizes and users */
 
 @media screen and (max-width: 1024px) {
     .app-container {
         overflow: hidden;
+        display: flex;
+        flex-direction: row;
     }
 
+    /* Sidebar must maintain consistent width and be accessible */
     .sidebar {
         position: fixed;
         left: -300px;
         top: 0;
         bottom: 0;
         width: 280px;
+        min-width: 280px; /* CONSISTENCY FIX: Prevent sidebar from shrinking */
         background: #ffffff;
         z-index: 1001;
         transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1426,6 +1452,16 @@ input:checked+.slider:before {
         display: block;
     }
 
+    /* Mobile menu button must always be visible and clickable */
+    #mobile-menu-btn {
+        display: flex !important;
+        width: 44px; /* CONSISTENCY FIX: Proper touch target size */
+        height: 44px;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+    }
+
     .main-content {
         margin-left: 0;
         width: 100%;
@@ -1441,6 +1477,7 @@ input:checked+.slider:before {
         max-width: 100%;
         overflow-x: hidden;
     }
+
 
     .top-bar {
         height: 70px;
@@ -1712,4 +1749,4 @@ input:checked + .slider:before {
 }
 
 
-
+

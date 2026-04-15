@@ -5,16 +5,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MeetAI by Nexren</title>
-    <link rel="stylesheet" href="/v3-frontend/styles.css?v=20260415">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <!-- CONSISTENCY FIX: CSS version cache-busting ensures all users get latest styles -->
+    <link rel=\"stylesheet\" href=\"/v3-frontend/styles.css?v=20260415\">
+    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">
+    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>
+    <link href=\"https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap\"
+        rel=\"stylesheet\">
+    <script src=\"https://cdn.jsdelivr.net/npm/chart.js\"></script>
+    <script src=\"https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js\"></script>
+    <script src=\"https://checkout.razorpay.com/v1/checkout.js\"></script>
 </head>
 
+<!-- MULTI-USER CONSISTENCY:
+     - All users see the SAME HTML layout and CSS styling
+     - User-specific data (name, email, avatar, plan) is loaded dynamically via JavaScript
+     - Frontend is purely presentational; no hardcoded user values
+     - Each user's data is fetched from /api/me endpoint
+     - Avatar seed is user-email-based (consistent for each user)
+     - Reports, PDFs, and meeting data are user-isolated via backend
+-->
 <body class="light-theme">
     <div class="app-container">
         <!-- Sidebar -->
@@ -65,9 +74,9 @@
                     <i data-feather="log-out" style="width: 18px; height: 18px;"></i> <span>Logout</span>
                 </a>
                 <div class="user-profile" style="margin-top: 16px;">
-                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=MeetAI" class="avatar" alt="User">
+                    <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com" class="avatar" alt="User" id="user-avatar-img">
                     <div class="user-info">
-                        <span class="user-name">User</span>
+                        <span class="user-name">Loading...</span>
                         <span class="user-account" style="font-size: 0.75rem; font-weight: 600; color: var(--accent-purple); display: block; margin-top: 2px;">Account: Basic</span>
                         <span class="user-status" style="margin-top:2px;">Online</span>
                     </div>

@@ -1,4 +1,22 @@
 // MeetAI Frontend Logic - v2.0 Production Build
+// 
+// MULTI-USER UI CONSISTENCY ARCHITECTURE:
+// =========================================
+// - Frontend serves identical HTML/CSS layout to ALL users
+// - User-specific data loaded ONLY via JavaScript (app.js)
+// - No hardcoded user values in HTML or CSS
+// - Each user sees their own data: name, avatar, email, plan
+// - But the UI layout, styling, navigation is IDENTICAL for everyone
+// - Reports, PDFs, and meeting data are backend-isolated per user
+// - Avatar: Generated from user email (consistent per user, different per user)
+//
+// Flow:
+// 1. User logs in → GET /api/me → Returns user profile
+// 2. app.js loads user data → Updates sidebar (name, avatar, plan)
+// 3. User navigates → appropriate /api/* endpoint called
+// 4. Backend filters data by user_email (multi-user isolation)
+// 5. UI displays user's own data only
+//
 const API_BASE = window.location.origin;
 
 // Helper for API calls
@@ -150,8 +168,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userAccountEl = document.querySelector('.user-account');
 
                 if (userNameEl) userNameEl.textContent = data.user.name;
-                if (userAvatarEl && data.user.picture) {
-                    userAvatarEl.src = data.user.picture;
+                
+                // MULTI-USER FIX: Use user-specific avatar seed (email-based)
+                // This ensures each user has a unique, consistent avatar
+                if (userAvatarEl) {
+                    // If user has a picture, use it; otherwise generate from email
+                    if (data.user.picture) {
+                        userAvatarEl.src = data.user.picture;
+                    } else {
+                        // Generate unique avatar seed from user email for consistency
+                        const emailSeed = encodeURIComponent(data.user.email);
+                        userAvatarEl.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${emailSeed}`;
+                    }
                     userAvatarEl.style.display = 'block';
                 }
 
