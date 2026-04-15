@@ -435,9 +435,8 @@ def get_meeting_stats(user_email, upcoming_count=0):
     stats = {}
     params = (user_email.lower(),)
     
-    # 1. Core Totals - Use LOWER() for case-insensitive matching
     # 1. Core Totals
-    # Only count meetings that are either completed (have content) OR are currently processing
+    # Only count meetings that are actual reports (have content)
     row = fetch_one("""
         SELECT COUNT(*) as count FROM meetings 
         WHERE LOWER(user_email) = LOWER(?) 
@@ -445,8 +444,6 @@ def get_meeting_stats(user_email, upcoming_count=0):
             pdf_path IS NOT NULL 
             OR transcript_text IS NOT NULL 
             OR transcripts_pdf_path IS NOT NULL
-            OR bot_status = 'PROCESSING'
-            OR bot_status = 'LIVE'
         )
     """, params)
     

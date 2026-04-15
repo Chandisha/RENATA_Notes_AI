@@ -713,20 +713,8 @@ async def reports_data_api(request: Request):
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     
-    # Only show meetings that are actual reports (have content) or are currently processing
+    # Only show meetings that are actual reports (have content)
     meetings = db.get_all_meetings(user_email=user['email'], limit=50, reports_only=True)
-    
-    # Also include ones that are currently processing or live as they are "live" reports
-    processing = db.fetch_all("""
-        SELECT * FROM meetings 
-        WHERE LOWER(user_email) = LOWER(?) 
-        AND bot_status IN ('JOIN_PENDING', 'DISPATCHING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'CONNECTED', 'LIVE', 'PROCESSING')
-    """, (user['email'],))
-    # Avoid duplicates if they already have a pdf_path (unlikely but safe)
-    existing_ids = {m['meeting_id'] for m in meetings}
-    for pm in processing:
-        if pm['meeting_id'] not in existing_ids:
-            meetings.insert(0, pm) # Add to top
 
     stats = db.get_meeting_stats(user['email'])
     total_count = stats.get('total_reports', 0)
