@@ -115,6 +115,7 @@ class AdaptiveMeetingNotesGenerator:
         self.last_pdf_path = None
         self.last_transcripts_pdf_path = None
         self.meeting_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        self.meeting_start_time = None # Formatted string for PDF header
         self.last_json_path = None
 
     def _generate_with_fallback(self, content, prompt_text=None):
@@ -356,9 +357,13 @@ Output format:
 
             elements = []
             # Modern Header
+            header_date_str = datetime.now().strftime('%B %d, %Y')
+            if self.meeting_start_time:
+                header_date_str = f"{self.meeting_start_time}"
+
             header_table_data = [[
                 Paragraph(safe_text(self.bot_name.upper()), ParagraphStyle('BName', parent=title_style, alignment=0, fontSize=20)),
-                Paragraph(f"Intelligence Report<br/>{datetime.now().strftime('%B %d, %Y')}", ParagraphStyle('RDate', parent=normal_style, alignment=2, fontSize=9))
+                Paragraph(f"Intelligence Report<br/>{header_date_str}", ParagraphStyle('RDate', parent=normal_style, alignment=2, fontSize=9))
             ]]
             header_table = Table(header_table_data, colWidths=[CONTENT_W*0.7, CONTENT_W*0.3])
             header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'BOTTOM'), ('BOTTOMPADDING', (0,0), (-1,-1), 12)]))
@@ -456,9 +461,13 @@ Output format:
             cell_style = ParagraphStyle('RCell', parent=styles['Normal'], fontSize=9, leading=13, textColor=colors.HexColor("#475569"))
 
             elements = []
+            header_date_str = datetime.now().strftime('%B %d, %Y')
+            if self.meeting_start_time:
+                header_date_str = f"{self.meeting_start_time}"
+
             header_table_data = [[
                 Paragraph(safe_text(self.bot_name.upper()), ParagraphStyle('BName', parent=title_style, alignment=0, fontSize=20)),
-                Paragraph(f"Transcripts Report<br/>{datetime.now().strftime('%B %d, %Y')}", ParagraphStyle('RDate', parent=normal_style, alignment=2, fontSize=9))
+                Paragraph(f"Transcripts Report<br/>{header_date_str}", ParagraphStyle('RDate', parent=normal_style, alignment=2, fontSize=9))
             ]]
             header_table = Table(header_table_data, colWidths=[CONTENT_W*0.7, CONTENT_W*0.3])
             header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'BOTTOM'), ('BOTTOMPADDING', (0,0), (-1,-1), 12)]))
@@ -530,6 +539,23 @@ def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = No
     """
     logger.info(f"Starting pipeline for meeting {meeting_id} with audio {audio_path} (user_email={user_email})")
     generator = AdaptiveMeetingNotesGenerator(audio_path)
+    
+    # FETCH START TIME FROM DB
+    try:
+        mtg = db.get_meeting(meeting_id, user_email=user_email)
+        if mtg and mtg.get('start_time'):
+            raw_start = mtg['start_time']
+            try:
+                # Handle ISO or simple strings
+                from dateutil import parser as dt_parser
+                dt_obj = dt_parser.parse(raw_start)
+                generator.meeting_start_time = dt_obj.strftime("%B %d, %Y @ %I:%M %p")
+                logger.info(f"Using meeting start time for PDF: {generator.meeting_start_time}")
+            except:
+                generator.meeting_start_time = raw_start # Fallback to raw string
+    except Exception as e:
+        logger.warning(f"Could not fetch meeting start time for PDF header: {e}")
+
     try:
         generator.process_meeting(audio_path)
         
