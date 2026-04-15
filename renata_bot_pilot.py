@@ -618,8 +618,11 @@ class RenaMeetingBot:
                     print(f"[Meet Slot {self.slot}] Navigation to: {meet_url} (AUTH)")
                     page.goto(meet_url, timeout=60000)
                 
-                print(f"[Meet Slot {self.slot}] Page loaded. Waiting for stabilization...")
-                page.wait_for_load_state("networkidle", timeout=15000)
+                print(f"[Meet Slot {self.slot}] Page loaded. Stabilizing...")
+                try:
+                    page.wait_for_load_state("domcontentloaded", timeout=20000)
+                except Exception:
+                    print(f"[Meet Slot {self.slot}] Stabilization wait timed out, proceeding anyway...")
                 time.sleep(2)
                 
                 if not guest_mode and "accounts.google.com" in page.url:
