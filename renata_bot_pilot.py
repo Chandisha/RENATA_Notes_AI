@@ -1012,7 +1012,9 @@ def run_auto_pilot(operator_email):
                         timeMax=(now + timedelta(minutes=5)).isoformat().replace('+00:00','Z'), 
                         maxResults=20, 
                         singleEvents=True, 
-                        orderBy='startTime'
+                        orderBy='startTime',
+                        conferenceDataVersion=1,
+                        fields='items(id,summary,start,location,hangoutLink,conferenceData),nextPageToken'
                     ).execute().get('items', [])
                     
                     for event in events:
