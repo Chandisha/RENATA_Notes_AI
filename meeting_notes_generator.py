@@ -137,7 +137,7 @@ class AdaptiveMeetingNotesGenerator:
         raise Exception("All requested Gemini models failed.")
 
     def _upload_to_gemini(self, path):
-        """Upload audio file to Gemini Files API with a retry mechanism for robustness."""
+        """Upload audio file to Gemini Files API. Rate-limited to 3 concurrent uploads."""
         logger.info(f"Uploading {path} to Gemini...")
         if not os.path.exists(path):
             logger.error(f"File not found: {path}")
@@ -148,28 +148,21 @@ class AdaptiveMeetingNotesGenerator:
             logger.error(f"File is empty: {path}")
             return None
             
-        max_retries = 3
-        for attempt in range(max_retries):
-            with _gemini_upload_sem:
-                try:
-                    logger.info(f"[Gemini Upload] Attempt {attempt+1}/{max_retries} — {os.path.basename(path)} ({file_size:,} bytes)")
-                    file = genai.upload_file(path=path)
-                    while file.state.name == "PROCESSING":
-                        time.sleep(3)
-                        file = genai.get_file(file.name)
-                    
-                    if file.state.name == "FAILED":
-                        raise Exception(f"Gemini file state is FAILED")
-                        
-                    logger.info(f"Upload Complete: {file.name}")
-                    return file
-                except Exception as e:
-                    logger.warning(f"Gemini Upload attempt {attempt+1} failed: {e}")
-                    if attempt < max_retries - 1:
-                        time.sleep(5)
-                    else:
-                        logger.error("All Gemini upload attempts failed.")
-                        return None
+        with _gemini_upload_sem:  # Max 3 parallel Gemini uploads at once
+            logger.info(f"[Gemini Upload] Semaphore acquired — uploading {os.path.basename(path)} ({file_size:,} bytes)")
+            try:
+                file = genai.upload_file(path=path)
+                while file.state.name == "PROCESSING":
+                    time.sleep(2)
+                    file = genai.get_file(file.name)
+                if file.state.name == "FAILED":
+                    error_msg = getattr(file, 'error', 'Unknown Gemini Upload Error')
+                    raise Exception(f"Gemini file state is FAILED: {error_msg}")
+                logger.info(f"Upload Complete: {file.name} ({file_size:,} bytes)")
+                return file
+            except Exception as e:
+                logger.error(f"Gemini Upload Error: {e}")
+                return None
 
     def _convert_to_wav(self, webm_path):
         """Convert browser-native webm to standard wav for better Gemini compatibility."""
@@ -548,8 +541,9 @@ def process_meeting_audio(audio_path: str, meeting_id: str):
         )
         logger.info(f"Pipeline results saved to DB for {meeting_id}")
         
-        # Email the transcript explicitly
-        # Email the meeting report (HTML version)
+        # MULTI-USER FIX: Email the meeting report ONLY to the user who invited the bot (organizer)
+        # NOT to all meeting participants - this respects multi-user privacy
+        # The PDF is sent only to the user whose Gmail account is connected to the app
         try:
             mtg = db.get_meeting(meeting_id)
             if mtg and mtg.get('user_email'):

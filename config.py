@@ -15,7 +15,7 @@ DEFAULT_CONFIG = {
     "send_email_summaries": False,
     "send_chat_intro": True,
     "record_audio": True,
-    "email_recipients": "all_participants"  # or "organizer_only"
+    "email_recipients": "organizer_only"  # FIXED: Changed from "all_participants" to "organizer_only" for multi-user support
 }
 
 def load_config():

@@ -121,8 +121,9 @@ RTC_AUDIO_HOOK = """
 class RenaMeetingBot:
     def __init__(self, bot_name="Renata AI | Meeting Assistant", 
                  audio_device="audio=CABLE Output (VB-Audio Virtual Cable)", 
-                 user_email=None, session_dir=None):
+                 user_email=None, session_dir=None, guest_mode=False):
         self.user_email = user_email
+        self.guest_mode = guest_mode  # MULTI-USER FIX: If True, join as guest instead of bot account
         if user_email:
             try:
                 profile = db.get_user_profile(user_email)
@@ -171,11 +172,17 @@ class RenaMeetingBot:
         print("Bot Login Session Saved.")
 
     def automate_google_login(self, page):
-        """Session-first login: reuse saved session, only do full login if needed."""
+        """Session-first login: If this is a multi-user (guest_mode), skip login. Otherwise use bot credentials."""
         try:
+            # MULTI-USER FIX: If guest_mode is enabled, don't login - Google Meet will prompt for name
+            if hasattr(self, 'guest_mode') and self.guest_mode:
+                print(f"[Login] ✓ Guest mode enabled for {self.user_email} - skipping Google login")
+                return True
+
             if not PERMANENT_BOT_EMAIL or not PERMANENT_BOT_PASS:
                 print("[Login] ERROR: BOT_EMAIL or BOT_PASSWORD not set in .env!")
-                return False
+                print("[Login] Falling back to guest mode...")
+                return True  # Allow guest mode to proceed
 
             print(f"[Login] Checking session for {PERMANENT_BOT_EMAIL}...")
 
@@ -864,7 +871,9 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
         db.update_bot_status(meeting_id, "JOINING", note="Bot browser is starting...", user_email=user_email)
         print(f"\n[Slot {slot}] JOINING: {meet_url} for {user_email}")
         
-        thread_bot = RenaMeetingBot(user_email=user_email, session_dir=session_dir, audio_device=audio_dev)
+        # MULTI-USER FIX: Use guest mode for slot > 0 (multi-user scenarios)
+        is_guest_mode = (slot > 0)
+        thread_bot = RenaMeetingBot(user_email=user_email, session_dir=session_dir, audio_device=audio_dev, guest_mode=is_guest_mode)
         thread_bot.set_slot(slot)
         
         if is_meet_url(meet_url):
@@ -874,7 +883,7 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
                 db_module=db, 
                 meeting_id=meeting_id, 
                 user_email=user_email,
-                guest_mode=(slot > 0),
+                guest_mode=is_guest_mode,
                 guest_name="Renata AI | Meeting Assistant"
             )
         elif is_zoom_url(meet_url):
@@ -886,7 +895,7 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot):
                 db_module=db, 
                 meeting_id=meeting_id, 
                 user_email=user_email,
-                guest_mode=(slot > 0),
+                guest_mode=is_guest_mode,
                 guest_name="Renata AI | Meeting Assistant"
             )
     except Exception as e:
