@@ -1090,26 +1090,26 @@ def run_auto_pilot(operator_email):
                             continue
                         url = normalize_url(url)
 
-                                if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs or url in _active_urls:
-                                    continue
-                                    
-                                slot = _acquire_slot()
-                                if slot is not None:
-                                    # MARK ACTIVE IMMEDIATELY
-                                    _active_jobs[(m_id, cal_email)] = True
-                                    _active_urls[url] = m_id
-                                    session_handled_ids.add((m_id, cal_email))
-                                    session_handled_ids.add((url, cal_email))
-                                    
-                                    db.set_meeting_bot_status(m_id, "DISPATCHING", user_email=cal_email, title=event.get('summary'), start_time=start_str, bot_status_note=f"Scheduled event detected. Assigning Slot {slot}...")
-                                    
-                                    t = threading.Thread(
-                                        target=_run_meeting_in_thread, 
-                                        args=(url, m_id, cal_email, 1, slot), 
-                                        daemon=True
-                                    )
-                                    _active_jobs[(m_id, cal_email)] = t
-                                    t.start()
+                        if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs or url in _active_urls:
+                            continue
+                        
+                        slot = _acquire_slot()
+                        if slot is not None:
+                            # MARK ACTIVE IMMEDIATELY
+                            _active_jobs[(m_id, cal_email)] = True
+                            _active_urls[url] = m_id
+                            session_handled_ids.add((m_id, cal_email))
+                            session_handled_ids.add((url, cal_email))
+                            
+                            db.set_meeting_bot_status(m_id, "DISPATCHING", user_email=cal_email, title=event.get('summary'), start_time=start_str, bot_status_note=f"Scheduled event detected. Assigning Slot {slot}...")
+                            
+                            t = threading.Thread(
+                                target=_run_meeting_in_thread, 
+                                args=(url, m_id, cal_email, 1, slot), 
+                                daemon=True
+                            )
+                            _active_jobs[(m_id, cal_email)] = t
+                            t.start()
                 except Exception as ex:
                     print(f"Calendar Error for user {cal_email}: {ex}")
             
