@@ -1057,8 +1057,8 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        # NARROW WINDOW: Only look at 15m ago to avoid yesterday's ghost meetings
-                        timeMin=(now - timedelta(minutes=15)).isoformat().replace('+00:00','Z'), 
+                        # NARROW WINDOW: Only look at 5m ago to avoid yesterday's ghost meetings
+                        timeMin=(now - timedelta(minutes=5)).isoformat().replace('+00:00','Z'), 
                         timeMax=(now + timedelta(minutes=30)).isoformat().replace('+00:00','Z'), 
                         maxResults=40, 
                         singleEvents=True, 
