@@ -1013,7 +1013,6 @@ def run_auto_pilot(operator_email):
                         maxResults=40, 
                         singleEvents=True, 
                         orderBy='startTime',
-                        conferenceDataVersion=1,
                         fields='items(id,summary,start,end,location,hangoutLink,conferenceData),nextPageToken'
                     ).execute().get('items', [])
                     
