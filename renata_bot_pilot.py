@@ -73,6 +73,7 @@ def get_service(user_email=None):
     
     serialized_token = db.get_user_token(user_email)
     if not serialized_token: 
+        print(f"[Pilot] No token found for {user_email} — user must log in again")
         return None
         
     try:
@@ -85,8 +86,12 @@ def get_service(user_email=None):
                 "UPDATE users SET google_token = ?, updated_at = CURRENT_TIMESTAMP WHERE email = ?", 
                 (creds.to_json(), user_email)
             )
+        elif creds and creds.expired and not creds.refresh_token:
+            print(f"[Pilot] Token EXPIRED and no refresh_token for {user_email} — user must log in again")
+            return None
         return build('calendar', 'v3', credentials=creds)
-    except Exception: 
+    except Exception as e:
+        print(f"[Pilot] Token error for {user_email}: {e}")
         return None
 
 # --- RTCPeerConnection Hook — Injected BEFORE page load ---
@@ -1032,8 +1037,10 @@ def run_auto_pilot(operator_email):
                         fields='items(id,summary,start,end,location,hangoutLink,conferenceData),nextPageToken'
                     ).execute().get('items', [])
                     
+                    print(f"[Pilot] {cal_email}: {len(events)} event(s) in window")
                     for event in events:
                         m_id = event.get('id')
+                        title = event.get('summary', 'Untitled')
                         url = event.get('hangoutLink')
                         if not url:
                             conf = event.get('conferenceData', {})
@@ -1068,26 +1075,32 @@ def run_auto_pilot(operator_email):
 
                         # Skip events that have already ended
                         if parsed_end and now > parsed_end:
+                            print(f"[Pilot] SKIP '{title}' — already ended")
                             continue
 
-                        # Only consider meetings that are ongoing or starting soon.
+                        # Only consider meetings ongoing or starting within 30 mins
                         if parsed_dt > now + timedelta(minutes=30):
                             continue
-                        if parsed_dt < now - timedelta(minutes=15) and (not parsed_end or now > parsed_end):
+                        if parsed_dt < now - timedelta(hours=1) and (not parsed_end or now > parsed_end):
+                            print(f"[Pilot] SKIP '{title}' — started >1hr ago and no active end time")
                             continue
+
+                        print(f"[Pilot] CANDIDATE '{title}' for {cal_email} — url={'YES' if url else 'NO'}")
 
                         # Skip meetings already completed/failed for this user.
                         db_meeting = db.fetch_one("SELECT bot_status, is_skipped FROM meetings WHERE meeting_id = ? AND user_email = ?", (m_id, cal_email))
                         if db_meeting:
                             if db_meeting.get('is_skipped', 0):
                                 if (m_id, cal_email) not in session_handled_ids:
-                                    print(f"[Pilot] Meeting {m_id} skipped by user preference for {cal_email}")
+                                    print(f"[Pilot] SKIP '{title}' — marked skipped by user")
                                     session_handled_ids.add((m_id, cal_email))
                                 continue
                             if db_meeting.get('bot_status') in ('COMPLETED', 'FAILED') and now > parsed_dt:
+                                print(f"[Pilot] SKIP '{title}' — already {db_meeting.get('bot_status')}")
                                 continue
 
                         if not url:
+                            print(f"[Pilot] SKIP '{title}' — NO meet/zoom link found in event")
                             continue
                         url = normalize_url(url)
 
