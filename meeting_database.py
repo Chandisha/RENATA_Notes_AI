@@ -264,7 +264,8 @@ def init_database():
 
 # --- USER PROFILE OPERATIONS ---
 def get_user_profile(email):
-    return fetch_one("SELECT * FROM users WHERE email = ?", (email,))
+    if not email: return None
+    return fetch_one("SELECT * FROM users WHERE LOWER(email) = LOWER(?)", (email,))
 
 def upsert_user(email, name=None, picture=None):
     if DATABASE_URL:
@@ -356,8 +357,8 @@ def update_meeting(meeting_id, updates, user_email=None):
     where_clause = "WHERE meeting_id = ?"
     
     if user_email:
-        values.append(user_email)
-        where_clause += " AND user_email = ?"
+        values.append(user_email.lower())
+        where_clause += " AND LOWER(user_email) = LOWER(?)"
     
     query = f"UPDATE meetings SET {', '.join(set_clauses)}, updated_at = CURRENT_TIMESTAMP {where_clause}"
     success, _ = exec_commit(query, tuple(values))
@@ -372,7 +373,7 @@ def set_meeting_bot_status(meeting_id, status, user_email=None, **kwargs):
     if not success:
         # Create minimal record if doesn't exist
         exec_commit("INSERT INTO meetings (meeting_id, title, start_time, bot_status, user_email) VALUES (?, ?, ?, ?, ?)",
-                    (meeting_id, kwargs.get('title', 'Upcoming Meeting'), kwargs.get('start_time', datetime.now().isoformat()), status, user_email))
+                    (meeting_id, kwargs.get('title', 'Upcoming Meeting'), kwargs.get('start_time', datetime.now().isoformat()), status, user_email.lower() if user_email else None))
     return True
 
 def update_bot_status(meeting_id, status, note="", user_email=None):
@@ -385,7 +386,7 @@ def get_active_joining_meeting(user_email):
     row = fetch_one("""
         SELECT meeting_id, bot_status, bot_status_note, updated_at 
         FROM meetings 
-        WHERE user_email = ? AND bot_status IN ('JOIN_PENDING', 'DISPATCHING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'PROCESSING')
+        WHERE LOWER(user_email) = LOWER(?) AND bot_status IN ('JOIN_PENDING', 'DISPATCHING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'PROCESSING')
         ORDER BY updated_at DESC LIMIT 1
     """, (user_email,))
     if row:
@@ -395,7 +396,7 @@ def get_active_joining_meeting(user_email):
     row = fetch_one("""
         SELECT meeting_id, bot_status, bot_status_note, updated_at 
         FROM meetings 
-        WHERE user_email = ? AND bot_status IN ('LIVE', 'CONNECTED')
+        WHERE LOWER(user_email) = LOWER(?) AND bot_status IN ('LIVE', 'CONNECTED')
         AND updated_at >= datetime('now', '-5 minutes')
         ORDER BY updated_at DESC LIMIT 1
     """, (user_email,))
@@ -406,21 +407,21 @@ def get_recently_finished_meeting(user_email):
     return fetch_one("""
         SELECT meeting_id, bot_status, bot_status_note, updated_at 
         FROM meetings 
-        WHERE user_email = ? AND bot_status IN ('COMPLETED', 'FAILED')
+        WHERE LOWER(user_email) = LOWER(?) AND bot_status IN ('COMPLETED', 'FAILED')
         AND updated_at >= datetime('now', '-2 minutes')
         ORDER BY updated_at DESC LIMIT 1
     """, (user_email,))
 
 def get_meeting(meeting_id, user_email=None):
     if user_email:
-        return fetch_one("SELECT * FROM meetings WHERE meeting_id = ? AND user_email = ?", (meeting_id, user_email))
+        return fetch_one("SELECT * FROM meetings WHERE meeting_id = ? AND LOWER(user_email) = LOWER(?)", (meeting_id, user_email))
     return fetch_one("SELECT * FROM meetings WHERE meeting_id = ?", (meeting_id,))
 
 def get_all_meetings(user_email, limit=50, offset=0, order_by='start_time DESC', reports_only=False):
     """STRICTLY SCOPED: user_email is REQUIRED."""
     if not user_email: return []
     
-    where_clause = "WHERE user_email = ?"
+    where_clause = "WHERE LOWER(user_email) = LOWER(?)"
     if reports_only:
         where_clause += " AND (pdf_path IS NOT NULL OR transcript_text IS NOT NULL OR transcripts_pdf_path IS NOT NULL)"
     
@@ -545,11 +546,11 @@ def delete_meeting(meeting_id, user_email):
             except: pass
 
     # 3. Delete from database
-    exec_commit("DELETE FROM meetings WHERE meeting_id = ? AND user_email = ?", (meeting_id, user_email))
+    exec_commit("DELETE FROM meetings WHERE meeting_id = ? AND LOWER(user_email) = LOWER(?)", (meeting_id, user_email))
     return True
 
 def get_user_token(email):
-    row = fetch_one("SELECT google_token FROM users WHERE email = ?", (email,))
+    row = fetch_one("SELECT google_token FROM users WHERE LOWER(email) = LOWER(?)", (email,))
     return row['google_token'] if row else None
 
 # --- CHAT OPERATIONS ---
@@ -572,7 +573,7 @@ def get_chat_sessions(user_email, limit=20):
         # SQLite syntax
         query = """
             SELECT * FROM chat_sessions 
-            WHERE user_email = ? 
+            WHERE LOWER(user_email) = LOWER(?) 
             AND updated_at >= datetime('now', '-30 days')
             ORDER BY updated_at DESC LIMIT ?
         """
@@ -631,7 +632,7 @@ def create_ticket(user_email, subject, query):
 def get_active_tickets(user_email):
     return fetch_all('''
         SELECT * FROM help_tickets 
-        WHERE user_email = ? AND status != 'resolved' 
+        WHERE LOWER(user_email) = LOWER(?) AND status != 'resolved' 
         ORDER BY created_at DESC
     ''', (user_email,))
 

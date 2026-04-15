@@ -463,7 +463,7 @@ async def google_callback(request: Request):
 
         # Save/Update in Database
         # Check if user exists
-        existing_user = db.fetch_one("SELECT email FROM users WHERE email = ?", (email,))
+        existing_user = db.fetch_one("SELECT email FROM users WHERE LOWER(email) = LOWER(?)", (email,))
         if existing_user:
             db.exec_commit("""
                 UPDATE users SET 
@@ -471,13 +471,13 @@ async def google_callback(request: Request):
                     picture = ?, 
                     google_token = ?, 
                     updated_at = CURRENT_TIMESTAMP 
-                WHERE email = ?
+                WHERE LOWER(email) = LOWER(?)
             """, (name, picture, creds.to_json(), email))
         else:
             db.exec_commit("""
                 INSERT INTO users (email, name, picture, google_token) 
                 VALUES (?, ?, ?, ?)
-            """, (email, name, picture, creds.to_json()))
+            """, (email.lower(), name, picture, creds.to_json()))
         
         # Set Session
         request.session["user"] = {
@@ -716,8 +716,12 @@ async def reports_data_api(request: Request):
     # Only show meetings that are actual reports (have content) or are currently processing
     meetings = db.get_all_meetings(user_email=user['email'], limit=50, reports_only=True)
     
-    # Also include ones that are currently processing as they are "live" reports
-    processing = db.fetch_all("SELECT * FROM meetings WHERE user_email = ? AND bot_status = 'PROCESSING'", (user['email'],))
+    # Also include ones that are currently processing or live as they are "live" reports
+    processing = db.fetch_all("""
+        SELECT * FROM meetings 
+        WHERE LOWER(user_email) = LOWER(?) 
+        AND bot_status IN ('JOIN_PENDING', 'DISPATCHING', 'JOINING', 'FETCHING', 'CONNECTING', 'IN_LOBBY', 'CONNECTED', 'LIVE', 'PROCESSING')
+    """, (user['email'],))
     # Avoid duplicates if they already have a pdf_path (unlikely but safe)
     existing_ids = {m['meeting_id'] for m in meetings}
     for pm in processing:
