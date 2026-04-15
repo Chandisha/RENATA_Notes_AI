@@ -130,9 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'reports':
                 await loadReportsData();
                 break;
-            case 'notes':
-                await loadNotesData();
-                break;
             case 'gmail':
                 await loadGmailData();
                 break;
@@ -318,97 +315,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             feather.replace();
         } catch (err) { console.error(err); }
-    }
-
-    // --- AI MEETING INSIGHTS LOGIC ---
-    async function loadNotesData() {
-        try {
-            // Load AI Meetings List
-            const res = await apiFetch("/api/notes/ai/list");
-            if (res) {
-                const data = await res.json();
-                renderAiMeetingsSelector(data.meetings || []);
-            }
-        } catch (err) { console.error("AI Insights Load Error:", err); }
-    }
-
-    function renderAiMeetingsSelector(meetings) {
-        const listContainer = document.getElementById('ai-notes-list-container');
-        if (!listContainer) return;
-        
-        listContainer.innerHTML = '';
-        if (meetings.length === 0) {
-            listContainer.innerHTML = '<div class="muted" style="padding:20px; text-align:center;">No intelligence reports found.</div>';
-            return;
-        }
-
-        meetings.forEach((m, index) => {
-            const item = document.createElement('div');
-            item.className = 'meeting-item';
-            item.style = 'padding:18px; border-bottom:1px solid var(--border-color); cursor:pointer; transition: all 0.2s;';
-            
-            // Clean title: If it's "Live Meeting", change to "Intelligence Report"
-            let displayTitle = m.title || "Intelligence Report";
-            if (displayTitle.toLowerCase().includes("live meeting") || displayTitle.toLowerCase().includes("upcoming")) {
-                displayTitle = "Intelligence Report";
-            }
-            
-            const dateStr = new Date(m.start_time).toLocaleDateString(undefined, {
-                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
-            });
-            item.innerHTML = `
-                <span class="report-id">#${meetings.length - index}</span>
-                <div class="report-info">
-                    <span class="report-name">${displayTitle}</span>
-                    <span class="report-date">Generated ${timeAgo(m.created_at)} ago</span>
-                </div>
-                <i data-feather="chevron-right" style="width:18px; color:var(--text-secondary);"></i>
-            `;
-            
-            item.onclick = () => {
-                // Highlight active item
-                document.querySelectorAll('.meeting-item').forEach(i => i.style.background = 'transparent');
-                item.style.background = 'rgba(242,113,33,0.05)';
-                loadAiInsight(m.meeting_id, displayTitle);
-            };
-            listContainer.appendChild(item);
-        });
-        
-        feather.replace();
-    }
-
-    async function loadAiInsight(meetingId, title) {
-        const display = document.getElementById('ai-insight-display');
-        const paneHeader = document.getElementById('ai-pane-title');
-
-        if (!meetingId) return;
-        if (paneHeader) paneHeader.textContent = title || "Intelligence Report";
-        
-        display.innerHTML = `
-            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; min-height:300px; gap:15px;">
-                <i data-feather="loader" class="spin" style="width:32px; color:var(--accent-orange);"></i>
-                <p class="muted">Extracting Intelligence...</p>
-            </div>
-        `;
-        feather.replace();
-
-        try {
-            const res = await apiFetch(`/api/notes/ai/${meetingId}`);
-            const data = await res.json();
-            
-            if (data.ai_notes) {
-                // Remove header and footer from view if we are just showing notes
-                const footer = document.getElementById('ai-insight-footer');
-                if (footer) footer.style.display = 'none';
-                
-                display.innerHTML = formatMarkdownToHTML(data.ai_notes);
-            } else {
-                display.innerHTML = '<div class="muted" style="padding:40px; text-align:center;">No AI notes available for this meeting yet.</div>';
-            }
-        } catch (err) { 
-            display.innerHTML = '<p style="color:#ef4444; padding:40px; text-align:center;">Error loading AI insights.</p>'; 
-        }
-        feather.replace();
     }
 
     function updateNotebookSaveStatus(text) {
@@ -1158,64 +1064,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 feather.replace();
             }, 3000);
         });
-    }
-
-    const refNotesBtn = document.getElementById('refresh-notes-btn');
-    if (refNotesBtn) refNotesBtn.onclick = () => loadNotesData();
-
-    async function loadNotesData() {
-        const grid = document.getElementById('notes-list');
-        if (!grid) return;
-        
-        const refreshIcon = document.getElementById('refresh-notes-btn')?.querySelector('i');
-        if (refreshIcon) refreshIcon.classList.add('spin');
-
-        try {
-            const res = await apiFetch("/reports_data");
-            const data = await res.json();
-            grid.innerHTML = '';
-
-            const allMeetings = (data.meetings || []);
-            if (allMeetings.length === 0) {
-                grid.innerHTML = '<div class="card" style="padding:40px; text-align:center;"><p class="muted">No meeting notes captured yet. They will appear here once you join a live meeting.</p></div>';
-                return;
-            }
-
-            allMeetings.forEach((m) => {
-                const note = m.bot_status_note || '';
-                const hasInsights = note.includes('LIVE_INSIGHTS:');
-                const insights = hasInsights ? note.replace('LIVE_INSIGHTS:', '').trim() : 'No live insights were captured for this session.';
-                const timeStr = m.start_time;
-
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.style.marginBottom = '16px';
-                card.style.padding = '20px';
-                card.style.borderLeft = hasInsights ? '4px solid var(--accent-orange)' : '4px solid var(--border-color)';
-                
-                card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
-                        <div>
-                            <h3 style="margin:0; font-size:1.1rem; color:var(--text-main);">${m.title || 'Untitled Meeting'}</h3>
-                            <span class="muted" style="font-size:0.85rem;">${timeStr}</span>
-                        </div>
-                        <span class="badge ${hasInsights ? 'orange' : 'gray'}" style="font-size:0.7rem;">
-                            ${hasInsights ? 'AI CAPTURED' : 'EMPTY'}
-                        </span>
-                    </div>
-                    <div style="background:rgba(242,113,33,0.03); padding:15px; border-radius:8px; font-size:0.92rem; line-height:1.6; color:#334155; border:1px dashed rgba(242,113,33,0.15);">
-                        ${insights.split('\n').map(line => `<div style="margin-bottom:4px;">${line}</div>`).join('')}
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-            feather.replace();
-        } catch (err) {
-            console.error("Notes Error:", err);
-        } finally {
-            if (refreshIcon) setTimeout(() => refreshIcon.classList.remove('spin'), 500);
-        }
-    }
 
     const refGmailBtn = document.getElementById('refresh-gmail-btn');
     if (refGmailBtn) refGmailBtn.onclick = () => loadGmailData();

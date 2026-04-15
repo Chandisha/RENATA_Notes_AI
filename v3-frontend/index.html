@@ -42,9 +42,6 @@
                 <div class="nav-item" data-page="reports">
                     <i data-feather="file-text"></i> <span>Reports</span>
                 </div>
-                <div class="nav-item" data-page="notes">
-                    <i data-feather="edit-3"></i> <span>Note Taking</span>
-                </div>
                 <div class="nav-item" data-page="gmail">
                     <i data-feather="mail"></i> <span>Gmail Intelligence</span>
                 </div>
@@ -179,59 +176,6 @@
 
                         <div class="chart-container">
                             <canvas id="analyticsChart"></canvas>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="notes-page" class="page">
-                    <div class="page-header" style="margin-bottom: 20px;">
-                        <div class="header-main">
-                            <h1>MeetAI Intelligence Hub</h1>
-                            <p class="subtitle">Personal notebook and AI-powered meeting insights.</p>
-                        </div>
-                    </div>
-                    
-                    <div class="ai-intelligence-hub" style="max-width: 1000px; margin: 0 auto; height: calc(100vh - 220px); display: flex; flex-direction: column; gap: 20px;">
-                        <div class="card ai-resource-pane" style="display: flex; flex-direction: column; padding: 0; overflow: hidden; border: 1px solid var(--border-color); background: #ffffff; flex: 1; box-shadow: 0 10px 30px rgba(0,0,0,0.04);">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <div class="icon-circle" style="background: var(--accent-orange); color: white; width: 36px; height: 36px;">
-                                        <i data-feather="cpu" style="width: 18px;"></i>
-                                    </div>
-                                    <div>
-                                        <h3 id="ai-pane-title" style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin:0;">AI Intelligence Hub</h3>
-                                        <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0;">Select a report to view analysis.</p>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div style="display: flex; flex: 1; overflow: hidden; background: #fafafa;">
-                                <!-- Left List Sidebar -->
-                                <div id="ai-notes-list-container" style="width: 320px; border-right: 1px solid var(--border-color); background: #ffffff; overflow-y: auto;">
-                                    <div class="muted" style="padding: 20px; text-align: center;">Loading reports...</div>
-                                </div>
-                                
-                                <!-- Right Content Area -->
-                                <div id="ai-insight-display" style="flex: 1; padding: 40px; overflow-y: auto; font-size: 1.05rem; line-height: 1.8; color: #334155;">
-                                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: var(--text-secondary); opacity: 0.7;">
-                                    <div style="background: white; padding: 30px; border-radius: 50%; box-shadow: 0 10px 20px rgba(0,0,0,0.05); margin-bottom: 25px;">
-                                        <i data-feather="clipboard" style="width: 48px; height: 48px; color: var(--accent-orange);"></i>
-                                    </div>
-                                    <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 10px;">Ready for Intelligence</h4>
-                                    <p style="max-width: 320px; font-size: 0.9rem;">Pick a meeting from the dropdown above to reveal AI-generated summaries and download your full PDF report.</p>
-                                </div>
-                            </div>
-
-                            <div id="ai-insight-footer" style="padding: 20px 30px; border-top: 1px solid var(--border-color); background: #ffffff; display: none;">
-                                <div style="display: flex; align-items: center; justify-content: space-between;">
-                                    <div style="display: flex; align-items: center; gap: 10px; color: var(--text-secondary); font-size: 0.85rem; font-weight: 500;">
-                                        <i data-feather="check-circle" style="color: var(--accent-green); width: 16px;"></i>
-                                        Comprehensive Analysis Ready
-                                    </div>
-                                    <a href="#" id="view-full-pdf-btn" target="_blank" class="primary-btn" style="padding: 12px 28px; border-radius: 14px; font-size: 0.85rem; background: var(--accent-orange);">
-                                        <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> Open Full PDF Intelligence Report
-                                    </a>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </section>
