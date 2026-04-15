@@ -1017,10 +1017,7 @@ def run_auto_pilot(operator_email):
                 
                 service = get_service(cal_email)
                 if not service: 
-                    print(f"[Pilot] ⚠ Skipping {cal_email} - Invalid or missing token")
                     continue
-                
-                print(f"[Pilot] Scanning calendar for {cal_email}...")
                 
                 try:
                     events = service.events().list(
