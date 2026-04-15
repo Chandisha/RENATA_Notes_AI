@@ -717,8 +717,25 @@ async def reports_data_api(request: Request):
     stats = db.get_meeting_stats(user['email'])
     total_count = stats.get('total_reports', 0)
     
+    # MULTI-USER FIX: Add PDF availability status for each meeting
     for m in meetings:
         m['start_time'] = fmt_time(m['start_time'])
+        
+        # Check if PDFs are available (file on disk or blob in DB)
+        m['pdf_available'] = False
+        m['transcripts_pdf_available'] = False
+        
+        if m.get('pdf_path'):
+            m['pdf_available'] = os.path.exists(m['pdf_path']) or bool(m.get('pdf_blob'))
+            if m['pdf_available']:
+                pdf_name = m['pdf_path'].split('/')[-1].split('\\')[-1]
+                m['pdf_download_link'] = f"/download/pdf/{pdf_name}"
+        
+        if m.get('transcripts_pdf_path'):
+            m['transcripts_pdf_available'] = os.path.exists(m['transcripts_pdf_path']) or bool(m.get('transcripts_pdf_blob'))
+            if m['transcripts_pdf_available']:
+                transcript_name = m['transcripts_pdf_path'].split('/')[-1].split('\\')[-1]
+                m['transcripts_pdf_download_link'] = f"/download/transcripts_pdf/{transcript_name}"
         
     return {"meetings": meetings, "total_count": total_count}
 
@@ -1098,7 +1115,7 @@ async def api_ai_insights_list(request: Request):
 async def api_get_ai_insights(request: Request, meeting_id: str):
     user = require_user(request)
     m = db.fetch_one("""
-        SELECT summary_text, action_items, title, status, bot_status, bot_status_note, pdf_path, is_summarized_paid
+        SELECT summary_text, action_items, title, status, bot_status, bot_status_note, pdf_path, transcripts_pdf_path, is_summarized_paid
         FROM meetings 
         WHERE meeting_id = ? AND user_email = ?
     """, (meeting_id, user['email']))
@@ -1123,17 +1140,71 @@ async def api_get_ai_insights(request: Request, meeting_id: str):
         else:
             ai_insights = "No AI insights found for this meeting."
 
-    # Construct PDF link if exists
+    # Construct PDF links if they exist
     pdf_link = None
-    if m.get('pdf_path'):
+    transcripts_pdf_link = None
+    
+    if m.get('pdf_path') and os.path.exists(m['pdf_path']):
         pdf_name = m['pdf_path'].split('/')[-1].split('\\')[-1]
         pdf_link = f"/download/pdf/{pdf_name}"
+    
+    if m.get('transcripts_pdf_path') and os.path.exists(m['transcripts_pdf_path']):
+        transcripts_name = m['transcripts_pdf_path'].split('/')[-1].split('\\')[-1]
+        transcripts_pdf_link = f"/download/transcripts_pdf/{transcripts_name}"
 
     return {
         "ai_notes": ai_insights,
         "title": m.get('title', 'Untitled Meeting'),
         "pdf_link": pdf_link,
-        "is_paid": m.get('is_summarized_paid', 0)
+        "transcripts_pdf_link": transcripts_pdf_link,
+        "bot_status": m.get('bot_status', 'UNKNOWN'),
+        "is_paid": m.get('is_summarized_paid', 0),
+        "pdf_generated_at": m.get('updated_at')  # Let frontend know when PDF was last updated
+    }
+
+
+@app.get("/api/pdf_status/{meeting_id}", response_class=JSONResponse)
+async def check_pdf_status(request: Request, meeting_id: str):
+    """REAL-TIME CHECK: Frontend polls this to detect when PDFs become available."""
+    user = require_user(request)
+    m = db.fetch_one("""
+        SELECT pdf_path, transcripts_pdf_path, bot_status, updated_at
+        FROM meetings 
+        WHERE meeting_id = ? AND user_email = ?
+    """, (meeting_id, user['email']))
+    
+    if not m: 
+        raise HTTPException(status_code=404)
+    
+    # Check if PDFs exist (on disk or in DB)
+    pdf_available = False
+    transcripts_pdf_available = False
+    
+    # Check local disk first
+    if m.get('pdf_path'):
+        pdf_available = os.path.exists(m['pdf_path'])
+    
+    if m.get('transcripts_pdf_path'):
+        transcripts_pdf_available = os.path.exists(m['transcripts_pdf_path'])
+    
+    # If not on disk, check if blob exists in DB (Vercel/cloud)
+    if not pdf_available and m.get('pdf_path'):
+        blob_check = db.fetch_one("SELECT pdf_blob FROM meetings WHERE meeting_id = ? AND user_email = ?", 
+                                  (meeting_id, user['email']))
+        pdf_available = bool(blob_check and blob_check.get('pdf_blob'))
+    
+    if not transcripts_pdf_available and m.get('transcripts_pdf_path'):
+        blob_check = db.fetch_one("SELECT transcripts_pdf_blob FROM meetings WHERE meeting_id = ? AND user_email = ?", 
+                                  (meeting_id, user['email']))
+        transcripts_pdf_available = bool(blob_check and blob_check.get('transcripts_pdf_blob'))
+    
+    return {
+        "meeting_id": meeting_id,
+        "pdf_ready": pdf_available,
+        "transcripts_pdf_ready": transcripts_pdf_available,
+        "bot_status": m.get('bot_status', 'UNKNOWN'),
+        "last_updated": m.get('updated_at'),
+        "message": "PDFs are ready!" if (pdf_available or transcripts_pdf_available) else "Generating PDFs..."
     }
 
 
@@ -1254,6 +1325,12 @@ async def logout(request: Request):
 
 @app.get("/download/pdf/{filename}")
 async def download_pdf(filename: str, request: Request):
+    """
+    MULTI-USER ISOLATION: Each user can ONLY download their own PDFs
+    - Checks user_email before serving the file
+    - PDFs are bound to the user who initiated the meeting
+    - Security: Users cannot access other users' PDFs
+    """
     user = get_current_user(request)
     if not user: raise HTTPException(status_code=401)
     
@@ -1264,6 +1341,7 @@ async def download_pdf(filename: str, request: Request):
         
     # 2. Check Database Blob (for Cloud/Vercel)
     # Search for a meeting using this filename in the pdf_path
+    # SECURITY: Only returns file if it belongs to the current user
     meeting = db.fetch_one("SELECT pdf_blob FROM meetings WHERE pdf_path LIKE ? AND user_email = ?", 
                            (f"%{filename}%", user['email']))
     
@@ -1283,6 +1361,12 @@ async def download_pdf(filename: str, request: Request):
 
 @app.get("/download/transcripts_pdf/{filename}")
 async def download_transcripts_pdf(filename: str, request: Request):
+    """
+    MULTI-USER ISOLATION: Each user can ONLY download their own transcripts PDFs
+    - Checks user_email before serving the file
+    - Transcripts PDFs are bound to the user who initiated the meeting
+    - Security: Users cannot access other users' transcripts
+    """
     user = get_current_user(request)
     if not user: raise HTTPException(status_code=401)
     
@@ -1293,6 +1377,7 @@ async def download_transcripts_pdf(filename: str, request: Request):
         
     # 2. Check Database Blob (for Cloud/Vercel)
     # Strategy A: Try exact match on transcripts_pdf_path
+    # SECURITY: Only returns file if it belongs to the current user
     meeting = db.fetch_one("SELECT transcripts_pdf_blob FROM meetings WHERE transcripts_pdf_path LIKE ? AND user_email = ?", 
                            (f"%{filename}%", user['email']))
     
