@@ -548,7 +548,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = No
         except Exception as e:
             logger.error(f"Error encoding PDF blobs: {e}")
 
-        # Save results to database
+        # Save results to database — always pass user_email so UPDATE targets correct row
         db.save_meeting_results(
             meeting_id,
             transcript=json.dumps(generator.structured_transcript),
@@ -560,26 +560,35 @@ def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = No
             transcripts_pdf_path=generator.last_transcripts_pdf_path,
             pdf_blob=pdf_blob,
             transcripts_pdf_blob=transcripts_pdf_blob,
-            json_path=generator.last_json_path
+            json_path=generator.last_json_path,
+            user_email=user_email
         )
-        logger.info(f"Pipeline results saved to DB for {meeting_id}")
+        logger.info(f"[DB] Results saved for {meeting_id} (user={user_email}). status=completed, pdf={generator.last_pdf_path}")
         
-        # MULTI-USER FIX: Email the meeting report ONLY to the user who invited the bot (organizer)
-        # NOT to all meeting participants - this respects multi-user privacy
-        # The PDF is sent only to the user whose Gmail account is connected to the app
+        # EMAIL: Send report to the meeting organiser immediately after PDF is generated.
+        # We use the user_email passed in directly (do NOT re-fetch from DB — it may be None).
+        # If the passed-in user_email is missing, try to get it from the DB as fallback.
         try:
-            mtg = db.get_meeting(meeting_id, user_email=user_email) if user_email else db.get_meeting(meeting_id)
-            if mtg and mtg.get('user_email'):
-                user_email = mtg['user_email']
-                # Use AI generated title if available, otherwise fallback to database title
-                title = generator.intel.get('title') or mtg.get('title') or 'Live Meeting'
+            if not user_email:
+                mtg = db.get_meeting(meeting_id)
+                user_email = (mtg or {}).get('user_email')
+
+            logger.info(f"[Email] Starting email dispatch for {meeting_id} → {user_email}")
+
+            if user_email:
+                # Use AI generated title if available, fallback to DB record title
+                ai_title = generator.intel.get('title')
+                if not ai_title:
+                    _mtg_rec = db.get_meeting(meeting_id, user_email=user_email)
+                    ai_title = (_mtg_rec or {}).get('title', 'Meeting Report')
+                title = ai_title or 'Meeting Report'
                 meeting_date = datetime.now().strftime("%B %d, %Y")
                 meeting_time = datetime.now().strftime("%I:%M %p")
                 full_timestamp = f"{meeting_date} @ {meeting_time}"
 
                 db_user = db.get_user_profile(user_email)
                 user_plan = db_user.get('subscription_plan', 'Basic') if db_user else 'Basic'
-                
+
                 # Standardized summary for all users
                 summary_text = generator.intel.get("summary_en", "Processing complete. Please find the attached report.")
                 
@@ -684,17 +693,20 @@ def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = No
                 except Exception as att_e:
                     logger.error(f"Error attaching PDFs: {att_e}")
                 
-                logger.info(f"Sending professional report email to {user_email}...")
-                if not sender_email or not bot_pass:
-                    logger.warning("SMTP_SENDER_EMAIL or BOT_SMTP_PASSWORD not set — skipping email send.")
+                logger.info(f"[Email] Sending to {user_email} via {sender_email}...")
+                if not sender_email:
+                    logger.error("[Email] SMTP_SENDER_EMAIL not set in .env — cannot send.")
+                elif not bot_pass:
+                    logger.error("[Email] BOT_SMTP_PASSWORD not set in .env — cannot send.")
                 else:
                     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
                         smtp.login(sender_email, bot_pass)
                         smtp.send_message(msg)
-                
-                logger.info(f"Successfully emailed report to {user_email}")
+                    logger.info(f"[Email] ✓ Successfully sent report to {user_email}")
+            else:
+                logger.error(f"[Email] SKIPPED — user_email is None for meeting {meeting_id}. Cannot dispatch.")
         except Exception as e:
-            logger.error(f"Failed to email transcript to user: {e}")
+            logger.error(f"[Email] FAILED for {meeting_id} → {user_email}: {e}")
             traceback.print_exc()
             
     except Exception as e:
