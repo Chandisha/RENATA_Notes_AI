@@ -1023,8 +1023,8 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        timeMin=(now - timedelta(hours=3)).isoformat().replace('+00:00','Z'), 
-                        timeMax=(now + timedelta(minutes=5)).isoformat().replace('+00:00','Z'), 
+                        timeMin=(now - timedelta(minutes=15)).isoformat().replace('+00:00','Z'), 
+                        timeMax=(now + timedelta(minutes=15)).isoformat().replace('+00:00','Z'), 
                         maxResults=40, 
                         singleEvents=True, 
                         orderBy='startTime',
@@ -1051,11 +1051,11 @@ def run_auto_pilot(operator_email):
                         if (m_id, cal_email) in session_handled_ids or (norm_url, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs: 
                             continue
                         
-                        start_str = event.get('start', {}).get('dateTime', event.get('start', {}).get('date'))
-                        end_str = event.get('end', {}).get('dateTime', event.get('end', {}).get('date'))
-                        if not start_str: 
+                        start_str = event.get('start', {}).get('dateTime')
+                        end_str = event.get('end', {}).get('dateTime')
+                        if not start_str:
                             continue
-                            
+                        
                         parsed_dt = dt_parser.parse(start_str)
                         if parsed_dt.tzinfo is None:
                             parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
@@ -1069,9 +1069,13 @@ def run_auto_pilot(operator_email):
                         if parsed_end and now > parsed_end:
                             continue
 
-                        # Join only after the meeting has started and before it ends.
-                        if parsed_dt <= now and (parsed_end is None or now <= parsed_end):
-                            if url:
+                        # Only consider events that start within 15 minutes or are currently ongoing.
+                        if parsed_dt > now + timedelta(minutes=15):
+                            continue
+                        if parsed_dt < now - timedelta(minutes=15) and (not parsed_end or now > parsed_end):
+                            continue
+
+                        if url:
                                 url = normalize_url(url)
                                 
                                 # Check if user manually skipped this specific meeting
