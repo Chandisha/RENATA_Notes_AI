@@ -1019,6 +1019,8 @@ def run_auto_pilot(operator_email):
                 if not service: 
                     continue
                 
+                print(f"[Pilot] Checking calendar for {cal_email}...")
+                
                 try:
                     events = service.events().list(
                         calendarId='primary', 
