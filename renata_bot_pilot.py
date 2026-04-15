@@ -92,39 +92,42 @@ def get_service(user_email=None):
 
 # --- RTCPeerConnection Hook — Injected BEFORE page load ---
 # This patches WebRTC at the browser level to capture all remote audio tracks
-# and route them to a single MediaStreamDestination.
 RTC_AUDIO_HOOK = """
-() => {
+(function() {
     console.log('[Renata] Injecting RTC Audio Hook...');
-    window.__renataAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    window.__renataDest = window.__renataAudioCtx.createMediaStreamDestination();
+    try {
+        window.__renataAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        window.__renataDest = window.__renataAudioCtx.createMediaStreamDestination();
 
-    const origAddTrack = RTCPeerConnection.prototype.addTrack;
-    RTCPeerConnection.prototype.addTrack = function(track, ...streams) {
-        console.log('[Renata] RTC Track Added:', track.kind);
-        if (track.kind === 'audio') {
-            const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([track]));
-            src.connect(window.__renataDest);
-        }
-        return origAddTrack.call(this, track, ...streams);
-    };
+        const origAddTrack = RTCPeerConnection.prototype.addTrack;
+        RTCPeerConnection.prototype.addTrack = function(track, ...streams) {
+            console.log('[Renata] RTC Track Added:', track.kind);
+            if (track.kind === 'audio') {
+                const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([track]));
+                src.connect(window.__renataDest);
+            }
+            return origAddTrack.call(this, track, ...streams);
+        };
 
-    const origOntrack = Object.getOwnPropertyDescriptor(RTCPeerConnection.prototype, 'ontrack');
-    Object.defineProperty(RTCPeerConnection.prototype, 'ontrack', {
-        set: function(fn) {
-            const wrappedFn = (e) => {
-                if (e.track && e.track.kind === 'audio') {
-                    console.log('[Renata] Remote Audio Track Received');
-                    const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([e.track]));
-                    src.connect(window.__renataDest);
+        const origOntrack = Object.getOwnPropertyDescriptor(RTCPeerConnection.prototype, 'ontrack');
+        if (origOntrack && origOntrack.set) {
+            Object.defineProperty(RTCPeerConnection.prototype, 'ontrack', {
+                set: function(fn) {
+                    const wrappedFn = (e) => {
+                        if (e.track && e.track.kind === 'audio') {
+                            console.log('[Renata] Remote Audio Track Received');
+                            const src = window.__renataAudioCtx.createMediaStreamSource(new MediaStream([e.track]));
+                            src.connect(window.__renataDest);
+                        }
+                        return fn.apply(this, arguments);
+                    };
+                    return origOntrack.set.call(this, wrappedFn);
                 }
-                return fn.apply(this, arguments);
-            };
-            return origOntrack.set.call(this, wrappedFn);
+            });
         }
-    });
-    console.log('[Renata] Hook Ready.');
-};
+        console.log('[Renata] Hook Ready.');
+    } catch(e) { console.error('[Renata] Hook Fail:', e); }
+})();
 """
 
 # --- MAIN BOT CLASS ---
@@ -579,9 +582,13 @@ class RenaMeetingBot:
         
         try:
             with sync_playwright() as p:
+                # Use HEADLESS=FALSE for slot 0 (Authenticated) to avoid Google blocks
+                # Guest slots (1+) can stay headless as they are less restricted
+                is_headless = guest_mode
+                
                 context = p.chromium.launch_persistent_context(
                     self.session_dir, 
-                    headless=True, 
+                    headless=is_headless, 
                     args=[
                         "--use-fake-ui-for-media-stream",
                         "--use-fake-device-for-media-stream",
@@ -601,16 +608,19 @@ class RenaMeetingBot:
 
                 # 2. Authentication or Guest Mode
                 if guest_mode:
-                    print(f"[Meet Slot {self.slot}] Skipping login, joining as guest...")
-                    page.goto(meet_url)
+                    print(f"[Meet Slot {self.slot}] Navigation to: {meet_url} (GUEST)")
+                    page.goto(meet_url, timeout=60000)
                 else:
-                    # PROACTIVE LOGIN: Ensure authenticated before joining
+                    # Slot 0: Ensure logged in first
                     if not self.automate_google_login(page):
-                        print("Warning: Google Login might have failed. Proceeding anyway...")
-                    page.goto(meet_url)
+                        print("Warning: Google Login check finished with some issues.")
+                    
+                    print(f"[Meet Slot {self.slot}] Navigation to: {meet_url} (AUTH)")
+                    page.goto(meet_url, timeout=60000)
                 
-                page.wait_for_load_state("domcontentloaded")
-                time.sleep(5)
+                print(f"[Meet Slot {self.slot}] Page loaded. Waiting for stabilization...")
+                page.wait_for_load_state("networkidle", timeout=15000)
+                time.sleep(2)
                 
                 if not guest_mode and "accounts.google.com" in page.url:
                     if db_module and meeting_id: 
