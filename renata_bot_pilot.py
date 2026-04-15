@@ -1057,7 +1057,8 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        timeMin=(now - timedelta(hours=2)).isoformat().replace('+00:00','Z'), 
+                        # NARROW WINDOW: Only look at 15m ago to avoid yesterday's ghost meetings
+                        timeMin=(now - timedelta(minutes=15)).isoformat().replace('+00:00','Z'), 
                         timeMax=(now + timedelta(minutes=30)).isoformat().replace('+00:00','Z'), 
                         maxResults=40, 
                         singleEvents=True, 
@@ -1116,15 +1117,21 @@ def run_auto_pilot(operator_email):
                         print(f"[Pilot] CANDIDATE '{title}' for {cal_email} — url={'YES' if url else 'NO'}")
 
                         # Skip meetings already completed/failed for this user.
-                        db_meeting = db.fetch_one("SELECT bot_status, is_skipped FROM meetings WHERE meeting_id = ? AND user_email = ?", (m_id, cal_email))
+                        # Check both bot_status (TRANSITORY) and status (PERSISTENT).
+                        db_meeting = db.fetch_one("SELECT bot_status, status, is_skipped FROM meetings WHERE meeting_id = ? AND user_email = ?", (m_id, cal_email))
                         if db_meeting:
                             if db_meeting.get('is_skipped', 0):
                                 if (m_id, cal_email) not in session_handled_ids:
                                     print(f"[Pilot] SKIP '{title}' — marked skipped by user")
                                     session_handled_ids.add((m_id, cal_email))
                                 continue
-                            if db_meeting.get('bot_status') in ('COMPLETED', 'FAILED') and now > parsed_dt:
-                                print(f"[Pilot] SKIP '{title}' — already {db_meeting.get('bot_status')}")
+                            
+                            current_bot_status = (db_meeting.get('bot_status') or '').upper()
+                            current_status = (db_meeting.get('status') or '').upper()
+
+                            if current_bot_status in ('COMPLETED', 'FAILED') or current_status == 'COMPLETED':
+                                print(f"[Pilot] SKIP '{title}' — already processed (Status: {current_status})")
+                                session_handled_ids.add((m_id, cal_email))
                                 continue
 
                         if not url:
