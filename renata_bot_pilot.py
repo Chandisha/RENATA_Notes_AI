@@ -703,8 +703,9 @@ class RenaMeetingBot:
                     print(f"[Meet Slot {self.slot}] Join button not found after 5 minutes. Continuing to wait for admission if available.")
 
                 # 6. Wait for Admission with Patient Lobby Logic
-                # Wait until 2 minutes after the scheduled start time before giving up.
-                admission_deadline = time.time() + 600 # Fallback 10 mins
+                # The bot will ONLY start recording AFTER the host admits it.
+                # If it times out in the lobby without being admitted, it leaves silently.
+                admission_deadline = time.time() + 600  # Fallback 10 mins
                 if scheduled_start:
                     try:
                         dt_start = dt_parser.parse(scheduled_start)
@@ -715,25 +716,43 @@ class RenaMeetingBot:
                         print(f"[Meet Slot {self.slot}] Patient Lobby: Will wait until {datetime.fromtimestamp(admission_deadline).strftime('%H:%M:%S')} for admission.")
                     except: pass
 
+                # CRITICAL: Track actual admission — do NOT record in lobby
+                was_admitted = False
                 while True:
+                    # Bot is inside the meeting (Leave call button visible) = admitted
                     if page.locator('button[aria-label*="Leave call" i]').count() > 0:
-                        if db_module and meeting_id: 
-                            db_module.update_bot_status(meeting_id, "CONNECTED", note=f"Bot joined as {guest_name if guest_mode else PERMANENT_BOT_EMAIL}", user_email=user_email)
+                        was_admitted = True
+                        if db_module and meeting_id:
+                            db_module.update_bot_status(meeting_id, "CONNECTED",
+                                note=f"Bot admitted and joined as {guest_name if guest_mode else PERMANENT_BOT_EMAIL}",
+                                user_email=user_email)
+                        print(f"[Meet Slot {self.slot}] HOST ADMITTED THE BOT ✓ — starting recording now.")
                         break
-                    
+
                     if time.time() > admission_deadline:
-                        print(f"[Meet Slot {self.slot}] Admission timeout (2 mins past start). Leaving lobby.")
-                        break
+                        print(f"[Meet Slot {self.slot}] Admission timeout — host did not admit. Leaving lobby without recording.")
+                        if db_module and meeting_id:
+                            db_module.update_bot_status(meeting_id, "COMPLETED",
+                                note="Host did not admit bot in time. No recording made.",
+                                user_email=user_email)
+                            db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=?", (meeting_id,))
+                        break  # was_admitted stays False
 
                     if page.locator('text="Waiting to be admitted"').count() > 0 or page.locator('text="Asking to join"').count() > 0:
                         if db_module and meeting_id:
-                            db_module.update_bot_status(meeting_id, "IN_LOBBY", note="Waiting for host to admit bot (staying until 2m past start)...", user_email=user_email)
-                            
+                            db_module.update_bot_status(meeting_id, "IN_LOBBY",
+                                note="In lobby — waiting for host to admit. NOT recording.",
+                                user_email=user_email)
+
                     time.sleep(5)
-                
-                if record:
+
+                # ONLY start recording if host actually admitted the bot
+                if record and was_admitted:
                     self._browser_page = page   # give recorder access to the page
                     self.start_audio_recording(f"Meet_{int(time.time())}")
+                elif not was_admitted:
+                    print(f"[Meet Slot {self.slot}] Bot was never admitted — skipping recording entirely.")
+                    return  # Exit cleanly — no processing needed
                     
                 # Monitor Loop — wait for meeting to end
                 alone_since = None
@@ -1108,10 +1127,9 @@ def run_auto_pilot(operator_email):
                             continue
 
                         # Only consider meetings ongoing or starting within 30 mins
+                        # (The 5-min lookback window already excludes older events,
+                        # but we also check end_time above for safety.)
                         if parsed_dt > now + timedelta(minutes=30):
-                            continue
-                        if parsed_dt < now - timedelta(hours=1) and (not parsed_end or now > parsed_end):
-                            print(f"[Pilot] SKIP '{title}' — started >1hr ago and no active end time")
                             continue
 
                         print(f"[Pilot] CANDIDATE '{title}' for {cal_email} — url={'YES' if url else 'NO'}")
@@ -1136,8 +1154,24 @@ def run_auto_pilot(operator_email):
 
                         if not url:
                             print(f"[Pilot] SKIP '{title}' — NO meet/zoom link found in event")
+                            session_handled_ids.add((m_id, cal_email))
                             continue
                         url = normalize_url(url)
+
+                        # FINAL: Also check by URL in the DB — prevents re-joining same
+                        # link that was completed under a different event ID
+                        url_db = db.fetch_one(
+                            "SELECT bot_status, status FROM meetings WHERE meet_url = ? AND user_email = ?",
+                            (url, cal_email)
+                        )
+                        if url_db:
+                            url_bot_s = (url_db.get('bot_status') or '').upper()
+                            url_status = (url_db.get('status') or '').upper()
+                            if url_bot_s in ('COMPLETED', 'FAILED') or url_status == 'COMPLETED':
+                                print(f"[Pilot] SKIP '{title}' — URL already recorded & completed")
+                                session_handled_ids.add((m_id, cal_email))
+                                session_handled_ids.add((url, cal_email))
+                                continue
 
                         if (m_id, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs or url in _active_urls:
                             continue
