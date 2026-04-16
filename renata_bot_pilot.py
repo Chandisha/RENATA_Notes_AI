@@ -123,7 +123,7 @@ RTC_AUDIO_HOOK = """
 
 # --- MAIN BOT CLASS ---
 class RenaMeetingBot:
-    def __init__(self, bot_name="Renata AI | Meeting Assistant", 
+    def __init__(self, bot_name="Meet AI | Meeting Assistant", 
                  audio_device="audio=CABLE Output (VB-Audio Virtual Cable)", 
                  user_email=None, session_dir=None, guest_mode=False):
         self.user_email = user_email

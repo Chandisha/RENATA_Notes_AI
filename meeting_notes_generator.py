@@ -98,7 +98,7 @@ HINDI_AVAILABLE = setup_fonts()
 class AdaptiveMeetingNotesGenerator:
 
     def __init__(self, audio_path=None):
-        self.bot_name = config.get_setting("bot_name", "Renata AI | Meeting Assistant")
+        self.bot_name = config.get_setting("bot_name", "Meet AI | Meeting Assistant")
         logger.info(f"Initializing {self.bot_name} - Gemini 3.0 Flash Priority")
         
         self.audio_path = audio_path

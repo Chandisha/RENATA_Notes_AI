@@ -184,7 +184,7 @@ def init_database():
             audio_output_device TEXT DEFAULT 'Default',
             bot_auto_join INTEGER DEFAULT 1,
             bot_recording_enabled INTEGER DEFAULT 1,
-            bot_name TEXT DEFAULT 'Renata AI | Personal Meeting Assistant',
+            bot_name TEXT DEFAULT 'Meet AI | Personal Meeting Assistant',
             summary_language TEXT DEFAULT 'English/Hindi',
             google_token TEXT,
             zoom_token TEXT,
