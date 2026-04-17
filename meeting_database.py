@@ -423,7 +423,7 @@ def get_all_meetings(user_email, limit=50, offset=0, order_by='start_time DESC',
     
     where_clause = "WHERE LOWER(user_email) = LOWER(?)"
     if reports_only:
-        where_clause += " AND (pdf_path IS NOT NULL OR transcript_text IS NOT NULL OR transcripts_pdf_path IS NOT NULL)"
+        where_clause += " AND (pdf_path IS NOT NULL OR pdf_blob IS NOT NULL OR transcript_text IS NOT NULL OR transcripts_pdf_path IS NOT NULL OR transcripts_pdf_blob IS NOT NULL)"
     
     query = f"SELECT * FROM meetings {where_clause} ORDER BY {order_by} LIMIT ? OFFSET ?"
     return fetch_all(query, (user_email, limit, offset))
@@ -450,8 +450,10 @@ def get_meeting_stats(user_email, upcoming_count=0):
         WHERE LOWER(user_email) = LOWER(?) 
         AND (
             pdf_path IS NOT NULL 
+            OR pdf_blob IS NOT NULL
             OR transcript_text IS NOT NULL 
             OR transcripts_pdf_path IS NOT NULL
+            OR transcripts_pdf_blob IS NOT NULL
         )
     """, params)
     

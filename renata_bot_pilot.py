@@ -892,7 +892,7 @@ class RenaMeetingBot:
                             process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email, scheduled_start=scheduled_start)
                             # Mark COMPLETED so report shows in dashboard Reports section
                             db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready. Check Reports section.", user_email=user_email)
-                            db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=? AND user_email=?", (meeting_id, user_email))
+                            db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=? AND LOWER(user_email)=LOWER(?)", (meeting_id, user_email))
                             print(f"[Bot] Pipeline done for {meeting_id} → {user_email}. Report ready.")
                         except Exception as ex:
                             print(f"Pipeline Fail: {ex}")
@@ -900,7 +900,7 @@ class RenaMeetingBot:
                     else:
                         print(f"[Bot] Skipping Gemini API (Active: {ever_active}, Size: {rec_size} bytes)")
                         db_module.update_bot_status(meeting_id, "COMPLETED", note="Meeting empty - No intelligence needed.", user_email=user_email)
-                        db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=? AND user_email=?", (meeting_id, user_email))
+                        db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=? AND LOWER(user_email)=LOWER(?)", (meeting_id, user_email))
         except Exception as e: 
             print(f"Meet Error: {e}")
             if db_module and meeting_id:
