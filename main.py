@@ -514,7 +514,7 @@ async def dashboard_page_spa(request: Request):
 
 # --- Calendar Cache (30 second TTL) ---
 _calendar_cache = {}  # {email: {"events": [...], "count": N, "ts": timestamp}}
-CALENDAR_CACHE_TTL = 30  # seconds
+CALENDAR_CACHE_TTL = 300  # 5 minutes cache to make dashboard feel snappy
 
 @app.get("/dashboard_data")
 async def dashboard_data(request: Request):
@@ -540,8 +540,9 @@ async def dashboard_data(request: Request):
             try:
                 creds = get_user_credentials(email)
                 if creds:
+                    # static_discovery=False avoids a network call to fetch the discovery document
                     from googleapiclient.discovery import build
-                    svc = build("calendar", "v3", credentials=creds)
+                    svc = build("calendar", "v3", credentials=creds, static_discovery=False)
                     now_iso = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
                     result = svc.events().list(
                         calendarId="primary", timeMin=now_iso,
@@ -549,11 +550,16 @@ async def dashboard_data(request: Request):
                     ).execute()
                     items = result.get("items", [])
                     count = len(items)
+                    
+                    # Batch fetch skipping status for all meetings at once
+                    m_ids = [item.get("id") for item in items if item.get("id")]
+                    db_meetings = {m['meeting_id']: m for m in db.get_meetings_by_ids(m_ids, email)}
+
                     for item in items:
                         start_raw = item['start'].get('dateTime', item['start'].get('date'))
                         m_id = item.get("id")
                         
-                        # Extract link with priority: hangoutLink -> conferenceData -> location
+                        # Link detection logic
                         link = item.get("hangoutLink")
                         if not link:
                             conf = item.get("conferenceData", {})
@@ -563,15 +569,18 @@ async def dashboard_data(request: Request):
                                     break
                         if not link:
                             link = item.get("location", "")
-                        db_meeting = db.get_meeting(m_id, user_email=email)
+                        
+                        # Quick lookup from our batched results
+                        db_meeting = db_meetings.get(m_id)
                         is_enabled = True
                         if db_meeting:
                             is_enabled = not bool(db_meeting.get('is_skipped', 0))
+
                         events.append({
-                            "id": m_id,
+                            "id": m_id or f"untracked-{time.time()}",
                             "summary": item.get("summary", "Untitled"),
                             "start_time": fmt_time(start_raw),
-                            "link": link,
+                            "link": link or "",
                             "is_enabled": is_enabled
                         })
             except Exception as e:

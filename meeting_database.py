@@ -428,6 +428,14 @@ def get_all_meetings(user_email, limit=50, offset=0, order_by='start_time DESC',
     query = f"SELECT * FROM meetings {where_clause} ORDER BY {order_by} LIMIT ? OFFSET ?"
     return fetch_all(query, (user_email, limit, offset))
 
+def get_meetings_by_ids(meeting_ids, user_email):
+    """Batch fetch meetings for the dashboard to avoid N+1 query slow-downs."""
+    if not meeting_ids or not user_email: return []
+    placeholders = ", ".join(["?"] * len(meeting_ids))
+    query = f"SELECT * FROM meetings WHERE meeting_id IN ({placeholders}) AND LOWER(user_email) = LOWER(?)"
+    params = list(meeting_ids) + [user_email]
+    return fetch_all(query, tuple(params))
+
 def get_meeting_stats(user_email, upcoming_count=0):
     """STRICTLY SCOPED: user_email is REQUIRED. Aggregates data for the specific user."""
     if not user_email: return {}
