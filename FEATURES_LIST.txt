@@ -1,0 +1,69 @@
+MEETAI BY NEXREN - CORE FEATURES LIST
+====================================
+
+1. AUTOMATED BOT DISPATCH
+* Automated Calendar Sync
+* Smart Meeting Detection
+* Individual Meeting Toggles
+* Manual URL Joining
+* Google Meet Integration
+* Multi-User Bot Slots
+
+2. RECORDING & AI PIPELINE
+* Browser-Native Audio Capture
+* Hinglish Transcription (Roman Script)
+* AI Speaker Diarization
+* Executive AI Summaries
+* Action Item Extraction
+* High-Fidelity WAV Conversion
+* ReportLab PDF Report Export
+* Dual-PDF Transcripts Export
+
+3. KNOWLEDGE BASE & AI ASSISTANT
+* AI Chat Assistant
+* RAG-Powered Intelligent Search
+* Persistent Chat Session History
+* Knowledge Base Manual Sync
+* Context-Aware Querying
+
+4. ANALYTICS & INTELLIGENCE
+* Engagement IQ Daily Trends
+* Core KPI Tracking (Meetings, Hours, Actions)
+* Session Consistency Metrics
+* Live Analytics Heartbeat
+
+5. AUTOMATED REPORTING & DELIVERY
+* Automated Email Report Dispatch
+* Rich HTML Email Templates
+* Participant Email Extraction
+* Success/Fail Status Delivery
+
+6. USER & ACCOUNT MANAGEMENT
+* Multi-User Data Isolation
+* Google OAuth 2.0 Integration
+* Pro & Free Subscription Tiers
+* Razorpay Payment Integration
+* Built-in Help & Support Ticket System
+* Secure Account Deletion (Danger Zone)
+* Custom Bot Branding & Personas
+
+====================================
+7. REBRANDING & UI CHECKLIST STATUS
+------------------------------------
+- [Done] 1. Sign in to everywhere Nexren not Renata
+- [x] 2. Logo change (Text updated, asset pending)
+- [Done] 3. MeetAI, by Nexren
+- [Done] 4. Recent AI history remove
+- [x] 5. Show summary of each meeting in dashboard(pipeline there, testing not done yet)
+- [Done] 6. Reports -> Transcripts
+- [Done] 7. Remove NoteTaking, Gmail intelligence
+- [Done] 8. AI search -> AI assistant
+- [x] 9. Left sidebar Live meeting remove
+- [x] 11. Account: Free online same line
+- [x] 12. Font Doc AI (System ready, CSS alignment pending)
+
+
+====================================
+Document Version: 1.2.0
+Updated: April 17, 2026
+====================================

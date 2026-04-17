@@ -1,0 +1,143 @@
+MEETAI BY NEXREN - COMPREHENSIVE TECHNICAL HANDOVER & ARCHITECTURE GUIDE
+========================================================================
+
+1. PRODUCT VISION & CORE LOGIC
+MeetAI is a specialized AI Meeting Assistant designed for multi-user enterprise environments. Unlike simple recorders, it provides a "Zero-Hardware" solution for capturing meeting audio across Google Meet and Zoom, processing that audio through Google's Gemini 1.5 Flash frontier models to deliver Hinglish-capable transcripts, executive summaries, and searchable knowledge bases.
+
+2. DETAILED TECH STACK
+- Backend: High-performance FastAPI (Python 3.10+).
+- Frontend: Single Page Application (SPA) using Vanilla Modern JavaScript, localized in /v3-frontend/.
+- Styling: Premium CSS system featuring glassmorphism, dynamic transitions, and Outfit typography.
+- Database: Dual-engine support via SQLAlchemy (SQLite for development/local use, PostgreSQL for production/Vercel).
+- Automation Layer: Playwright (Chromium) with `playwright-stealth` to emulate human-like interaction.
+- AI Intelligence: Google Generative AI (Gemini 1.5 Flash) for transcription, summarization, and diarization.
+- Document Generation: ReportLab for programmatic PDF creation with multi-language (Hindi) font support.
+- Communication: SMTP-over-SSL via Gmail API for automated report delivery.
+
+3. ADVANCED BOT JOINING MECHANISM (renata_bot_pilot.py)
+The system uses a "Slot Management" architecture to handle concurrent meetings.
+- Intelligent Authentication: The bot maintains a persistent session for "Slot 0" to stay logged into a primary Google account. For subsequent slots, it uses "Guest Mode" to join without needing separate accounts, entering the meeting with a professional guest name.
+- Patient Lobby Logic: The bot is programmed to wait in the meeting lobby for up to 15 minutes after the scheduled start time. This ensures it doesn't leave prematurely if the host is running slightly late.
+- Self-Correction: If the bot detects it was not admitted by the 15-minute mark, it logs the failure to the database and terminates the session to save server resources.
+- Alone Timeout: The bot monitors the presence of other participants. If it becomes the last remaining member, it triggers a 15-second countdown. If no one re-joins, it automatically leaves and initiates the AI pipeline to prevent recording empty silence.
+
+4. BROWSER-NATIVE AUDIO CAPTURE (THE "HOOK")
+A critical feature of MeetAI is the `RTC_AUDIO_HOOK`. Before the browser navigates to a meeting URL, the system injects a custom JavaScript snippet into the page:
+- Mechanism: It monkey-patches the global `RTCPeerConnection` object. 
+- Captured Stream: Whenever a connection is established, it extracts all incoming audio receivers and routes them into a unified `MediaStreamDestination`.
+- Unified Mix: This creates a "Mix" of all remote participants' audio.
+- Execution: A `MediaRecorder` attached to this destination streams raw `.webm` chunks back to Python in real-time. 
+- Benefit: This removes any dependency on virtual audio drivers like VB-Cable, making the bot highly portable and deployable on standard Linux/Windows servers.
+
+5. AI PIPELINE & HINGLISH TRANSCRIPTION (meeting_notes_generator.py)
+The audio processing is a 5-step automated pipeline:
+- High-Fidelity Conversion: Raw `.webm` chunks are stitched and converted to a 16kHz Mono `.wav` via FFmpeg to optimize for Gemini's acoustic models.
+- Multipart Upload: The audio is uploaded to the Gemini Files API. The system uses a Semaphore-locked queue to prevent hitting Google's rate limits when multiple meetings finish at once.
+- Contextual Transliteration: The AI is prompted with a specific "Hinglish Rule": English is transcribed in English script, and Hindi is transliterated into Latin/Roman script (e.g., "aap kaise hain" instead of "आप कैसे हैं").
+- Diarization: Gemini identifies multiple speakers and tags them (e.g., Speaker A, Speaker B) based on acoustic profiles.
+- Executive Intelligence: Parallel prompts generate a professional Summary, action items with owners/deadlines, and high-level discussion points.
+
+6. REBANNED AI ASSISTANT (RAG)
+The "AI Assistant" (formerly AI Search) allows users to query their entire repository of meetings.
+- Knowledge Retrieval: The system fetches the full transcripts of the last 30 meetings associated with that user.
+- Context Compression: It builds a long-context prompt for Gemini, allowing the user to ask "What did we decide about the marketing budget last week?" across multiple sessions.
+- Session Memory: Each chat session is stored in the database, allowing users to return to past conversations with the AI.
+
+7. ENTERPRISE REPORTING & EMAIL SYSTEM
+- Automated Reporting: Once the PDF is generated, `email_service.py` constructs a high-impact HTML email. 
+- Multi-PDF Delivery: It attaches two distinct reports: 
+    1. The "Intelligence Report" (Executive summary + Action items).
+    2. The "Transcripts Report" (The line-by-line detailed transcript).
+- Delivery: Dispatched via Secure SMTP, including "Read Status" markers to verify successful generation.
+
+8. SECURITY & MULTI-USER ISOLATION
+- Session Persistence: Uses Starlette's `SessionMiddleware` with signed cookies and a secure `SESSION_SECRET`.
+- Database Guardrails: Every single SQL query in `meeting_database.py` includes a `WHERE user_email = ?` clause, ensuring zero data leakage between different users.
+- Danger Zone: A specific account-deletion logic that wipes all recordings, transcripts, and account data from the server upon user request.
+
+9. REPOSITORY HYGIENE & PRODUCTION READY
+The repo has been cleaned of all redundant `.html` check-files and standalone scripts. The current structure follows a clean SPA pattern where `main.py` serves as the centralized hub for all API and HTML responses.
+
+10. STEP-BY-STEP BOT LIFECYCLE & LOGIC
+=======================================
+
+The bot (renata_bot_pilot.py) follows a strict linear lifecycle for every meeting it joins. Understanding this flow is critical for maintaining the bot's reliability.
+
+PHASE 1: POLLING & INITIALIZATION
+- The Pilot script runs a background loop (polling every 5-10 seconds).
+- It queries the `meetings` table for any row where `bot_status = 'JOIN_PENDING'`.
+- Once found, it assigns a "Slot" to the task. Slot 0 is reserved for the primary Bot Account (Authenticated), while Slot 1+ handle parallel guest sessions.
+
+PHASE 2: BROWSER BOOTUP
+- Launches a `Chromium` persistent context via Playwright.
+- Arguments include `--use-fake-ui-for-media-stream` to automatically grant microphone/camera permissions without a popup.
+- The `playwright-stealth` plugin is applied to ensure the browser doesn't look like an automated bot (preventing "Browser not supported" errors on Google/Zoom).
+
+PHASE 3: THE PRE-LOAD HOOK (CRITICAL)
+- Before the bot navigates to the meeting URL, `page.add_init_script(RTC_AUDIO_HOOK)` is called.
+- This ensures our audio capture logic is the first thing that loads in the browser's memory, allowing it to intercept WebRTC packets before the meeting starts.
+
+PHASE 4: ENTRY & LOBBY MANAGEMENT
+- The bot navigates to the URL. If Slot 0, it verifies the Google session. If Slot 1+, it finds the "Guest Name" input field and types the Bot's persona name.
+- It automatically presses "Ctrl+D" (Mute Mic) and "Ctrl+E" (Mute Cam) via keyboard simulation.
+- It looks for buttons like "Join now" or "Ask to join". 
+- It then enters the "Patient Lobby" state, checking every 5 seconds if the host has admitted it by looking for the presence of the "Leave meeting" and "Meeting details" icons.
+
+PHASE 5: ACTIVE RECORDING
+- Once admitted, `start_audio_recording()` is triggered.
+- The `MediaRecorder` in the browser creates Ogg/WebM chunks every 3 seconds.
+- Each chunk is sent via a JS-to-Python bridge (`expose_function`) and appended to a byte list in the `RenaMeetingBot` class.
+
+PHASE 6: MONITORING & TERMINATION
+- While recording, the bot continuously monitors two things:
+    1. Participant count: Is the bot alone? (Starts a 15s exit timer).
+    2. DB Status: Has the user clicked "Cancel Dispatch" in the UI? (Bot leaves immediately).
+- When the meeting ends, `stop_audio_recording()` saves the final `.webm` file to the `/meeting_outputs/` directory.
+- The browser context is closed, and the slot is released for the next meeting.
+
+PHASE 7: PIPELINE HANDOVER
+- The bot updates the DB to `bot_status = 'PROCESSING'`.
+- It invokes `meeting_notes_generator.process_meeting_audio()`, handing over the file path for AI analysis and PDF generation.
+
+11. GOOGLE ACCOUNT & AUTHENTICATION MANAGEMENT
+==============================================
+
+The system utilizes Google accounts in three distinct ways. Each follows a different authentication path.
+
+A. THE BOT ACCOUNT (Internal Automation)
+- Used By: `renata_bot_pilot.py`
+- Env Keys: `BOT_EMAIL`, `BOT_PASSWORD`
+- Purpose: Provides the bot with a persistent identity for Slot 0. This ensures the bot appears with a recognized profile in Google Meet, reducing the likelihood of being rejected by hosts.
+- Auto-Login Mechanism: 
+    - The pilot uses a `persistent_context` in Playwright, meaning it saves cookies/session data to `bot_session/main`.
+    - If the session expires, the `automate_google_login()` function detects the sign-in page, types the credentials, and attempts to handle common "Don't sign out" or "Consent" prompts.
+    - Once logged in, the session is reused for weeks, avoiding repeated login attempts.
+
+B. USER WORKSPACE ACCOUNTS (OAuth 2.0)
+- Used By: `main.py`
+- Env Keys: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+- Purpose: Allows the user to sync their own Google Calendar and Gmail context for intelligence briefs.
+- Authentication Flow:
+    - User clicks "Sign in with Google" on the login page.
+    - System uses `google-auth-oauthlib` to request specific scopes: `calendar.readonly`, `gmail.readonly`, and `userinfo.email`.
+    - Upon approval, an encrypted Refresh Token is stored in the `users` table (`google_token`).
+- Token Refresh: The `get_user_credentials()` helper in `main.py` automatically uses the Refresh Token to get a fresh Access Token whenever the user's dashboard is loaded or the bot needs to check their calendar.
+
+C. SMTP DELIVERY ACCOUNT (Mailing)
+- Used By: `email_service.py` / `meeting_notes_generator.py`
+- Env Keys: `SMTP_SENDER_EMAIL`, `BOT_SMTP_PASSWORD`
+- Purpose: Sends the final AI reports and PDFs to the user's inbox.
+- Configuration:
+    - The `BOT_SMTP_PASSWORD` MUST be a "Gmail App Password" (16 characters) generated from the Google Account's security settings.
+    - Standard passwords will NOT work due to Google's 2FA security policies.
+- Dispatch: Reports are sent via `smtp.gmail.com` on port 465 (SSL).
+
+12. CRITICAL PRODUCTION NOTES
+- Rate Limits: Avoid dispatching more than 15 bots per minute on the same IP to prevent Google from triggering account challenges.
+- Verification: If the Bot Account (A) is flagged, you may need to manually log in once on the server using a non-headless browser to solve a Captcha.
+- App Passwords: If automated emails stop sending, the first check should be the Gmail App Password validity.
+
+========================================================================
+Document Version: 1.7.0
+Updated: April 17, 2026
+========================================================================

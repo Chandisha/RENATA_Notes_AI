@@ -322,6 +322,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="meeting-time">${ev.start_time}</span>
                             </div>
                             <div class="meeting-title">${ev.summary}</div>
+                            
+                            <!-- Intelligence Hub Button -->
+                            <div style="margin-top: 12px;">
+                                <button class="primary-btn" onclick="window.openIntelHub('${ev.id}', '${ev.summary.replace(/'/g, "\\'")}', true)" style="width: 100%; justify-content: center; padding: 10px; font-size: 0.85rem; border-radius: 10px;">
+                                    <i data-feather="zap" style="width: 14px; margin-right: 8px;"></i> View Intelligence Hub
+                                </button>
+                            </div>
+
                             <div class="meeting-actions" style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 15px;">
                                 <div class="bot-join-label" style="display: flex; align-items: center; gap: 8px;">
                                     <i data-feather="user-plus" style="width: 14px; color: var(--accent-orange);"></i>
@@ -462,12 +470,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <i data-feather="loader" class="spin" style="width:14px; height:14px; vertical-align:middle; margin-right:6px;"></i> Processing Intelligence...
                             </div>
                         ` : `
-                            <a href="javascript:void(0);" onclick="handleViewPdf('${pdfLink}', '${m.meeting_id}', ${m.is_summarized_paid})" class="primary-btn" style="text-decoration:none; padding: 10px 20px;">
-                                <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> View PDF
+                            <!-- Intelligence Hub Button -->
+                            <button class="primary-btn" onclick="window.openIntelHub('${m.meeting_id}', '${(m.title || 'Meeting').replace(/'/g, "\\'")}', false)" style="padding: 10px 16px;">
+                                <i data-feather="zap" style="width:16px; margin-right:8px;"></i> Intelligence Hub
+                            </button>
+
+                            <a href="javascript:void(0);" onclick="handleViewPdf('${pdfLink}', '${m.meeting_id}', ${m.is_summarized_paid})" class="secondary-btn" style="text-decoration:none; padding: 10px 16px;">
+                                <i data-feather="file-text" style="width:16px; margin-right:8px;"></i> PDF
                             </a>
-                            ${transcriptsName ? `<a href="${API_BASE}/download/transcripts_pdf/${transcriptsName}" target="_blank" class="secondary-btn" style="text-decoration:none; padding: 10px 20px;">
-                                <i data-feather="align-left" style="width:16px; margin-right:8px;"></i> View Transcripts
-                            </a>` : ''}
                         `}
                         <button class="delete-btn" onclick="deleteReport('${m.meeting_id}')" title="Delete Permanentely">
                             <i data-feather="trash-2" style="width:16px;"></i>
@@ -1530,4 +1540,94 @@ window.toggleMeetingBot = async function(meetingId, enabled, el) {
     } catch (err) {
         console.error(err);
     }
+};
+
+// --- Consolidated Intelligence Hub Logic ---
+window.openIntelHub = async function(mId, meetingTitle, isUpcoming) {
+    const modal = document.getElementById('intel-modal');
+    const content = document.getElementById('intel-modal-content');
+    if (modal) modal.classList.add('active');
+    if (content) {
+        content.innerHTML = `
+            <div style="text-align: center; padding: 60px;">
+                <i data-feather="loader" class="spin" style="width: 40px; height: 40px; color: var(--accent-purple); margin-bottom: 16px;"></i>
+                <p style="color: var(--text-secondary); font-weight: 500;">Synthesizing meeting intelligence Hub...</p>
+            </div>
+        `;
+        feather.replace();
+    }
+
+    let gmailHtml = '';
+    let recapHtml = '';
+
+    try {
+        // 1. Fetch Gmail Intel
+        const gRes = await apiFetch("/api/gmail_intelligence");
+        const gData = await gRes.json();
+        const brief = (gData.briefs || []).find(b => 
+            meetingTitle.toLowerCase().includes(b.title.toLowerCase()) || 
+            b.title.toLowerCase().includes(meetingTitle.toLowerCase())
+        );
+
+        if (brief) {
+            gmailHtml = `
+                <div class="intel-section" style="margin-bottom: 30px;">
+                    <h4 style="color: var(--accent-purple); display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 1rem;">
+                        <i data-feather="mail" style="width:18px;"></i> Gmail Activity Context
+                    </h4>
+                    <div style="background: rgba(139, 92, 246, 0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(139, 92, 246, 0.1);">
+                        ${brief.brief ? formatMarkdownToHTML(brief.brief) : '<p class="muted">No brief content available.</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        // 2. Fetch Meeting Notes/Summary (if completed/processed)
+        if (!isUpcoming) {
+            const sRes = await apiFetch(`/reports/${mId}/summary`);
+            const sData = await sRes.json();
+            if (sData.status === 'success' && sData.summary) {
+                recapHtml = `
+                    <div class="intel-section">
+                        <h4 style="color: var(--accent-orange); display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 1rem;">
+                            <i data-feather="file-text" style="width:18px;"></i> AI Meeting Notes & Highlights
+                        </h4>
+                        <div style="background: rgba(242, 113, 33, 0.05); padding: 20px; border-radius: 12px; border: 1px solid rgba(242, 113, 33, 0.1);">
+                            ${formatMarkdownToHTML(sData.summary)}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        if (content) {
+            if (!gmailHtml && !recapHtml) {
+                content.innerHTML = `
+                    <div style="text-align: center; padding: 60px;">
+                        <i data-feather="info" style="width: 40px; height: 40px; color: var(--text-secondary); opacity: 0.3; margin-bottom: 16px;"></i>
+                        <p class="muted">No intelligence briefs or notes found for "${meetingTitle}" yet.</p>
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `
+                    <div style="padding: 10px;">
+                        ${recapHtml || (isUpcoming ? '<p class="muted" style="margin-bottom:20px;">Meeting is upcoming. Notes will appear after processing.</p>' : '')}
+                        ${gmailHtml}
+                        <p class="muted" style="margin-top: 30px; font-size: 0.75rem; border-top: 1px solid var(--border-color); padding-top: 15px; text-align: center;">
+                            MeetAI Intelligence Hub — Analysis via Google Gemini 1.5 Flash
+                        </p>
+                    </div>
+                `;
+            }
+            feather.replace();
+        }
+
+    } catch (err) {
+        if (content) content.innerHTML = `<div class="alert alert-error">Failed to load intelligence: ${err.message}</div>`;
+    }
+};
+
+window.closeIntelModal = function() {
+    const modal = document.getElementById('intel-modal');
+    if (modal) modal.classList.remove('active');
 };

@@ -42,14 +42,8 @@
                 <div class="nav-item" data-page="reports">
                     <i data-feather="file-text"></i> <span>Transcripts</span>
                 </div>
-                <div class="nav-item" data-page="gmail">
-                    <i data-feather="mail"></i> <span>Gmail Intelligence</span>
-                </div>
                 <div class="nav-item" data-page="search">
                     <i data-feather="search"></i> <span>AI Assistant</span>
-                </div>
-                <div class="nav-item" data-page="live">
-                    <i data-feather="video"></i> <span>Live Meeting</span>
                 </div>
                 <div class="nav-item" data-page="analytics">
                     <i data-feather="pie-chart"></i> <span>Analytics</span>
@@ -74,8 +68,10 @@
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=user@example.com" class="avatar" alt="User" id="user-avatar-img">
                     <div class="user-info">
                         <span class="user-name">Loading...</span>
-                        <span class="user-account" style="font-size: 0.75rem; font-weight: 600; color: var(--accent-purple); display: block; margin-top: 2px;">Account: Basic</span>
-                        <span class="user-status" style="margin-top:2px;">Online</span>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-top: 2px;">
+                            <span class="user-account" style="font-size: 0.75rem; font-weight: 600; color: var(--accent-purple); display: block;">Account: Basic</span>
+                            <span class="user-status" style="font-size: 0.75rem; font-weight: 600; color: var(--accent-green);">Online</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -512,21 +508,21 @@
         </div>
     </div>
 
-    <!-- Meeting Summary Modal -->
-    <div id="summary-modal" class="modal">
-        <div class="summary-modal-content" style="margin: 10% auto;">
+    <!-- Meeting Intelligence Hub Modal -->
+    <div id="intel-modal" class="modal">
+        <div class="summary-modal-content" style="margin: 5% auto; width: 650px; max-width: 95%;">
             <div class="summary-header">
-                <h3>Meeting Quick Summary</h3>
-                <button class="icon-btn" onclick="closeSummaryModal()"><i data-feather="x"></i></button>
+                <h3>Meeting Intelligence Hub</h3>
+                <button class="icon-btn" onclick="closeIntelModal()"><i data-feather="x"></i></button>
             </div>
-            <div class="summary-body" id="summary-content">
+            <div class="summary-body" id="intel-modal-content">
                 <div style="text-align: center; padding: 40px;">
-                    <i data-feather="loader" class="spin" style="width: 32px; height: 32px; color: var(--accent-orange); margin-bottom: 12px;"></i>
-                    <p class="muted">Generating concise intelligence...</p>
+                    <i data-feather="loader" class="spin" style="width: 32px; height: 32px; color: var(--accent-purple); margin-bottom: 12px;"></i>
+                    <p class="muted">Extracting intelligence...</p>
                 </div>
             </div>
             <div style="margin-top: 20px; text-align: right;">
-                <button class="primary-btn" onclick="closeSummaryModal()" style="display:inline-flex;">Close Insights</button>
+                <button class="primary-btn" onclick="closeIntelModal()">Close Hub</button>
             </div>
         </div>
     </div>
