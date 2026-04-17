@@ -116,6 +116,7 @@ class AdaptiveMeetingNotesGenerator:
         self.last_transcripts_pdf_path = None
         self.meeting_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         self.meeting_start_time = None # Formatted string for PDF header
+        self.report_generation_time = datetime.now().strftime('%B %d, %Y at %I:%M %p')
         self.last_json_path = None
 
     def _generate_with_fallback(self, content, prompt_text=None):
@@ -357,13 +358,20 @@ Output format:
 
             elements = []
             # Modern Header
-            header_date_str = datetime.now().strftime('%B %d, %Y')
+            exec_time_str = self.report_generation_time
+            meeting_time_info = ""
             if self.meeting_start_time:
-                header_date_str = f"{self.meeting_start_time}"
+                # Try to parse and re-format for beauty if it's an ISO string
+                try:
+                    from dateutil import parser as dt_parser
+                    dt = dt_parser.parse(self.meeting_start_time)
+                    meeting_time_info = f"<br/>Scheduled: {dt.strftime('%B %d, %Y at %I:%M %p')}"
+                except:
+                    meeting_time_info = f"<br/>Scheduled: {self.meeting_start_time}"
 
             header_table_data = [[
                 Paragraph(safe_text(self.bot_name.upper()), ParagraphStyle('BName', parent=title_style, alignment=0, fontSize=20)),
-                Paragraph(f"Intelligence Report<br/>{header_date_str}", ParagraphStyle('RDate', parent=normal_style, alignment=2, fontSize=9))
+                Paragraph(f"Intelligence Report<br/>Generated: {exec_time_str}{meeting_time_info}", ParagraphStyle('RDate', parent=normal_style, alignment=2, fontSize=9))
             ]]
             header_table = Table(header_table_data, colWidths=[CONTENT_W*0.7, CONTENT_W*0.3])
             header_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'BOTTOM'), ('BOTTOMPADDING', (0,0), (-1,-1), 12)]))
@@ -518,8 +526,10 @@ Output format:
         self.intel["speaker_analytics"] = spks
         self.intel["engagement_metrics"] = self.analytics
 
-    def process_meeting(self, audio_path: str):
+    def process_meeting(self, audio_path: str, scheduled_start: str = None):
         self.audio_path = audio_path
+        if scheduled_start:
+            self.meeting_start_time = scheduled_start
         self.transcribe_audio()
         self.calculate_analytics()
         self.generate_summary()
@@ -533,7 +543,7 @@ Output format:
         self.last_json_path = str(json_path)
         logger.info("Gemini Hybrid Pipeline Finished.")
 
-def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = None):
+def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = None, scheduled_start: str = None):
     """
     Standard entry point for the bot pilot to process a recording.
     """
@@ -557,7 +567,7 @@ def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = No
         logger.warning(f"Could not fetch meeting start time for PDF header: {e}")
 
     try:
-        generator.process_meeting(audio_path)
+        generator.process_meeting(audio_path, scheduled_start=scheduled_start)
         
         # Read PDFs for blob storage (Vercel support)
         pdf_blob = None

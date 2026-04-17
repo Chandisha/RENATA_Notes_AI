@@ -889,7 +889,7 @@ class RenaMeetingBot:
                         db_module.update_bot_status(meeting_id, "PROCESSING", note="Meeting ended - Processing...")
                         try:
                             from meeting_notes_generator import process_meeting_audio
-                            process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email)
+                            process_meeting_audio(str(self.recording_path), meeting_id, user_email=user_email, scheduled_start=scheduled_start)
                             # Mark COMPLETED so report shows in dashboard Reports section
                             db_module.update_bot_status(meeting_id, "COMPLETED", note="Report ready. Check Reports section.", user_email=user_email)
                             db_module.exec_commit("UPDATE meetings SET status='completed' WHERE meeting_id=? AND user_email=?", (meeting_id, user_email))
