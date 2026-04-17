@@ -324,9 +324,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="meeting-title">${ev.summary}</div>
                             
                             <!-- Intelligence Hub Button -->
-                            <div style="margin-top: 12px;">
-                                <button class="primary-btn" onclick="window.openIntelHub('${ev.id}', '${ev.summary.replace(/'/g, "\\'")}', true)" style="width: 100%; justify-content: center; padding: 10px; font-size: 0.85rem; border-radius: 10px;">
-                                    <i data-feather="zap" style="width: 14px; margin-right: 8px;"></i> View Intelligence Hub
+                            <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+                                <button class="primary-btn" onclick="window.openIntelHub('${ev.id}', '${ev.summary.replace(/'/g, "\\'")}', true)" style="padding: 8px 16px; font-size: 0.8rem; border-radius: 8px;">
+                                    <i data-feather="zap" style="width: 14px; margin-right: 6px;"></i> View Intelligence Hub
                                 </button>
                             </div>
 
@@ -1564,10 +1564,12 @@ window.openIntelHub = async function(mId, meetingTitle, isUpcoming) {
         // 1. Fetch Gmail Intel
         const gRes = await apiFetch("/api/gmail_intelligence");
         const gData = await gRes.json();
-        const brief = (gData.briefs || []).find(b => 
-            meetingTitle.toLowerCase().includes(b.title.toLowerCase()) || 
-            b.title.toLowerCase().includes(meetingTitle.toLowerCase())
-        );
+        const brief = (gData.briefs || []).find(b => {
+             if (!b || !b.title || !meetingTitle) return false;
+             const bt = b.title.toLowerCase();
+             const mt = meetingTitle.toLowerCase();
+             return mt.includes(bt) || bt.includes(mt);
+        });
 
         if (brief) {
             gmailHtml = `
