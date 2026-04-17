@@ -1,39 +1,28 @@
-# RENATA - AI Meeting Intelligence Platform
+# MeetAI by Nexren - Enterprise Meeting Intelligence
 
 **Live Application**: [meet.nexren.ai](https://meet.nexren.ai)
 
-RENATA is an autonomous meeting intelligence platform that joins Google Meet and Zoom calls as a silent bot. It captures high-fidelity audio directly via browser-native technology and generates structured AI-powered reports — including transcripts, professional summaries, action items, and speaker analytics.
+MeetAI is a production-grade meeting intelligence platform that joins Google Meet and Zoom calls as an autonomous agent. It utilizes browser-native technology to capture high-fidelity audio without virtual drivers and leverages Google's Gemini 1.5 Flash models to generate structured transcripts, professional summaries, and actionable insights.
 
 ---
 
-## 🚀 The Browser-Native Advantage
+## 🚀 Key Advantages
 
-RENATA has moved beyond legacy virtual audio drivers. We have completely **removed** dependencies on VB-CABLE, VoiceMeeter, and FFmpeg for audio capture.
-
-- ✅ **No Drivers Required**: Works out of the box with zero virtual audio installation.
-- ✅ **Unlimited Isolated Slots**: Record multiple meetings simultaneously with perfect audio isolation.
-- ✅ **Hinglish & Multilingual**: Powered by Gemini 3.0 Flash for superior transcription of mixed-language meetings.
-- ✅ **Zero BIOS Changes**: Unlike driver-based solutions, RENATA works perfectly with Windows Secure Boot enabled.
-
----
-
-## 🏛️ Architecture Overview
-
-RENATA uses a "Brain (Cloud) and Body (Local)" architecture to provide a seamless web experience without the cost of high-compute cloud bots.
-
-- **Vercel Dashboard**: Manage your reports, search your history (RAG), and track live bot status.
-- **Local Pilot**: A lightweight Python process on your PC that launches Chromium to join and record meetings.
-- **Gemini Engine**: All intelligence is processed via the Gemini 3.0 Flash API for industry-leading speed and accuracy.
+- **Zero-Driver Architecture**: Unlike legacy solutions, MeetAI requires no virtual audio cables (VB-CABLE/VoiceMeeter). It captures audio directly from the browser's WebRTC stream using a custom-injected hook.
+- **Unified Intelligence Hub**: A single, powerful interface for every meeting that consolidates pre-meeting Gmail context with post-meeting AI notes and bullet points.
+- **Hinglish & Multilingual Support**: Specifically optimized for mixed-language meetings, providing accurate Roman-script transliteration for Hindi alongside fluent English.
+- **Multi-User Isolation**: Built-in multi-tenant security architecture ensuring every user's data remains private and isolated at the database level.
 
 ---
 
 ## ✨ Features
 
-- **Autonomous Join**: Automatically detects and joins meetings from your Google Calendar.
-- **Intelligence Reports**: Generates professional summaries, MoM, and owner-assigned action items.
-- **Intelligence Hub**: A clean, one-click interface in the Note Taking tab to access all analysis.
-- **Global Search**: Find anything said in any meeting using natural language queries.
-- **Privacy-First**: No live captions are scraped; audio is captured privately and processed at the end.
+- **Autonomous Calendar Sync**: Automatically monitors your Google and Zoom calendars to join scheduled meetings.
+- **Intelligence Hub**: One-click access to everything you need: pre-meeting brief (via Gmail) and post-meeting notes (via AI).
+- **Executive Summaries**: High-level overviews including Minutes of Meeting (MoM) and owner-assigned action items.
+- **AI Chat Assistant**: A RAG-powered assistant that lets you query your entire meeting history using natural language.
+- **Professional PDF Reporting**: Automated generation and email delivery of polished PDF reports (Summary + Full Transcripts).
+- **Engagement Analytics**: Visual tracking of meeting frequency, duration, and engagement scores.
 
 ---
 
@@ -41,60 +30,60 @@ RENATA uses a "Brain (Cloud) and Body (Local)" architecture to provide a seamles
 
 | Component | Technology |
 |---|---|
-| **Intelligence** | Google Gemini 3.0 Flash |
-| **Automation** | Playwright Chromium (with Stealth) |
-| **Audio Capture** | **Browser MediaRecorder (Native/Standard)** |
-| **Backend** | FastAPI / Python 3.11 |
-| **Database** | PostgreSQL (Neon) |
-| **Frontend** | Vanilla JS / modern CSS |
+| **AI Intelligence** | Google Gemini 1.5 Flash |
+| **Automation** | Playwright Chromium (with Stealth & RTC Hook) |
+| **Backend** | FastAPI / Python |
+| **Database** | PostgreSQL (Production) / SQLite (Local) |
+| **Frontend** | Vanilla JavaScript / Modern CSS (Outfit Typography) |
+| **Payments** | Razorpay Integration |
 
 ---
 
-## 🚀 Quick Start (Local Bot)
+## 🚀 Getting Started
 
-### 1. Prerequisites
-- **Python 3.11**
-- **Playwright**
-
-### 2. Installation
+### 1. Installation
 ```bash
 git clone https://github.com/Chandisha/RENATA_Notes_AI.git
 cd RENATA_Notes_AI
 
 # Setup Environment
 python -m venv venv
-.\venv\Scripts\activate  # Windows
+source venv/bin/activate  # 或 .\venv\Scripts\activate on Windows
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 3. Environment Setup (.env)
-Create a `.env` in your project root:
-```env
-GEMINI_API_KEY=your_key_here
-DATABASE_URL=postgresql://your_neon_db_url
-BOT_EMAIL=renata@nexren.ai
-BOT_PASSWORD=your_pass
-```
+### 2. Configuration (.env)
+Create a `.env` in the project root with the following keys:
+- `GEMINI_API_KEY`: Your Google AI Studio key.
+- `BOT_EMAIL` / `BOT_PASSWORD`: Dedicated Google account for the bot.
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: For user OAuth integration.
+- `SMTP_SENDER_EMAIL` / `BOT_SMTP_PASSWORD`: For automated email reports.
 
-### 4. Run the Bot
+### 3. Execution
 ```bash
+# Start the Backend Server
+uvicorn main:app --reload
+
+# Start the Bot Pilot (on the recording machine)
 python renata_bot_pilot.py
 ```
 
 ---
 
-## 📂 Project Structure
+## 📂 Project Core Structure
 
-- **`renata_bot_pilot.py`**: The "Body" — handles meeting joining and native audio capture.
-- **`main.py`**: The "Brain" — handles the dashboard, web API, and user management.
-- **`meeting_notes_generator.py`**: The processing engine that converts audio to intelligence.
-- **`v3-frontend/`**: The modern dashboard UI.
+- **`main.py`**: Central API server handling sessions, OAuth, and the SPA dashboard.
+- **`renata_bot_pilot.py`**: The meeting agent — handles joining, capture, and lobby management.
+- **`meeting_notes_generator.py`**: The AI engine — uploads audio to Gemini and builds PDF reports.
+- **`v3-frontend/`**: The modern Single Page Application interface.
+- **`meeting_database.py`**: Universal database layer for multi-user isolation.
 
 ---
 
-## 🤝 Support
+## 🤝 Support & Development
 
-**Developer**: [Chandisha Das](https://github.com/Chandisha)
+**Maintained by**: [Chandisha Das](https://github.com/Chandisha)
+**Powered by**: [Nexren](https://nexren.ai)
 
-RENATA is an open-source alternative to commercial intelligence tools, focusing on data ownership and zero infrastructure costs.
+MeetAI is designed for data ownership and zero-infrastructure overhead, providing a professional alternative to enterprise recording twins.
