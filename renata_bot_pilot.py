@@ -749,7 +749,8 @@ class RenaMeetingBot:
                     # Bot is inside the meeting (Leave call button visible AND Meeting details button shown) = admitted
                     # This dual-check prevents false positives from lobby UI
                     has_leave_btn = page.locator('button[aria-label*="Leave call" i]').is_visible()
-                    has_details_btn = page.locator('button[aria-label*="Meeting details" i], button[aria-label*="Chat with everyone" i]').is_visible()
+                    has_details_btn = page.locator('button[aria-label*="Meeting details" i]').first.is_visible() or \
+                                      page.locator('button[aria-label*="Chat with everyone" i]').first.is_visible()
 
                     if has_leave_btn and has_details_btn:
                         was_admitted = True
