@@ -46,7 +46,7 @@
                     <i data-feather="mail"></i> <span>Gmail Intelligence</span>
                 </div>
                 <div class="nav-item" data-page="search">
-                    <i data-feather="search"></i> <span>AI Search</span>
+                    <i data-feather="search"></i> <span>AI Assistant</span>
                 </div>
                 <div class="nav-item" data-page="live">
                     <i data-feather="video"></i> <span>Live Meeting</span>
@@ -169,9 +169,14 @@
                     </div>
 
                     <div class="card" style="margin-top: 24px; padding: 25px;">
-                        <div class="card-header" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-                            <h2 style="font-size: 1.2rem; font-weight: 800; color: var(--text-primary); margin: 0;">AI Engagement Intelligence</h2>
-                            <p class="muted" style="font-size: 0.85rem; max-width: 500px;">Weekly Summary. Track your active vs inactive engagement days and session consistency.</p>
+                        <div class="analytics-header">
+                            <div class="header-content">
+                                <h2>AI Engagement Intelligence</h2>
+                                <p>Weekly Summary. Track your active vs inactive engagement days and session consistency.</p>
+                            </div>
+                            <div class="header-badges">
+                                <span class="badge blue">Live Trends</span>
+                            </div>
                         </div>
 
                         <div class="chart-container">
@@ -503,6 +508,25 @@
             <div class="modal-actions" style="justify-content: center; gap: 16px;">
                 <button class="secondary-btn" onclick="closePaymentModal()">Not Now</button>
                 <button class="primary-btn" id="confirm-upgrade-btn" onclick="processUpgrade()" style="background: var(--accent-purple);">Pay & Upgrade</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meeting Summary Modal -->
+    <div id="summary-modal" class="modal">
+        <div class="summary-modal-content" style="margin: 10% auto;">
+            <div class="summary-header">
+                <h3>Meeting Quick Summary</h3>
+                <button class="icon-btn" onclick="closeSummaryModal()"><i data-feather="x"></i></button>
+            </div>
+            <div class="summary-body" id="summary-content">
+                <div style="text-align: center; padding: 40px;">
+                    <i data-feather="loader" class="spin" style="width: 32px; height: 32px; color: var(--accent-orange); margin-bottom: 12px;"></i>
+                    <p class="muted">Generating concise intelligence...</p>
+                </div>
+            </div>
+            <div style="margin-top: 20px; text-align: right;">
+                <button class="primary-btn" onclick="closeSummaryModal()" style="display:inline-flex;">Close Insights</button>
             </div>
         </div>
     </div>

@@ -1750,3 +1750,112 @@ input:checked + .slider:before {
 
 
 
+
+/* Analytics Header Refinement */
+.analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding-bottom: 20px;
+}
+
+.analytics-header .header-content h2 {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0 0 6px 0;
+    letter-spacing: -0.3px;
+}
+
+.analytics-header .header-content p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    max-width: 550px;
+    line-height: 1.5;
+}
+
+.analytics-header .header-badges {
+    display: flex;
+    gap: 10px;
+}
+
+/* Quick Summary Styles */
+.summary-modal-content {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 600px;
+    width: 90%;
+    position: relative;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+}
+
+.summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.summary-header h3 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.summary-body {
+    background: rgba(242, 113, 33, 0.03);
+    border: 1px solid rgba(242, 113, 33, 0.1);
+    border-radius: 16px;
+    padding: 24px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.summary-list {
+    list-style: none;
+    padding: 0;
+}
+
+.summary-list li {
+    position: relative;
+    padding-left: 28px;
+    margin-bottom: 14px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.summary-list li::before {
+    content: "•";
+    color: var(--accent-orange);
+    font-weight: 900;
+    position: absolute;
+    left: 0;
+    font-size: 1.4rem;
+    line-height: 1;
+}
+
+/* Dashboard Action Buttons */
+.summary-trigger-btn {
+    background: rgba(242, 113, 33, 0.1);
+    color: var(--accent-orange);
+    border: 1px solid rgba(242, 113, 33, 0.2);
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.summary-trigger-btn:hover {
+    background: var(--accent-orange);
+    color: white;
+    transform: translateY(-1px);
+}

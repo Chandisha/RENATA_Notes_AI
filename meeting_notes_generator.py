@@ -741,6 +741,28 @@ def process_meeting_audio(audio_path: str, meeting_id: str, user_email: str = No
         db.update_bot_status(meeting_id, "FAILED", note=str(e))
         raise e
 
+def get_quick_bullet_summary(transcript_text: str):
+    """
+    On-demand summary generator. 
+    Takes a raw or structured transcript and returns 6-10 concise bullet points.
+    """
+    if not transcript_text:
+        return "No transcript content found to summarize."
+        
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Optimized prompt for the user's specific requirement (6-10 points)
+        prompt = f"Provide a high-level summary of the meeting transcript below. Use exactly 6 to 10 concise bullet points. Focus on the main topics and key takeaways. Output only the bullet points.\n\nTranscript:\n{transcript_text}"
+        
+        response = model.generate_content(prompt)
+        summary = response.text.strip()
+        # Clean up common markdown artifacts
+        summary = re.sub(r'^#+.*$', '', summary, flags=re.MULTILINE) # Remove headers
+        return summary
+    except Exception as e:
+        logger.error(f"Quick summary generation failed: {e}")
+        return f"Intelligence generation error: {str(e)}"
+
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         generator = AdaptiveMeetingNotesGenerator(audio_path=sys.argv[1])

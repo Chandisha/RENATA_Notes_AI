@@ -741,6 +741,28 @@ async def reports_data_api(request: Request):
         
     return {"meetings": meetings, "total_count": total_count}
 
+@app.get("/api/meeting/{meeting_id}/summary")
+async def get_quick_meeting_summary(meeting_id: str, request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    
+    meeting = db.get_meeting(meeting_id, user_email=user['email'])
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+        
+    transcript = meeting.get('transcript_text')
+    if not transcript:
+        return {"summary": "No transcript available for this meeting yet."}
+    
+    try:
+        from meeting_notes_generator import get_quick_bullet_summary
+        # The function was added to meeting_notes_generator.py in a previous step
+        summary = get_quick_bullet_summary(transcript)
+        return {"summary": summary}
+    except Exception as e:
+        return {"summary": f"Error: {str(e)}"}
+
 @app.delete("/reports/{meeting_id}")
 async def delete_meeting_report(meeting_id: str, request: Request):
     user = require_user(request)
