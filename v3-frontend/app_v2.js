@@ -1586,9 +1586,9 @@ window.openIntelHub = async function(mId, meetingTitle, isUpcoming) {
 
         // 2. Fetch Meeting Notes/Summary (if completed/processed)
         if (!isUpcoming) {
-            const sRes = await apiFetch(`/reports/${mId}/summary`);
+            const sRes = await apiFetch(`/api/meeting/${mId}/summary`);
             const sData = await sRes.json();
-            if (sData.status === 'success' && sData.summary) {
+            if (sData.summary && !sData.summary.startsWith('No transcript') && !sData.summary.startsWith('Error:')) {
                 recapHtml = `
                     <div class="intel-section">
                         <h4 style="color: var(--accent-orange); display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 1rem;">

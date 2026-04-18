@@ -998,8 +998,8 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot, start
         db.update_bot_status(meeting_id, "JOINING", note="Bot browser is starting...", user_email=user_email)
         print(f"\n[Slot {slot}] JOINING: {meet_url} for {user_email}")
         
-        # MULTI-USER FIX: Use guest mode for slot > 0 (multi-user scenarios)
-        is_guest_mode = (slot > 0)
+        # PERFORMANCE FIX: Use Guest Mode for ALL slots to ensure <3s join time (skips Google Login)
+        is_guest_mode = True 
         thread_bot = RenaMeetingBot(user_email=user_email, session_dir=session_dir, audio_device=audio_dev, guest_mode=is_guest_mode)
         thread_bot.set_slot(slot)
         
@@ -1196,9 +1196,8 @@ def run_auto_pilot(operator_email):
                             session_handled_ids.add((m_id, cal_email))
                             continue
 
-                        # USER REQUEST: Wait for the meeting to start. Only join if it starts within next 60 seconds
-                        # (Previously joined 30m early — now joins at most 1m early)
-                        if parsed_dt > now + timedelta(minutes=1):
+                        # PERFORMANCE FIX: Join 5 minutes early (instead of 1m) to "camp" in the lobby like Read.ai
+                        if parsed_dt > now + timedelta(minutes=5):
                             continue
 
                         print(f"[Pilot] CANDIDATE '{title}' for {cal_email} — url={'YES' if url else 'NO'}")
@@ -1268,7 +1267,8 @@ def run_auto_pilot(operator_email):
                 except Exception as ex:
                     print(f"Calendar Error for user {cal_email}: {ex}")
             
-            time.sleep(5)
+            # PERFORMANCE FIX: Sleep only 1 second (instead of 5s)
+            time.sleep(1)
             
         except Exception as e:
             if "database" in str(e).lower() or "address" in str(e).lower():
