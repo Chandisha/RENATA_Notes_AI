@@ -647,6 +647,7 @@ class RenaMeetingBot:
                         "--autoplay-policy=no-user-gesture-required",
                         "--disable-blink-features=AutomationControlled",
                         "--start-maximized",
+                        "--blink-settings=imagesEnabled=false", # SPEED FIX: Disable images
                         "--disable-notifications",
                         "--no-sandbox",
                         "--disable-setuid-sandbox"
@@ -654,6 +655,10 @@ class RenaMeetingBot:
                 )
                 page = context.pages[0]
                 Stealth().apply_stealth_sync(page)
+                
+                # SPEED FIX: Block heavy assets (images, fonts, tracking)
+                page.route("**/*.{png,jpg,jpeg,gif,webp,svg,woff,woff2,ttf,otf}", lambda route: route.abort())
+                page.route("**/google-analytics.com/**", lambda route: route.abort())
                 
                 # 1. Inject RTC Audio Hook BEFORE navigation
                 page.add_init_script(RTC_AUDIO_HOOK)
@@ -1122,7 +1127,8 @@ def run_auto_pilot(operator_email):
                 # OPTIMIZATION: Only scan Gmail every 60 seconds (prevents throttling & lag)
                 if gmail_scanner:
                     last_scan = run_auto_pilot._last_scans.get(cal_email, 0)
-                    if (time.time() - last_scan) > 60:
+                    # SPEED FIX: Scan every 15 seconds for instant detection
+                    if (time.time() - last_scan) > 15:
                         try:
                             print(f"[Pilot] Scanning Gmail for {cal_email}...")
                             gmail_scanner.scan_inbox(cal_email)

@@ -514,7 +514,7 @@ async def dashboard_page_spa(request: Request):
 
 # --- Calendar Cache (30 second TTL) ---
 _calendar_cache = {}  # {email: {"events": [...], "count": N, "ts": timestamp}}
-CALENDAR_CACHE_TTL = 300  # 5 minutes cache to make dashboard feel snappy
+CALENDAR_CACHE_TTL = 15  # Near real-time sync (15s cache)
 
 @app.get("/dashboard_data")
 async def dashboard_data(request: Request):
