@@ -1180,8 +1180,15 @@ def run_auto_pilot(operator_email):
                         
                         norm_url = normalize_url(url) if url else None
                         
-                        if (m_id, cal_email) in session_handled_ids or (norm_url, cal_email) in session_handled_ids or (m_id, cal_email) in _active_jobs: 
+                        # Active job check — only skip if ACTIVELY being processed right now
+                        if (m_id, cal_email) in _active_jobs:
                             continue
+                        if norm_url and (norm_url, cal_email) in session_handled_ids:
+                            continue
+                        if (m_id, cal_email) in session_handled_ids:
+                            continue
+                        
+                        print(f"[Pilot] EVENT '{title}' ({cal_email}) | link={'YES: '+url[:40] if url else 'NO'}")
                         
                         start_str = event.get('start', {}).get('dateTime')
                         end_str = event.get('end', {}).get('dateTime')
@@ -1200,37 +1207,46 @@ def run_auto_pilot(operator_email):
                         # Skip events that have already ended
                         if parsed_end and now > parsed_end:
                             print(f"[Pilot] SKIP '{title}' — already ended")
-                            continue
-
-                        # STRICT UPCOMING FILTER: Skip if meeting started more than 10 minutes ago
-                        # This prevents the bot from joining "old" or "stale" meetings that are nearing completion.
-                        if parsed_dt < (now - timedelta(minutes=10)):
-                            print(f"[Pilot] SKIP '{title}' — started too long ago (>{(now-parsed_dt).total_seconds()/60:.1f}m ago)")
                             session_handled_ids.add((m_id, cal_email))
                             continue
 
-                        # PERFORMANCE FIX: Join 5 minutes early (instead of 1m) to "camp" in the lobby like Read.ai
-                        if parsed_dt > now + timedelta(minutes=5):
+                        # WIDE FILTER: Skip if meeting started > 30 mins ago (matches lookback window)
+                        mins_since_start = (now - parsed_dt).total_seconds() / 60
+                        if parsed_dt < now and mins_since_start > 30:
+                            print(f"[Pilot] SKIP '{title}' — started {mins_since_start:.1f}m ago, too stale")
+                            session_handled_ids.add((m_id, cal_email))
                             continue
 
-                        print(f"[Pilot] CANDIDATE '{title}' for {cal_email} — url={'YES' if url else 'NO'}")
+                        # READ.AI LOBBY CAMPING: Queue the join up to 10 minutes BEFORE start
+                        # This ensures the bot is already in the lobby when the meeting begins
+                        mins_until_start = (parsed_dt - now).total_seconds() / 60
+                        if mins_until_start > 10:
+                            # Meeting is too far in the future — check again later
+                            continue
+                        
+                        print(f"[Pilot] ⏰ LOBBY CAMP '{title}' — starts in {mins_until_start:.1f}m, already running: {-mins_until_start:.1f}m ago (url={'YES' if url else 'NO'})")
 
                         # Skip meetings already completed/failed for this user.
                         # Check both bot_status (TRANSITORY) and status (PERSISTENT).
                         db_meeting = db.fetch_one("SELECT bot_status, status, is_skipped FROM meetings WHERE meeting_id = ? AND user_email = ?", (m_id, cal_email))
                         if db_meeting:
                             if db_meeting.get('is_skipped', 0):
-                                if (m_id, cal_email) not in session_handled_ids:
-                                    print(f"[Pilot] SKIP '{title}' — marked skipped by user")
-                                    session_handled_ids.add((m_id, cal_email))
+                                print(f"[Pilot] SKIP '{title}' — marked skipped by user")
+                                session_handled_ids.add((m_id, cal_email))
                                 continue
                             
                             current_bot_status = (db_meeting.get('bot_status') or '').upper()
                             current_status = (db_meeting.get('status') or '').upper()
 
-                            if current_bot_status in ('COMPLETED', 'FAILED') or current_status == 'COMPLETED':
-                                print(f"[Pilot] SKIP '{title}' — already processed (Status: {current_status})")
+                            # Only skip COMPLETED meetings — allow retry of FAILED ones
+                            if current_bot_status == 'COMPLETED' or current_status == 'COMPLETED':
+                                print(f"[Pilot] SKIP '{title}' — already completed")
                                 session_handled_ids.add((m_id, cal_email))
+                                continue
+                            
+                            # If actively dispatching/joining, don't double-launch
+                            if current_bot_status in ('DISPATCHING', 'JOINING', 'CONNECTING', 'CONNECTED', 'IN_LOBBY'):
+                                print(f"[Pilot] SKIP '{title}' — already in progress ({current_bot_status})")
                                 continue
 
                         if not url:
