@@ -717,20 +717,33 @@ class RenaMeetingBot:
                 join_deadline = time.time() + 600
                 while not joined and time.time() < join_deadline:
                     try:
-                        btn = page.locator('button:has-text("Join now"), button:has-text("Ask to join")').first
-                        if btn.count() > 0:
+                        # Cover all Google Meet button variants (UI changes frequently)
+                        btn = page.locator(
+                            'button:has-text("Join now"), '
+                            'button:has-text("Ask to join"), '
+                            'button:has-text("Request to join"), '
+                            'button:has-text("Join"), '
+                            '[aria-label*="Join" i]'
+                        ).first
+                        if btn.count() > 0 and btn.is_visible(timeout=2000):
                             btn.click(force=True)
+                            print(f"[Meet Slot {self.slot}] Clicked join button → entering lobby...")
                             joined = True
                             break
                     except Exception:
                         pass
 
-                    if page.locator('button[aria-label*="Leave call" i]').count() > 0 or page.locator('text="Waiting to be admitted"').count() > 0:
+                    # Also detect if already admitted or already waiting
+                    if page.locator('button[aria-label*="Leave call" i]').count() > 0 or \
+                       page.locator('text="Waiting to be admitted"').count() > 0 or \
+                       page.locator('text="Asking to join"').count() > 0 or \
+                       page.locator('text="Waiting for the host"').count() > 0:
+                        print(f"[Meet Slot {self.slot}] Already in lobby or meeting ✓")
                         joined = True
                         break
 
-                    print(f"[Meet Slot {self.slot}] Join button not found, retrying in 5s...")
-                    time.sleep(5)
+                    print(f"[Meet Slot {self.slot}] Join button not found, retrying in 3s...")
+                    time.sleep(3)
 
                 if not joined:
                     print(f"[Meet Slot {self.slot}] Join button not found after 5 minutes. Continuing to wait for admission if available.")
