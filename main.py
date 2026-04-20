@@ -512,9 +512,27 @@ async def dashboard_page_spa(request: Request):
         return RedirectResponse("/login")
     return FileResponse(os.path.join(BASE_DIR, "v3-frontend", "index.html"))
 
-# --- Calendar Cache (30 second TTL) ---
-_calendar_cache = {}  # {email: {"events": [...], "count": N, "ts": timestamp}}
-CALENDAR_CACHE_TTL = 15  # Near real-time sync (15s cache)
+# --- DISK-PERSISTENT CALENDAR CACHE ---
+import json
+CALENDAR_CACHE_FILE = "calendar_mirror_cache.json"
+
+def _load_persistent_cache():
+    if os.path.exists(CALENDAR_CACHE_FILE):
+        try:
+            with open(CALENDAR_CACHE_FILE, "r") as f:
+                return json.load(f)
+        except: return {}
+    return {}
+
+def _save_persistent_cache(cache_data):
+    try:
+        # Shallow copy to avoid runtime errors during iteration
+        with open(CALENDAR_CACHE_FILE, "w") as f:
+            json.dump(cache_data, f)
+    except: pass
+
+_calendar_cache = _load_persistent_cache()
+CALENDAR_CACHE_TTL = 15  # Fast re-sync in background
 
 @app.get("/dashboard_data")
 async def dashboard_data(request: Request):
@@ -590,6 +608,7 @@ async def dashboard_data(request: Request):
         async def _run_fetch_and_update():
             res = await asyncio.to_thread(_sync_fetch)
             _calendar_cache[email] = {"events": res[0], "count": res[1], "ts": time.time()}
+            _save_persistent_cache(_calendar_cache) # Persist to disk
             return res
 
         # STALE-WHILE-REVALIDATE PATTERN:

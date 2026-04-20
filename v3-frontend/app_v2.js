@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => {
                 syncBtn.disabled = false;
                 if (icon) icon.classList.remove('spin');
-                if (span) span.textContent = 'Sync Calendar';
+                if (span) span.textContent = 'Sync';
                 if (typeof feather !== 'undefined') feather.replace();
             }, 1000);
         };

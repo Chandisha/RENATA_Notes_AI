@@ -1474,7 +1474,39 @@ input:checked+.slider:before {
     }
 
     .page {
-        padding: 24px 16px 100px; /* Standardize top spacing across all tabs */
+        padding: 24px 16px 100px; /* Sync Button Compact Style */
+    }
+    .sync-indicator-badge {
+        padding: 6px 12px !important;
+        font-size: 0.75rem !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        font-weight: 700 !important;
+        background: rgba(99, 102, 241, 0.1) !important;
+        color: var(--accent-purple) !important;
+        border: 1px solid rgba(99, 102, 241, 0.2) !important;
+        cursor: pointer;
+        transition: all 0.2s;
+        height: auto !important;
+        width: auto !important;
+        margin: 0 !important;
+    }
+
+    .sync-indicator-badge:hover {
+        background: rgba(99, 102, 241, 0.2) !important;
+    }
+
+    .sync-indicator-badge i.spin {
+        animation: fa-spin 1s infinite linear;
+    }
+
+    @keyframes fa-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(359deg); }
+    }
+    .page {
         width: 100%;
         max-width: 100%;
         overflow-x: hidden;

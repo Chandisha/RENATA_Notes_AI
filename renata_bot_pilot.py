@@ -1146,8 +1146,8 @@ def run_auto_pilot(operator_email):
                 try:
                     events = service.events().list(
                         calendarId='primary', 
-                        # NARROW WINDOW: Only look from NOW forward (0 min lookback) to avoid any previous meetings
-                        timeMin=now.isoformat().replace('+00:00','Z'), 
+                        # SPEED FIX: Look back 30 mins to catch meetings that have just started
+                        timeMin=(now - timedelta(minutes=30)).isoformat().replace('+00:00','Z'), 
                         timeMax=(now + timedelta(minutes=45)).isoformat().replace('+00:00','Z'), 
                         maxResults=40, 
                         singleEvents=True, 
@@ -1168,6 +1168,12 @@ def run_auto_pilot(operator_email):
                                     if uri and (is_meet_url(uri) or is_zoom_url(uri)):
                                         url = uri
                                         break
+                        
+                        # LAST RESORT: Check location field
+                        if not url:
+                            loc = event.get('location', '')
+                            if loc and (is_meet_url(loc) or is_zoom_url(loc)):
+                                url = loc
                         if not url and 'location' in event: 
                             loc = event['location']
                             url = loc if is_meet_url(loc) or is_zoom_url(loc) else None
