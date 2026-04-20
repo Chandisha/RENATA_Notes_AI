@@ -1030,7 +1030,7 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot, start
                 meeting_id=meeting_id, 
                 user_email=user_email,
                 guest_mode=is_guest_mode,
-                guest_name="Renata AI | Meeting Assistant",
+                guest_name="MeetAI | Meeting Notes",
                 scheduled_start=start_time
             )
         elif is_zoom_url(meet_url):
@@ -1043,7 +1043,7 @@ def _run_meeting_in_thread(meet_url, meeting_id, user_email, record, slot, start
                 meeting_id=meeting_id, 
                 user_email=user_email,
                 guest_mode=is_guest_mode,
-                guest_name="Renata AI | Meeting Assistant"
+                guest_name="MeetAI | Meeting Notes"
             )
     except Exception as e:
         print(f"\n[Slot {slot}] FATAL ERROR in thread: {e}")
