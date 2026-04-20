@@ -375,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function formatMarkdownToHTML(text) {
         if (!text) return '';
         let html = text
-            .replace(/^### (.*$)/gim, '<h3 style="margin: 25px 0 12px; color: var(--accent-orange); font-size: 1.15rem; font-weight:700; border-bottom: 2px solid rgba(242,113,33,0.1); padding-bottom: 6px; display:inline-block;">$1</h3>')
+            .replace(/^### (.*$)/gim, '<h3 style="margin: 25px 0 12px; color: var(--accent-orange); font-size: 1.15rem; font-weight:700; border-bottom: 2px solid rgba(99, 102, 241, 0.1); padding-bottom: 6px; display:inline-block;">$1</h3>')
             .replace(/^## (.*$)/gim, '<h2 style="margin: 30px 0 15px; color: var(--text-main); font-size: 1.4rem; font-weight:700;">$1</h2>')
             .replace(/^# (.*$)/gim, '<h1 style="margin: 0 0 20px; font-size:1.8rem; color:var(--text-main);">$1</h1>')
             .replace(/^\* (.*$)/gim, '<li style="margin-left: 20px; margin-bottom: 12px; list-style-type: none; position:relative; padding-left:25px; color:var(--text-main); line-height:1.6;"><span style="position:absolute; left:0; color:var(--accent-orange); font-weight:bold;">▸</span> $1</li>')

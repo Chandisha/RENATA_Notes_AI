@@ -1,16 +1,18 @@
 :root {
-    --bg-dark: #f8fafc;
+    --bg-dark: #fbfcfe;
     --bg-card: #ffffff;
-    --accent-orange: #f27121;
-    --accent-red: #e94057;
-    --accent-purple: #f27121; /* Replaced purple with orange */
-    --accent-blue: #ff8c42;
+    --accent-indigo: #6366f1;
+    --accent-indigo-soft: rgba(99, 102, 241, 0.1);
+    --accent-slate: #334155;
+    --accent-purple: #8b5cf6; 
+    --accent-blue: #3b82f6;
     --accent-green: #10b981;
     --accent-cyan: #06b6d4;
-    --text-primary: #0f172a;
+    --text-primary: #1e293b;
     --text-secondary: #64748b;
-    --border-color: #e2e8f0;
-    --glass-bg: rgba(255, 255, 255, 0.9);
+    --border-color: #eef2f6;
+    --glass-bg: rgba(255, 255, 255, 0.95);
+    --accent-orange: #6366f1; /* Alias to avoid breaking existing code using this name */
 }
 
 * {
@@ -74,7 +76,7 @@ body {
     font-size: 1.4rem;
     font-weight: 900;
     letter-spacing: -0.5px;
-    background: linear-gradient(135deg, #f27121, #e94057, #8a2387);
+    background: linear-gradient(135deg, #6366f1, #8b5cf6, #3b82f6);
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -128,11 +130,11 @@ body {
 }
 
 .nav-item.active {
-    background: linear-gradient(90deg, #fffcf5 0%, #ffffff 100%);
-    color: var(--accent-orange);
-    border: 1px solid #fde68a;
+    background: var(--accent-indigo-soft);
+    color: var(--accent-indigo);
+    border: 1px solid rgba(99, 102, 241, 0.1);
     font-weight: 700;
-    box-shadow: 0 4px 12px rgba(242, 113, 33, 0.08);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.05);
 }
 
 .nav-spacer {
@@ -154,8 +156,8 @@ body {
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    border: 2px solid var(--accent-orange);
-    box-shadow: 0 4px 10px rgba(242, 113, 33, 0.15);
+    border: 2px solid var(--accent-indigo);
+    box-shadow: 0 4px 10px rgba(99, 102, 241, 0.15);
 }
 
 .user-info {
@@ -212,8 +214,8 @@ body {
 }
 
 .search-box:focus-within {
-    border-color: var(--accent-orange);
-    box-shadow: 0 4px 20px rgba(242, 113, 33, 0.1);
+    border-color: var(--accent-indigo);
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.08);
 }
 
 .search-box input {
@@ -288,7 +290,7 @@ body {
 
 /* Button UI */
 .primary-btn {
-    background: linear-gradient(135deg, var(--accent-orange), var(--accent-red));
+    background: linear-gradient(135deg, var(--accent-indigo), #4f46e5);
     color: white;
     border: none;
     padding: 12px 24px;
@@ -299,12 +301,12 @@ body {
     gap: 8px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 4px 15px rgba(242, 113, 33, 0.3);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
 }
 
 .primary-btn:hover {
     transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 8px 25px rgba(242, 113, 33, 0.4);
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
 }
 
 .icon-btn {
@@ -341,8 +343,8 @@ body {
 
 .secondary-btn:hover {
     background: #f8fafc;
-    border-color: var(--accent-orange);
-    color: var(--accent-orange);
+    border-color: var(--accent-indigo);
+    color: var(--accent-indigo);
     transform: translateY(-1px);
 }
 
@@ -452,7 +454,7 @@ body {
 
 .refresh-btn:hover {
     background: #f8fafc;
-    border-color: var(--accent-orange);
+    border-color: var(--accent-indigo);
     transform: rotate(30deg);
 }
 
@@ -471,9 +473,9 @@ body {
     padding: 8px 14px;
     border-radius: 12px;
     font-size: 0.8rem;
-    background: rgba(242, 113, 33, 0.08);
-    color: var(--accent-orange);
-    border: 1px solid rgba(242, 113, 33, 0.15);
+    background: var(--accent-indigo-soft);
+    color: var(--accent-indigo);
+    border: 1px solid rgba(99, 102, 241, 0.1);
 }
 
 /* Dashboard Grid */
@@ -499,7 +501,7 @@ body {
 .stat-card:hover {
     transform: translateY(-5px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
-    border-color: var(--accent-orange);
+    border-color: var(--accent-indigo);
 }
 
 .stat-icon {
@@ -726,13 +728,13 @@ body {
 }
 
 .history-item:hover {
-    background: rgba(242, 113, 33, 0.05);
-    color: var(--accent-orange);
+    background: var(--accent-indigo-soft);
+    color: var(--accent-indigo);
 }
 
 .history-item.active {
-    background: rgba(242, 113, 33, 0.1);
-    color: var(--accent-orange);
+    background: var(--accent-indigo-soft);
+    color: var(--accent-indigo);
     font-weight: 600;
 }
 
@@ -767,11 +769,11 @@ body {
 }
 
 .message.user {
-    background: linear-gradient(135deg, var(--accent-orange), var(--accent-red));
+    background: linear-gradient(135deg, var(--accent-indigo), #4f46e5);
     color: white;
     align-self: flex-end;
     border-bottom-right-radius: 4px;
-    box-shadow: 0 4px 12px rgba(242, 113, 33, 0.2);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
 .chat-input-area {
@@ -1015,7 +1017,7 @@ body {
 }
 
 input:checked+.slider {
-    background-color: var(--accent-purple);
+    background-color: var(--accent-indigo);
 }
 
 input:checked+.slider:before {
@@ -1095,8 +1097,8 @@ input:checked+.slider:before {
 }
 
 .step.active .step-icon {
-    background: rgba(139, 92, 246, 0.2);
-    border: 1px solid var(--accent-purple);
+    background: var(--accent-indigo-soft);
+    border: 1px solid var(--accent-indigo);
 }
 
 .step span {
@@ -1119,7 +1121,7 @@ input:checked+.slider:before {
 .progress-bar {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
+    background: linear-gradient(90deg, var(--accent-indigo), var(--accent-blue));
     border-radius: 10px;
     transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
@@ -1244,8 +1246,8 @@ input:checked+.slider:before {
     font-size: 1.25rem;
     padding: 12px;
     border-radius: 14px;
-    background: rgba(242, 113, 33, 0.1);
-    color: var(--accent-orange);
+    background: var(--accent-indigo-soft);
+    color: var(--accent-indigo);
 }
 
 /* ===== Bot Phase Tracker ===== */
@@ -1275,16 +1277,16 @@ input:checked+.slider:before {
     color: var(--text-secondary);
 }
 
-/* Active phase: pulsing orange ring */
+/* Active phase: pulsing indigo ring */
 .bot-phase.active {
     opacity: 1;
-    color: var(--accent-orange);
+    color: var(--accent-indigo);
 }
 .bot-phase.active .bot-phase-icon {
-    background: rgba(242, 113, 33, 0.1);
-    border-color: var(--accent-orange);
-    color: var(--accent-orange);
-    box-shadow: 0 0 0 4px rgba(242, 113, 33, 0.12);
+    background: var(--accent-indigo-soft);
+    border-color: var(--accent-indigo);
+    color: var(--accent-indigo);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
     animation: phase-pulse 1.4s infinite;
 }
 
@@ -1302,9 +1304,9 @@ input:checked+.slider:before {
 }
 
 @keyframes phase-pulse {
-    0%   { box-shadow: 0 0 0 0   rgba(242, 113, 33, 0.4); }
-    70%  { box-shadow: 0 0 0 10px rgba(242, 113, 33, 0); }
-    100% { box-shadow: 0 0 0 0   rgba(242, 113, 33, 0); }
+    0%   { box-shadow: 0 0 0 0   rgba(99, 102, 241, 0.4); }
+    70%  { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+    100% { box-shadow: 0 0 0 0   rgba(99, 102, 241, 0); }
 }
 
 /* input-group wider for live page */
@@ -1326,7 +1328,7 @@ input:checked+.slider:before {
     transition: border-color 0.2s;
 }
 .live-dispatch .input-group input:focus {
-    border-color: var(--accent-orange);
+    border-color: var(--accent-indigo);
 }
 
 /* Account Plan Badge */
@@ -1346,9 +1348,9 @@ input:checked+.slider:before {
 }
 
 .user-account.pro {
-    background: linear-gradient(135deg, #f27121, #e94057);
+    background: linear-gradient(135deg, var(--accent-indigo), var(--accent-purple));
     color: white;
-    box-shadow: 0 2px 5px rgba(242, 113, 33, 0.2);
+    box-shadow: 0 2px 5px rgba(99, 102, 241, 0.2);
 }
 
 /* Payment Modal Enhancements */
