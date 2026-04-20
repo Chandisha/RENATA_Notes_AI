@@ -586,9 +586,21 @@ async def dashboard_data(request: Request):
             except Exception as e:
                 print(f"Calendar fetch error: {e}")
             return events, count
-        result = await asyncio.to_thread(_sync_fetch)
-        # Save to cache
-        _calendar_cache[email] = {"events": result[0], "count": result[1], "ts": time.time()}
+        async def _run_fetch_and_update():
+            res = await asyncio.to_thread(_sync_fetch)
+            _calendar_cache[email] = {"events": res[0], "count": res[1], "ts": time.time()}
+            return res
+
+        # STALE-WHILE-REVALIDATE PATTERN:
+        # If we have cache, return it IMMEDIATELY and update in background
+        if cached:
+            # Trigger background refresh if it's been more than 15s
+            if (time.time() - cached["ts"]) > 15:
+                asyncio.create_task(_run_fetch_and_update())
+            return cached["events"], cached["count"]
+
+        # If no cache at all, we must wait but we'll use the optimized fetch
+        result = await _run_fetch_and_update()
         return result
 
     # Run calendar fetch and DB reads in parallel

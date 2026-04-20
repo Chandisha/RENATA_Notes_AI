@@ -89,7 +89,8 @@ def get_service(user_email=None):
         elif creds and creds.expired and not creds.refresh_token:
             print(f"[Pilot] Token EXPIRED and no refresh_token for {user_email} — user must log in again")
             return None
-        return build('calendar', 'v3', credentials=creds)
+        # SPEED FIX: static_discovery=False prevents a slow network call to fetch API metadata
+        return build('calendar', 'v3', credentials=creds, static_discovery=False)
     except Exception as e:
         print(f"[Pilot] Token error for {user_email}: {e}")
         return None
