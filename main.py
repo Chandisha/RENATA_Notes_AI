@@ -523,15 +523,16 @@ async def dashboard_data(request: Request):
         return JSONResponse({"error": "Unauthorized", "redirect": "/login"}, status_code=401)
     
     email = user['email']
+    force = request.query_params.get("force") == "true"
 
     # ---- Run Calendar fetch + DB queries concurrently ----
     import asyncio
 
     async def fetch_calendar():
         """Fetch Google Calendar events — with 30s cache to avoid slow repeat loads."""
-        # Check cache first
+        # Check cache first (unless force=True)
         cached = _calendar_cache.get(email)
-        if cached and (time.time() - cached["ts"]) < CALENDAR_CACHE_TTL:
+        if not force and cached and (time.time() - cached["ts"]) < CALENDAR_CACHE_TTL:
             return cached["events"], cached["count"]
         
         def _sync_fetch():

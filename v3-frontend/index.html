@@ -111,7 +111,10 @@
                         <div class="card calendar-card" style="width: 100%; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);">
                             <div class="card-header">
                                 <h2>Upcoming Meetings</h2>
-                                <span class="badge blue">Google Calendar Sync</span>
+                                <button id="sync-calendar-btn" class="secondary-btn sync-indicator-badge" title="Sync with Google Calendar">
+                                    <i data-feather="refresh-cw" style="width: 14px; height: 14px;"></i>
+                                    <span>Sync Calendar</span>
+                                </button>
                             </div>
                             <div id="calendar-grid" class="meeting-list">
                                 <!-- Calendar Events Loaded via JS -->

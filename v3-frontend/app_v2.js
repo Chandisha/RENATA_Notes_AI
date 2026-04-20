@@ -129,6 +129,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     loadUserProfile();
 
+    // --- MANUAL SYNC LOGIC ---
+    const syncBtn = document.getElementById('sync-calendar-btn');
+    if (syncBtn) {
+        syncBtn.onclick = async () => {
+            syncBtn.disabled = true;
+            const icon = syncBtn.querySelector('i');
+            const span = syncBtn.querySelector('span');
+            if (icon) icon.classList.add('spin');
+            if (span) span.textContent = 'Syncing...';
+            
+            await loadDashboardData(true, true);
+            
+            setTimeout(() => {
+                syncBtn.disabled = false;
+                if (icon) icon.classList.remove('spin');
+                if (span) span.textContent = 'Sync Calendar';
+                if (typeof feather !== 'undefined') feather.replace();
+            }, 1000);
+        };
+    }
+
 
     // --- MOBILE SIDEBAR TOGGLE ---
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -235,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadDashboardData(skipProfile = false) {
+    async function loadDashboardData(skipProfile = false, force = false) {
         try {
             if (!skipProfile) {
                 // 1. Fast Profile Load
@@ -243,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 2. Heavier Dashboard Data (Calendar, Stats, Recent)
-            const res = await apiFetch("/dashboard_data");
+            const res = await apiFetch(`/dashboard_data${force ? '?force=true' : ''}`);
             const data = await res.json();
             if (!data) return;
 
